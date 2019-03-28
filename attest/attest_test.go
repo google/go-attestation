@@ -22,8 +22,8 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 
-	"github.com/google/go-tpm/tpm2/credactivation"
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpm2/credactivation"
 )
 
 func TestOpen(t *testing.T) {

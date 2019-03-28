@@ -22,9 +22,9 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 
-	"github.com/google/go-tpm/tpm2/credactivation"
-	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm-tools/simulator"
+	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpm2/credactivation"
 )
 
 func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
