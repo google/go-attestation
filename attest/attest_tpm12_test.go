@@ -11,6 +11,7 @@
 // WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 // License for the specific language governing permissions and limitations under
 // the License.
+
 package attest
 
 import (
@@ -193,6 +194,10 @@ func TestTPMActivateCredential(t *testing.T) {
 	validation, err := aik.ActivateCredential(tpm, challenge)
 	if err != nil {
 		t.Fatalf("ActivateCredential failed: %v", err)
+	}
+
+	if !bytes.Equal(validation, nonce) {
+		t.Errorf("secret mismatch: expected %x, got %x", nonce, validation)
 	}
 
 	t.Logf("validation: %x", validation)
