@@ -7,6 +7,5 @@ require (
 	github.com/google/go-tpm v0.1.1
 	github.com/google/go-tpm-tools v0.0.0-20190328013357-5d2fd7f4b3e5
 	github.com/google/go-tspi v0.2.0
-	github.com/opennota/check v0.0.0-20180911053232-0c771f5545ff // indirect
-	golang.org/x/tools v0.0.0-20190401163957-4fc9f0bfa59a // indirect
+	golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
 )
