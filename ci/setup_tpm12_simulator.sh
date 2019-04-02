@@ -38,7 +38,7 @@ setup_build_base () {
     mkdir -pv "${BUILD_BASE}"
   fi
 
-  sudo apt-get -y install libssl-dev build-essential make trousers
+  sudo apt-get -y install libssl-dev build-essential make trousers libtool autoconf
 }
 
 fetch_simulator () {
@@ -63,8 +63,46 @@ fetch_simulator () {
 build_simulator () {
   cp -v "${SIMULATOR_SRC}/tpm/makefile-tpm" "${SIMULATOR_SRC}/tpm/Makefile"
   cd "${SIMULATOR_SRC}/tpm" && make -j4
+  cd "${SIMULATOR_SRC}/libtpm" && ./autogen
+  cd "${SIMULATOR_SRC}/libtpm" && ./configure
+  cd "${SIMULATOR_SRC}/libtpm" && make -j4
+}
+
+run_simulator () {
+  mkdir -pv "${BUILD_BASE}/NVRAM"
+  export TPM_PORT='6545'
+  export TPM_PATH="${BUILD_BASE}/NVRAM"
+  export TPM_SERVER_NAME='localhost'
+  export TPM_SERVER_PORT='6545'
+  export TCSD_TCP_DEVICE_PORT='6545'
+  ${SIMULATOR_SRC}/tpm/tpm_server &
+  SIM_PID=$!
+  echo "${SIM_PID}" > "${BUILD_BASE}/sim_pid"
+  disown
+  sleep 2
+}
+
+setup_tpm () {
+  echo "Starting the TPM..."
+  ${SIMULATOR_SRC}/libtpm/utils/tpmbios -v
+  echo "Creating a fake EK..."
+  ${SIMULATOR_SRC}/libtpm/utils/createek || true
+  echo "Allocating NVRAM..."
+  ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in ffffffff -sz 0
+}
+
+run_tcsd () {
+  sudo -E -u tss -g tss /usr/sbin/tcsd -f -e &
+  TCSD_PID=$!
+  echo "${TCSD_PID}" > "${BUILD_BASE}/tcsd_pid"
+  disown
+  sleep 2
 }
 
 setup_build_base
 fetch_simulator
 build_simulator
+run_simulator
+setup_tpm
+run_tcsd
+
