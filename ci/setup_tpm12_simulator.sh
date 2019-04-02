@@ -74,7 +74,6 @@ run_simulator () {
   export TPM_PATH="${BUILD_BASE}/NVRAM"
   export TPM_SERVER_NAME='localhost'
   export TPM_SERVER_PORT='6545'
-  export TCSD_TCP_DEVICE_PORT='6545'
   ${SIMULATOR_SRC}/tpm/tpm_server &
   SIM_PID=$!
   echo "${SIM_PID}" > "${BUILD_BASE}/sim_pid"
@@ -92,6 +91,7 @@ setup_tpm () {
 }
 
 run_tcsd () {
+  export TCSD_TCP_DEVICE_PORT='6545'
   sudo -E -u tss -g tss /usr/sbin/tcsd -f -e &
   TCSD_PID=$!
   echo "${TCSD_PID}" > "${BUILD_BASE}/tcsd_pid"
