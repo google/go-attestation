@@ -19,13 +19,21 @@ package attest
 import (
 	"crypto"
 	"crypto/rand"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
+	"github.com/golang/sys/windows/registry"
+	"github.com/google/certificate-transparency-go/x509"
+	tpm1 "github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 )
+
+var wellKnownAuth [20]byte
 
 // TPM interfaces with a TPM device on the system.
 type TPM struct {
@@ -94,17 +102,32 @@ func (t *TPM) Close() error {
 	return t.pcp.Close()
 }
 
+func readTPM12VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
+	vendor, err := tpm1.GetManufacturer(tpm)
+	if err != nil {
+		return TCGVendorID(0), "", fmt.Errorf("tpm1.GetCapability failed: %v", err)
+	}
+	vendorID := TCGVendorID(binary.BigEndian.Uint32(vendor))
+	return vendorID, vendorID.String(), nil
+}
+
 // Info returns information about the TPM.
 func (t *TPM) Info() (*TPMInfo, error) {
-	if t.version != TPMVersion20 {
-		return nil, ErrTPM12NotImplemented
-	}
-
+	var manufacturer TCGVendorID
+	var vendorInfo string
+	var err error
 	tpm, err := t.pcp.TPMCommandInterface()
 	if err != nil {
 		return nil, err
 	}
-	manufacturer, vendorInfo, err := readTPM2VendorAttributes(tpm)
+	switch t.version {
+	case TPMVersion12:
+		manufacturer, vendorInfo, err = readTPM12VendorAttributes(tpm)
+	case TPMVersion20:
+		manufacturer, vendorInfo, err = readTPM2VendorAttributes(tpm)
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -117,11 +140,68 @@ func (t *TPM) Info() (*TPMInfo, error) {
 	}, nil
 }
 
+func getOwnerAuth() ([20]byte, error) {
+	var ret [20]byte
+	regkey, err := registry.OpenKey(registry.LOCAL_MACHINE, `SYSTEM\\CurrentControlSet\\Services\\TPM\\WMI\\Admin`, registry.QUERY_VALUE)
+	if err != nil {
+		return ret, err
+	}
+	defer regkey.Close()
+
+	ownerAuthUTF16, _, err := regkey.GetStringValue("OwnerAuthFull")
+	if err != nil {
+		return ret, err
+	}
+	ownerAuthBytes, err := base64.StdEncoding.DecodeString(ownerAuthUTF16)
+	if err != nil {
+		return ret, err
+	}
+	if size := len(ownerAuthBytes); size != 20 {
+		return ret, fmt.Errorf("OwnerAuth is an unexpected size: %d", size)
+	}
+	// Check OwnerAuthStatus first maybe?
+	for i := range ret {
+		ret[i] = ownerAuthBytes[i]
+	}
+	return ret, nil
+}
+
+func (t *TPM) readEKCert12() ([]*x509.Certificate, error) {
+	tpm, err := t.pcp.TPMCommandInterface()
+	if err != nil {
+		return nil, err
+	}
+	ownAuth, err := getOwnerAuth()
+	if err != nil {
+		return nil, err
+	}
+	ekcert, err := tpm1.ReadEKCert(tpm, ownAuth)
+	if err != nil {
+		return nil, err
+	}
+	cert, err := x509.ParseCertificate(ekcert)
+	if err != nil {
+		return nil, err
+	}
+	return []*x509.Certificate{cert}, nil
+}
+
 // EKs returns the Endorsement Keys burned-in to the platform.
 func (t *TPM) EKs() ([]PlatformEK, error) {
-	ekCerts, err := t.pcp.EKCerts()
+	var ekCerts []*x509.Certificate
+	var err error
+	switch t.version {
+	case TPMVersion12:
+		ekCerts, err = t.readEKCert12()
+
+	case TPMVersion20:
+		ekCerts, err = t.pcp.EKCerts()
+
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("could not read EKCerts from PCP: %v", err)
+		return nil, fmt.Errorf("could not read EKCerts: %v", err)
 	}
 
 	var out []PlatformEK
@@ -140,11 +220,13 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 // Key represents a key bound to the TPM.
 type Key struct {
 	hnd         uintptr
+	hnd12       tpmutil.Handle
 	KeyEncoding KeyEncoding
 	TPMVersion  TPMVersion
 	Purpose     KeyPurpose
 
 	PCPKeyName        string
+	KeyBlob           []byte
 	Public            []byte
 	CreateData        []byte
 	CreateAttestation []byte
@@ -158,69 +240,151 @@ func (k *Key) Marshal() ([]byte, error) {
 }
 
 // ActivateCredential decrypts the specified credential using key.
-// This operation is synonymous with TPM2_ActivateCredential.
+// This operation is synonymous with TPM2_ActivateCredential for TPM2.0
+// and TPM_ActivateIdentity for TPM1.2.
 func (k *Key) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error) {
-	if tpm.version != TPMVersion20 {
-		return nil, ErrTPM12NotImplemented
+	if k.TPMVersion != tpm.version {
+		return nil, fmt.Errorf("tpm and key version mismatch")
 	}
-	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
+	switch tpm.version {
+	case TPMVersion12:
+		rw, err := tpm.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, fmt.Errorf("pcp.TPMCommandInterface() failed: %v", err)
+		}
+		ownAuth, err := getOwnerAuth()
+		if err != nil {
+			return nil, fmt.Errorf("getOwnerAuth failed: %v", err)
+		}
+		return tpm1.ActivateIdentity(rw, wellKnownAuth[:], ownAuth[:], k.hnd12, in.Credential, in.Secret)
+	case TPMVersion20:
+		return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", tpm.version)
+	}
+}
+
+func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
+	selectedPCRs := make([]int, 24)
+	for _, pcr := range selectedPCRs {
+		selectedPCRs[pcr] = pcr
+	}
+
+	sig, quote, err := tpm1.Quote(tpm, k.hnd12, nonce, selectedPCRs[:], wellKnownAuth[:])
+	if err != nil {
+		return nil, fmt.Errorf("Quote() failed: %v", err)
+	}
+	return &Quote{
+		Quote:     quote,
+		Signature: sig,
+	}, nil
 }
 
 // Quote returns a quote over the platform state, signed by the key.
 func (k *Key) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
-	if t.version != TPMVersion20 {
-		return nil, ErrTPM12NotImplemented
+	switch t.version {
+	case TPMVersion12:
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+		}
+		return k.quote12(tpm, nonce)
+
+	case TPMVersion20:
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+		}
+		tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
+		if err != nil {
+			return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+		}
+		return quote20(tpm, tpmKeyHnd, alg, nonce)
+
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
-	tpm, err := t.pcp.TPMCommandInterface()
-	if err != nil {
-		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-	}
-	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
-	if err != nil {
-		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
-	}
-	return quote20(tpm, tpmKeyHnd, alg, nonce)
 }
 
 // Close frees any resources associated with the key.
 func (k *Key) Close(tpm *TPM) error {
-	return closeNCryptObject(k.hnd)
+	switch tpm.version {
+	case TPMVersion12:
+		return nil
+	case TPMVersion20:
+		return closeNCryptObject(k.hnd)
+	default:
+		return fmt.Errorf("unsupported TPM version: %x", tpm.version)
+	}
 }
 
 // MintAIK creates a persistent attestation key. The returned key must be
 // closed with a call to key.Close() when the caller has finished using it.
 func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
-	if t.version != TPMVersion20 {
-		return nil, ErrTPM12NotImplemented
-	}
+	switch t.version {
+	case TPMVersion12:
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, err
+		}
+		ownAuth, err := getOwnerAuth()
+		if err != nil {
+			return nil, err
+		}
+		blob, err := tpm1.MakeIdentity(tpm, wellKnownAuth[:], ownAuth[:], wellKnownAuth[:], nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("MakeIdentityEx failed: %v", err)
+		}
+		hnd, err := tpm1.LoadKey2(tpm, blob, wellKnownAuth[:])
+		if err != nil {
+			return nil, fmt.Errorf("LoadKey2 failed: %v", err)
+		}
+		pub, err := tpm1.GetPubKey(tpm, hnd, wellKnownAuth[:])
+		if err != nil {
+			return nil, fmt.Errorf("GetPubKey failed: %v", err)
+		}
 
-	nameHex := make([]byte, 5)
-	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
-		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
-	}
-	name := fmt.Sprintf("aik-%x", nameHex)
+		return &Key{
+			hnd12:       hnd,
+			KeyEncoding: KeyEncodingOSManaged,
+			TPMVersion:  t.version,
+			Purpose:     AttestationKey,
+			KeyBlob:     blob,
+			Public:      pub,
+		}, nil
 
-	kh, err := t.pcp.MintAIK(name)
-	if err != nil {
-		return nil, fmt.Errorf("pcp failed to mint attestation key: %v", err)
-	}
-	props, err := t.pcp.AIKProperties(kh)
-	if err != nil {
-		closeNCryptObject(kh)
-		return nil, fmt.Errorf("pcp failed to read attestation key properties: %v", err)
-	}
+	case TPMVersion20:
+		nameHex := make([]byte, 5)
+		if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
+			return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
+		}
+		name := fmt.Sprintf("aik-%x", nameHex)
 
-	return &Key{
-		hnd:               kh,
-		KeyEncoding:       KeyEncodingOSManaged,
-		TPMVersion:        t.version,
-		Purpose:           AttestationKey,
-		PCPKeyName:        name,
-		Public:            props.RawPublic,
-		CreateData:        props.RawCreationData,
-		CreateAttestation: props.RawAttest,
-		CreateSignature:   props.RawSignature,
-	}, nil
+		kh, err := t.pcp.MintAIK(name)
+		if err != nil {
+			return nil, fmt.Errorf("pcp failed to mint attestation key: %v", err)
+		}
+		props, err := t.pcp.AIKProperties(kh)
+		if err != nil {
+			closeNCryptObject(kh)
+			return nil, fmt.Errorf("pcp failed to read attestation key properties: %v", err)
+		}
+
+		return &Key{
+			hnd:               kh,
+			KeyEncoding:       KeyEncodingOSManaged,
+			TPMVersion:        t.version,
+			Purpose:           AttestationKey,
+			PCPKeyName:        name,
+			Public:            props.RawPublic,
+			CreateData:        props.RawCreationData,
+			CreateAttestation: props.RawAttest,
+			CreateSignature:   props.RawSignature,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
+	}
 }
 
 // LoadKey loads a previously-created key into the TPM for use.
@@ -242,24 +406,74 @@ func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
 		return nil, fmt.Errorf("unsupported key kind: %x", k.Purpose)
 	}
 
-	if k.hnd, err = t.pcp.LoadKeyByName(k.PCPKeyName); err != nil {
-		return nil, fmt.Errorf("pcp failed to load key: %v", err)
+	switch t.version {
+	case TPMVersion12:
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get interface to TPM: %v", err)
+		}
+		if k.hnd12, err = tpm1.LoadKey2(tpm, k.KeyBlob, wellKnownAuth[:]); err != nil {
+			return nil, fmt.Errorf("go-tpm failed to load key: %v", err)
+		}
+
+	case TPMVersion20:
+		if k.hnd, err = t.pcp.LoadKeyByName(k.PCPKeyName); err != nil {
+			return nil, fmt.Errorf("pcp failed to load key: %v", err)
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
 	return &k, nil
 }
 
+func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
+	numPCRs := 24
+	out := map[uint32][]byte{}
+
+	for pcr := 0; pcr < numPCRs; pcr++ {
+		pcrval, err := tpm1.ReadPCR(tpm, uint32(pcr))
+		if err != nil {
+			return nil, fmt.Errorf("tpm.ReadPCR() failed with err: %v", err)
+		}
+		out[uint32(pcr)] = pcrval
+	}
+
+	if len(out) != numPCRs {
+		return nil, fmt.Errorf("failed to read all PCRs, only read %d", len(out))
+	}
+
+	return out, nil
+}
+
 // PCRs returns the present value of all Platform Configuration Registers.
 func (t *TPM) PCRs() (map[int]PCR, tpm2.Algorithm, error) {
-	if t.version != TPMVersion20 {
-		return nil, 0, ErrTPM12NotImplemented
-	}
-	tpm, err := t.pcp.TPMCommandInterface()
-	if err != nil {
-		return nil, 0, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-	}
-	PCRs, alg, err := allPCRs20(tpm)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+	var PCRs map[uint32][]byte
+	var alg crypto.Hash
+	switch t.version {
+	case TPMVersion12:
+		alg = crypto.SHA1
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, 0, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+		}
+		PCRs, err = allPCRs12(tpm)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+		}
+
+	case TPMVersion20:
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, 0, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+		}
+		PCRs, alg, err = allPCRs20(tpm)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+		}
+
+	default:
+		return nil, 0, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
 
 	out := map[int]PCR{}
@@ -285,7 +499,7 @@ func (t *TPM) PCRs() (map[int]PCR, tpm2.Algorithm, error) {
 
 // MeasurementLog returns the present value of the System Measurement Log.
 func (t *TPM) MeasurementLog() ([]byte, error) {
-	context, err := tpmtbs.CreateContext(tpmtbs.TPMVersion20, tpmtbs.IncludeTPM20)
+	context, err := tpmtbs.CreateContext(tpmtbs.TPMVersion20, tpmtbs.IncludeTPM20|tpmtbs.IncludeTPM12)
 	if err != nil {
 		return nil, err
 	}
