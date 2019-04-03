@@ -99,8 +99,8 @@ func TestAIKCreateAndLoad(t *testing.T) {
 	}
 }
 
-// chooseEK selects the EK public which will be activated against.
-func chooseEK(t *testing.T, eks []PlatformEK) crypto.PublicKey {
+// chooseEKPub selects the EK public which will be activated against.
+func chooseEKPub(t *testing.T, eks []PlatformEK) crypto.PublicKey {
 	t.Helper()
 
 	for _, ek := range eks {
@@ -129,7 +129,7 @@ func TestActivateCredentialTPM20(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EKs() failed: %v", err)
 	}
-	ek := chooseEK(t, EKs)
+	ek := chooseEKPub(t, EKs)
 
 	att, err := tpm2.DecodeAttestationData(aik.CreateAttestation)
 	if err != nil {
