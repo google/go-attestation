@@ -38,7 +38,7 @@ setup_build_base () {
     mkdir -pv "${BUILD_BASE}"
   fi
 
-  sudo apt-get -y install libssl-dev build-essential make trousers libtool autoconf
+  sudo apt-get -y install libssl-dev build-essential make trousers libtool autoconf tpm-tools
 }
 
 fetch_simulator () {
@@ -82,12 +82,15 @@ run_simulator () {
 }
 
 setup_tpm () {
+  echo "Initializing the TPM..."
+  ${SIMULATOR_SRC}/libtpm/utils/tpminit
   echo "Starting the TPM..."
-  ${SIMULATOR_SRC}/libtpm/utils/tpmbios -v
-  echo "Creating a fake EK..."
-  ${SIMULATOR_SRC}/libtpm/utils/createek || true
+  ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
   echo "Allocating NVRAM..."
-  ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in ffffffff -sz 0
+  ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in 1000f000 -sz 3200
+
+  ${SIMULATOR_SRC}/libtpm/utils/tpminit
+  ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
 }
 
 run_tcsd () {
@@ -96,7 +99,10 @@ run_tcsd () {
   TCSD_PID=$!
   echo "${TCSD_PID}" > "${BUILD_BASE}/tcsd_pid"
   disown
-  sleep 2
+  sleep 1
+  tpm_createek
+  tpm_takeownership -yz
+  sleep 1
 }
 
 setup_build_base
@@ -105,4 +111,3 @@ build_simulator
 run_simulator
 setup_tpm
 run_tcsd
-
