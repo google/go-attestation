@@ -150,7 +150,8 @@ func TestTPMQuote(t *testing.T) {
 	t.Logf("Quote{version: %v, quote: %x, signature: %x}\n", quote.Version, quote.Quote, quote.Signature)
 }
 
-func chooseEK(t *testing.T, eks []PlatformEK) []byte {
+// chooseEKCertRaw selects the EK cert which will be activated against.
+func chooseEKCertRaw(t *testing.T, eks []PlatformEK) []byte {
 	t.Helper()
 
 	for _, ek := range eks {
@@ -186,7 +187,7 @@ func TestTPMActivateCredential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read EKs: %v", err)
 	}
-	ekcert := chooseEK(t, EKs)
+	ekcert := chooseEKCertRaw(t, EKs)
 
 	challenge.Credential, challenge.Secret, err = verification.GenerateChallenge(ekcert, aik.Public, nonce)
 	if err != nil {
