@@ -87,7 +87,6 @@ setup_tpm () {
   echo "Starting the TPM..."
   ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
   echo "Allocating NVRAM..."
-  ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in ffffffff -sz 0
   ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in 1000f000 -sz 3200
 
   ${SIMULATOR_SRC}/libtpm/utils/tpminit
