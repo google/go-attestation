@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -81,6 +82,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Write the header as documented in: TCG PC Specific Implementation
+	// Specification, section 7.3.2.
+	f.Write([]byte{0x10, 0x01, 0x00})
+	certLength := make([]byte, 2)
+	binary.BigEndian.PutUint16(certLength, uint16(len(certBytes)))
+	f.Write(certLength)
+
 	f.Write(certBytes)
 	f.Close()
 
