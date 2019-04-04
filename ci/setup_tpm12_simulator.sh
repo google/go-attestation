@@ -86,11 +86,6 @@ setup_tpm () {
   ${SIMULATOR_SRC}/libtpm/utils/tpminit
   echo "Starting the TPM..."
   ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
-  echo "Allocating NVRAM..."
-  ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in 1000f000 -sz 3200
-
-  ${SIMULATOR_SRC}/libtpm/utils/tpminit
-  ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
 }
 
 run_tcsd () {
@@ -102,6 +97,8 @@ run_tcsd () {
   sleep 1
   tpm_createek
   tpm_takeownership -yz
+  tpm_nvdefine -i 268496896 -z -s 3800 -p OWNERWRITE
+  go run ./ci/gen_ekcert.go
   sleep 1
 }
 
