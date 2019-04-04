@@ -26,6 +26,7 @@ if [[ "${1}" == "" ]]; then
   exit 1
 fi
 
+PROJECT_ROOT=$(pwd)
 BUILD_BASE="${1%/}" # Trim any trailing slash.
 SIMULATOR_SRC="${BUILD_BASE}/simulator"
 
@@ -86,8 +87,6 @@ setup_tpm () {
   ${SIMULATOR_SRC}/libtpm/utils/tpminit
   echo "Starting the TPM..."
   ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
-  echo "Allocating NVRAM..."
-  ${SIMULATOR_SRC}/libtpm/utils/nv_definespace -in 1000f000 -sz 3200
 
   ${SIMULATOR_SRC}/libtpm/utils/tpminit
   ${SIMULATOR_SRC}/libtpm/utils/tpmbios -cs
@@ -102,6 +101,8 @@ run_tcsd () {
   sleep 1
   tpm_createek
   tpm_takeownership -yz
+  tpm_nvdefine -i 268496896 -z -s 3800 -p OWNERWRITE
+  go run -v "${PROJECT_ROOT}/ci/gen_ekcert.go"
   sleep 1
 }
 
