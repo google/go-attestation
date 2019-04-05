@@ -11,7 +11,3 @@ API changes at any time.
 
 Please note that this is not an official Google product.
 
-## Build tags on tests
-
- * `localtest` - Runs tests against TPM hardware of the local system.
- * `tpm12` - Runs TPM 1.2 specific tests against the local system.

@@ -12,23 +12,26 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-// +build localtest
-
 package attest
 
 import (
 	"bytes"
 	"crypto"
 	"crypto/rsa"
+	"flag"
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
+)
 
-	"github.com/google/go-tpm/tpm2"
-	"github.com/google/go-tpm/tpm2/credactivation"
+var (
+	testLocal = flag.Bool("testLocal", false, "run tests against local hardware")
 )
 
 func TestOpen(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
 	tpm, err := OpenTPM(nil)
 	if err != nil {
 		t.Fatalf("OpenTPM() failed: %v", err)
@@ -40,6 +43,9 @@ func TestOpen(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
 	tpm, err := OpenTPM(nil)
 	if err != nil {
 		t.Fatalf("OpenTPM() failed: %v", err)
@@ -57,6 +63,9 @@ func TestInfo(t *testing.T) {
 }
 
 func TestEKs(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
 	tpm, err := OpenTPM(nil)
 	if err != nil {
 		t.Fatalf("OpenTPM() failed: %v", err)
@@ -73,6 +82,9 @@ func TestEKs(t *testing.T) {
 }
 
 func TestAIKCreateAndLoad(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
 	tpm, err := OpenTPM(nil)
 	if err != nil {
 		t.Fatalf("OpenTPM() failed: %v", err)
@@ -122,89 +134,15 @@ func chooseEK(t *testing.T, eks []PlatformEK) crypto.PublicKey {
 	return nil
 }
 
-func TestActivateCredentialTPM20(t *testing.T) {
+func TestPCRs(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
 	tpm, err := OpenTPM(nil)
 	if err != nil {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	if tpm.version != TPMVersion20 {
-		t.Skip("N/A for non-TPM2.0 TPMs")
-	}
-
-	aik, err := tpm.MintAIK(nil)
-	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
-	}
-	defer aik.Close(tpm)
-
-	EKs, err := tpm.EKs()
-	if err != nil {
-		t.Fatalf("EKs() failed: %v", err)
-	}
-	ek := chooseEK(t, EKs)
-
-	att, err := tpm2.DecodeAttestationData(aik.CreateAttestation)
-	if err != nil {
-		t.Fatalf("tpm2.DecodeAttestationData() failed: %v", err)
-	}
-	secret := []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}
-
-	id, encSecret, err := credactivation.Generate(att.AttestedCreationInfo.Name.Digest, ek, 16, secret)
-	if err != nil {
-		t.Fatalf("credactivation.Generate() failed: %v", err)
-	}
-
-	decryptedSecret, err := aik.ActivateCredential(tpm, EncryptedCredential{
-		Credential: id,
-		Secret:     encSecret,
-	})
-	if err != nil {
-		t.Errorf("aik.ActivateCredential() failed: %v", err)
-	}
-	if !bytes.Equal(secret, decryptedSecret) {
-		t.Error("secret does not match decrypted secret")
-		t.Logf("Secret = %v", secret)
-		t.Logf("Decrypted secret = %v", decryptedSecret)
-	}
-}
-
-func TestQuoteTPM20(t *testing.T) {
-	tpm, err := OpenTPM(nil)
-	if err != nil {
-		t.Fatalf("OpenTPM() failed: %v", err)
-	}
-	defer tpm.Close()
-	if tpm.version != TPMVersion20 {
-		t.Skip("N/A for non-TPM2.0 TPMs")
-	}
-
-	aik, err := tpm.MintAIK(nil)
-	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
-	}
-	defer aik.Close(tpm)
-
-	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	quote, err := aik.Quote(tpm, nonce, tpm2.AlgSHA1)
-	if err != nil {
-		t.Fatalf("aik.Quote() failed: %v", err)
-	}
-	// TODO(jsonp): Parse quote structure once gotpm/tpm2 supports it.
-	if quote == nil {
-		t.Error("quote was nil, want *Quote")
-	}
-}
-
-func TestPCRsTPM20(t *testing.T) {
-	tpm, err := OpenTPM(nil)
-	if err != nil {
-		t.Fatalf("OpenTPM() failed: %v", err)
-	}
-	defer tpm.Close()
-	if tpm.version != TPMVersion20 {
-		t.Skip("N/A for non-TPM2.0 TPMs")
-	}
 
 	PCRs, _, err := tpm.PCRs()
 	if err != nil {
@@ -214,14 +152,8 @@ func TestPCRsTPM20(t *testing.T) {
 		t.Errorf("len(PCRs) = %d, want %d", len(PCRs), 24)
 	}
 	for i, pcr := range PCRs {
-		if len(pcr.Digest) != pcr.DigestAlg.Size() {
-			t.Errorf("PCR %d len(digest) = %d, expected match with digest algorithm size (%d)", pcr.Index, len(pcr.Digest), pcr.DigestAlg.Size())
-		}
 		if pcr.Index != i {
 			t.Errorf("PCR index %d does not match map index %d", pcr.Index, i)
-		}
-		if pcr.DigestAlg != crypto.SHA1 {
-			t.Errorf("pcr.DigestAlg = %v, expected crypto.SHA1", pcr.DigestAlg)
 		}
 	}
 }

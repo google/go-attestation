@@ -43,7 +43,7 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	}
 }
 
-func TestEK(t *testing.T) {
+func TestSimTPM20EK(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -56,7 +56,7 @@ func TestEK(t *testing.T) {
 	}
 }
 
-func TestInfo(t *testing.T) {
+func TestSimTPM20Info(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -68,7 +68,7 @@ func TestInfo(t *testing.T) {
 	t.Logf("TPM Info = %+v", info)
 }
 
-func TestAIKCreateAndLoad(t *testing.T) {
+func TestSimTPM20AIKCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -115,7 +115,7 @@ func chooseEKPub(t *testing.T, eks []PlatformEK) crypto.PublicKey {
 	return nil
 }
 
-func TestActivateCredentialTPM20(t *testing.T) {
+func TestSimTPM20ActivateCredential(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -156,7 +156,7 @@ func TestActivateCredentialTPM20(t *testing.T) {
 	}
 }
 
-func TestQuoteTPM20(t *testing.T) {
+func TestSimTPM20Quote(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -177,7 +177,7 @@ func TestQuoteTPM20(t *testing.T) {
 	}
 }
 
-func TestPCRsTPM20(t *testing.T) {
+func TestSimTPM20PCRs(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -204,7 +204,7 @@ func TestPCRsTPM20(t *testing.T) {
 	}
 }
 
-func TestPersistence(t *testing.T) {
+func TestSimTPM20Persistence(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
