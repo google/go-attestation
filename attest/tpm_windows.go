@@ -26,11 +26,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/golang/sys/windows/registry"
 	"github.com/google/certificate-transparency-go/x509"
 	tpm1 "github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
+	"golang.org/x/sys/windows/registry"
 )
 
 var wellKnownAuth [20]byte
