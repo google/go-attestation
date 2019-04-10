@@ -54,6 +54,20 @@ var (
 			Modulus: big.NewInt(0),
 		},
 	}
+	defaultSRKTemplate = tpm2.Public{
+		Type:       tpm2.AlgRSA,
+		NameAlg:    tpm2.AlgSHA256,
+		Attributes: tpm2.FlagStorageDefault,
+		RSAParameters: &tpm2.RSAParams{
+			Symmetric: &tpm2.SymScheme{
+				Alg:     tpm2.AlgAES,
+				KeyBits: 128,
+				Mode:    tpm2.AlgCFB,
+			},
+			KeyBits: 2048,
+			Modulus: big.NewInt(0),
+		},
+	}
 	// Default EK template defined in:
 	// https://trustedcomputinggroup.org/wp-content/uploads/Credential_Profile_EK_V2.0_R14_published.pdf
 	defaultEKTemplate = tpm2.Public{

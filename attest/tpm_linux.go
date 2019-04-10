@@ -190,15 +190,21 @@ func (t *TPM) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle, bool, er
 		return pHnd, false, nil
 	}
 
-	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
-	if err != nil {
-		return 0, false, fmt.Errorf("EK CreatePrimary failed: %v", err)
+	var keyHnd tpmutil.Handle
+	switch pHnd {
+	case commonSrkEquivalentHandle:
+		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", defaultSRKTemplate)
+	case commonEkEquivalentHandle:
+		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
 	}
-	defer tpm2.FlushContext(t.rwc, ekHnd)
-
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, ekHnd, pHnd)
 	if err != nil {
-		return 0, false, fmt.Errorf("EK EvictControl failed: %v", err)
+		return 0, false, fmt.Errorf("CreatePrimary failed: %v", err)
+	}
+	defer tpm2.FlushContext(t.rwc, keyHnd)
+
+	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, pHnd)
+	if err != nil {
+		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
 	}
 
 	return pHnd, true, nil
@@ -380,11 +386,19 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 
 	case TPMVersion20:
 		// TODO(jsonp): Abstract choice of hierarchy & parent.
-		keyHandle, pub, creationData, creationHash, tix, _, err := tpm2.CreatePrimaryEx(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", aikTemplate)
+		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
-			return nil, fmt.Errorf("CreatePrimaryEx failed: %v", err)
+			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 		}
 
+		_, blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", aikTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("CreateKeyEx failed: %v", err)
+		}
+		keyHandle, _, err := tpm2.Load(t.rwc, srk, "", pub, blob)
+		if err != nil {
+			return nil, fmt.Errorf("Load failed: %v", err)
+		}
 		// If any errors occur, free the AIK's handle.
 		defer func() {
 			if err != nil {
@@ -393,7 +407,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 		}()
 
 		// We can only certify the creation immediately afterwards, so we cache the result.
-		attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, tix)
+		attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, &tix)
 		if err != nil {
 			return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 		}
@@ -405,9 +419,10 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 
 		return &Key{
 			hnd:               keyHandle,
-			KeyEncoding:       KeyEncodingParameterized,
+			KeyEncoding:       KeyEncodingEncrypted,
 			TPMVersion:        t.version,
 			Purpose:           AttestationKey,
+			KeyBlob:           blob,
 			Public:            pub,
 			CreateData:        creationData,
 			CreateAttestation: attestation,
@@ -444,11 +459,16 @@ func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
 		}
 
 	case TPMVersion20:
-		if k.KeyEncoding != KeyEncodingParameterized {
+		if k.KeyEncoding != KeyEncodingEncrypted {
 			return nil, fmt.Errorf("unsupported key encoding: %x", k.KeyEncoding)
 		}
-		if k.hnd, _, _, _, _, _, err = tpm2.CreatePrimaryEx(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", aikTemplate); err != nil {
-			return nil, fmt.Errorf("CreatePrimaryEx failed: %v", err)
+
+		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
+		}
+		if k.hnd, _, err = tpm2.Load(t.rwc, srk, "", k.Public, k.KeyBlob); err != nil {
+			return nil, fmt.Errorf("Load failed: %v", err)
 		}
 	}
 
