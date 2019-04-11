@@ -54,13 +54,13 @@ func probeSystemTPMs() ([]probedTPM, error) {
 
 	info, err := pcp.TPMInfo()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("TPMInfo() failed: %v", err)
 	}
 
 	var out probedTPM
 	out.Version, err = tbsConvertVersion(info.TBSInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tbsConvertVersion(%v) failed: %v", info.TBSInfo.TPMVersion, err)
 	}
 
 	return []probedTPM{out}, nil
@@ -80,16 +80,16 @@ func tbsConvertVersion(info tbsDeviceInfo) (TPMVersion, error) {
 func openTPM(tpm probedTPM) (*TPM, error) {
 	pcp, err := openPCP()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("openPCP() failed: %v", err)
 	}
 
 	info, err := pcp.TPMInfo()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("TPMInfo() failed: %v", err)
 	}
 	vers, err := tbsConvertVersion(info.TBSInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tbsConvertVersion(%v) failed: %v", info.TBSInfo.TPMVersion, err)
 	}
 
 	return &TPM{
