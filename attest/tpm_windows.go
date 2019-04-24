@@ -267,7 +267,7 @@ func (k *Key) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, erro
 
 func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
 	selectedPCRs := make([]int, 24)
-	for _, pcr := range selectedPCRs {
+	for pcr, _ := range selectedPCRs {
 		selectedPCRs[pcr] = pcr
 	}
 
