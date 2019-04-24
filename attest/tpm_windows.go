@@ -19,7 +19,6 @@ package attest
 import (
 	"crypto"
 	"crypto/rand"
-	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -266,35 +265,6 @@ func (k *Key) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, erro
 	}
 }
 
-func constructQuote(data, nonce []byte) ([]byte, error) {
-	composite := struct {
-		Mask tpmutil.U16Bytes
-		Data tpmutil.U32Bytes
-	}{
-		Mask: []byte{0xff, 0xff, 0xff},
-		Data: data,
-	}
-	compositeBytes, err := tpmutil.Pack(composite)
-	if err != nil {
-		return nil, fmt.Errorf("failed to pack TPM_PCR_COMPOSITE: %v", err)
-	}
-
-	version := [4]byte{0x01, 0x01, 0x00, 0x00}
-	QUOT := [4]byte{'Q', 'U', 'O', 'T'}
-	info := struct {
-		Version [4]byte
-		QUOT    [4]byte
-		Digest  [20]byte
-		Nonce   [20]byte
-	}{
-		version,
-		QUOT,
-		sha1.Sum(compositeBytes),
-		sha1.Sum(nonce),
-	}
-	return tpmutil.Pack(info)
-}
-
 func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
 	selectedPCRs := make([]int, 24)
 	for pcr, _ := range selectedPCRs {
@@ -308,7 +278,7 @@ func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
 	// Construct and return TPM_QUOTE_INFO
 	// Returning TPM_QUOTE_INFO allows us to verify the Quote at a higher resolution
 	// and matches what go-tspi returns.
-	quote, err := constructQuote(pcrc, nonce)
+	quote, err := tpm1.NewQuoteInfo(pcrc, nonce)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct Quote Info: %v", err)
 	}
