@@ -341,14 +341,21 @@ func (k *Key) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, error)
 }
 
 func (k *Key) quote12(ctx *tspi.Context, nonce []byte) (*Quote, error) {
-	quote, rawSig, err := attestation.GetQuote(ctx, k.KeyBlob, nonce)
+	quoteInfo, rawSig, err := attestation.GetQuote(ctx, k.KeyBlob, nonce)
 	if err != nil {
 		return nil, fmt.Errorf("GetQuote() failed: %v", err)
+	}
+	// go-tspi returns TPM_QUOTE_INFO. We only want the digest of the PCRs
+	var version [4]byte
+	var quot [4]byte
+	var digest [20]byte
+	if _, err := tpmutil.Unpack(quoteInfo, &version, &quot, &digest); err != nil {
+		return nil, fmt.Errorf("unable to parse PCR digest from TPM_QUOTE_INFO: %v", err)
 	}
 
 	return &Quote{
 		Version:   TPMVersion12,
-		Quote:     quote,
+		Quote:     digest[:],
 		Signature: rawSig,
 	}, nil
 }
