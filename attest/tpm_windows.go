@@ -19,6 +19,7 @@ package attest
 import (
 	"crypto"
 	"crypto/rand"
+	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -271,10 +272,11 @@ func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
 		selectedPCRs[pcr] = pcr
 	}
 
-	sig, quote, err := tpm1.Quote(tpm, k.hnd12, nonce, selectedPCRs[:], wellKnownAuth[:])
+	sig, pcrc, err := tpm1.Quote(tpm, k.hnd12, nonce, selectedPCRs[:], wellKnownAuth[:])
 	if err != nil {
 		return nil, fmt.Errorf("Quote() failed: %v", err)
 	}
+	quote := sha1.Sum(pcrc)
 	return &Quote{
 		Quote:     quote,
 		Signature: sig,
