@@ -278,7 +278,7 @@ func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
 	// Construct and return TPM_QUOTE_INFO
 	// Returning TPM_QUOTE_INFO allows us to verify the Quote at a higher resolution
 	// and matches what go-tspi returns.
-	quote, err := tpm1.NewQuoteInfo(pcrc, nonce)
+	quote, err := tpm1.NewQuoteInfo(pcrc, selectedPCRs[:], nonce)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct Quote Info: %v", err)
 	}
