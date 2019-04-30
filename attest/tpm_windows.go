@@ -333,11 +333,11 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 	case TPMVersion12:
 		tpm, err := t.pcp.TPMCommandInterface()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get command interface on 1.2 device: %v", err)
 		}
 		ownAuth, err := getOwnerAuth()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read owner auth from registry: %v", err)
 		}
 		blob, err := tpm1.MakeIdentity(tpm, wellKnownAuth[:], ownAuth[:], wellKnownAuth[:], nil, nil)
 		if err != nil {
