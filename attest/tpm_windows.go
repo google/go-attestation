@@ -181,7 +181,7 @@ func (t *TPM) readEKCert12() ([]*x509.Certificate, error) {
 		return nil, err
 	}
 	cert, err := x509.ParseCertificate(ekcert)
-	if err != nil {
+	if err != nil && x509.IsFatal(err) {
 		return nil, err
 	}
 	return []*x509.Certificate{cert}, nil

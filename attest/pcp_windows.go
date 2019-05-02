@@ -206,7 +206,7 @@ func (h *winPCP) EKCerts() ([]*x509.Certificate, error) {
 	var out []*x509.Certificate
 	for _, der := range c {
 		cert, err := x509.ParseCertificate(der)
-		if err != nil {
+		if err != nil && x509.IsFatal(err) {
 			return nil, err
 		}
 		out = append(out, cert)
