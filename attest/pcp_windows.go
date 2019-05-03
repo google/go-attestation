@@ -316,6 +316,71 @@ func (h *winPCP) AIKProperties(kh uintptr) (*aikProps, error) {
 		return nil, err
 	}
 	r := bytes.NewReader(idBlob)
+	// Because the TPM 1.2 blob leads with a version tag,
+	// we can switch decoding logic based on it.
+	if bytes.Equal(idBlob[0:4], []byte{1, 1, 0, 0}) {
+		return decodeAIKProps12(r)
+	}
+	return decodeAIKProps20(r)
+}
+
+// decodeAIKProps12 separates the single TPM 1.2 blob from the PCP property
+// into its constituents, returning information about the public key
+// of the AIK.
+func decodeAIKProps12(r *bytes.Reader) (*aikProps, error) {
+	var out aikProps
+	// Skip over fixed-size fields in TPM_IDENTITY_CONTENTS which
+	// we don't need to read.
+	// Specifically: ver, ordinal, & labelPrivCADigest.
+	r.Seek(4+4+20, io.SeekCurrent)
+	pubKeyStartIdx := int(r.Size()) - r.Len()
+
+	// Skip over fixed-size key parameters in TPM_PUBKEY, so
+	// we can read the length of the exponent &
+	// determine where the pubkey structure ends.
+	// Specifically: algID, encScheme, sigScheme, paramSize, keyLength,
+	// and numPrimes.
+	r.Seek(4+2+2+4+4+4, io.SeekCurrent)
+
+	// Read the size of the exponent section.
+	var exponentSize uint32
+	if err := binary.Read(r, binary.BigEndian, &exponentSize); err != nil {
+		return nil, fmt.Errorf("failed to decode exponentSize: %v", err)
+	}
+	// Consume the bytes representing the exponent.
+	exp := make([]byte, int(exponentSize))
+	if err := binary.Read(r, binary.BigEndian, &exp); err != nil {
+		return nil, fmt.Errorf("failed to decode exp: %v", err)
+	}
+	// Read the size of the key data.
+	var keyDataSize uint32
+	if err := binary.Read(r, binary.BigEndian, &keyDataSize); err != nil {
+		return nil, fmt.Errorf("failed to decode keyDataSize: %v", err)
+	}
+	// Seek to the end of the key data.
+	r.Seek(int64(keyDataSize), io.SeekCurrent)
+
+	// Read the trailing signature.
+	out.RawSignature = make([]byte, r.Len())
+	if err := binary.Read(r, binary.BigEndian, &out.RawSignature); err != nil {
+		return nil, fmt.Errorf("failed to decode signature: %v", err)
+	}
+
+	// Seek back to the location of the public key, and consume it.
+	r.Seek(int64(pubKeyStartIdx), io.SeekStart)
+	out.RawPublic = make([]byte, 24+int(exponentSize)+4+int(keyDataSize))
+	if err := binary.Read(r, binary.BigEndian, &out.RawPublic); err != nil {
+		return nil, fmt.Errorf("failed to decode public: %v", err)
+	}
+
+	return &out, nil
+}
+
+// decodeAIKProps20 separates the single TPM 2.0 blob from the PCP property
+// into its constituents. For TPM 2.0 devices, these are bytes representing
+// the following structures: TPM2B_PUBLIC, TPM2B_CREATION_DATA, TPM2B_ATTEST,
+// and TPMT_SIGNATURE.
+func decodeAIKProps20(r *bytes.Reader) (*aikProps, error) {
 	var out aikProps
 
 	var publicSize uint16
@@ -351,7 +416,6 @@ func (h *winPCP) AIKProperties(kh uintptr) (*aikProps, error) {
 	if err := binary.Read(r, binary.BigEndian, &out.RawSignature); err != nil {
 		return nil, fmt.Errorf("failed to decode TPMT_SIGNATURE.data: %v", err)
 	}
-
 	return &out, nil
 }
 
