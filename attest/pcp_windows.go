@@ -52,6 +52,7 @@ var (
 	nCryptOpenKey             = nCrypt.MustFindProc("NCryptOpenKey")
 	nCryptCreatePersistedKey  = nCrypt.MustFindProc("NCryptCreatePersistedKey")
 	nCryptFinalizeKey         = nCrypt.MustFindProc("NCryptFinalizeKey")
+	nCryptDeleteKey           = nCrypt.MustFindProc("NCryptDeleteKey")
 
 	crypt32                            = windows.MustLoadDLL("crypt32.dll")
 	crypt32CertEnumCertificatesInStore = crypt32.MustFindProc("CertEnumCertificatesInStore")
@@ -188,6 +189,16 @@ func (h *winPCP) TPMKeyHandle(hnd uintptr) (tpmutil.Handle, error) {
 // Close releases all resources managed by the Handle.
 func (h *winPCP) Close() error {
 	return closeNCryptObject(h.hProv)
+}
+
+// DeleteKey permenantly removes the key with the given handle
+//  from the system, and frees its handle.
+func (h *winPCP) DeleteKey(kh uintptr) error {
+	r, _, msg := nCryptDeleteKey.Call(kh)
+	if r != 0 {
+		return fmt.Errorf("nCryptDeleteKey returned %X: %v", r, msg)
+	}
+	return nil
 }
 
 // EKCerts returns the Endorsement Certificates.

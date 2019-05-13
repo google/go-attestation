@@ -294,6 +294,11 @@ func (k *Key) Close(tpm *TPM) error {
 	}
 }
 
+// Delete is not yet supported on linux systems.
+func (k *Key) Delete(tpm *TPM) error {
+	return errors.New("key deletion is not yet supported on linux systems")
+}
+
 // ActivateCredential decrypts the specified credential using key.
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *Key) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, error) {
