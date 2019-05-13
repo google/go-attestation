@@ -194,7 +194,7 @@ func (h *winPCP) Close() error {
 // DeleteKey permenantly removes the key with the given handle
 //  from the system, and frees its handle.
 func (h *winPCP) DeleteKey(kh uintptr) error {
-	r, _, msg := nCryptDeleteKey.Call(kh)
+	r, _, msg := nCryptDeleteKey.Call(kh, 0)
 	if r != 0 {
 		return fmt.Errorf("nCryptDeleteKey returned %X: %v", r, msg)
 	}
