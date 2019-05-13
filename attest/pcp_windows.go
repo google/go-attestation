@@ -59,7 +59,58 @@ var (
 
 	tbs              = windows.MustLoadDLL("Tbs.dll")
 	tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
+
+	tpm32                   = windows.MustLoadDLL("Win32_tpm.dll")
+	tpm32IsReadyInformation = tpm32.MustFindProc("IsReadyInformation")
+	isReadyErrors           = map[uint32]string{
+		0x00000002: "Platform restart is required (shutdown).",
+		0x00000004: "Platform restart is required (reboot).",
+		0x00000008: "The TPM is already owned.",
+		0x00000010: "Physical presence is required to provision the TPM.",
+		0x00000020: "The TPM is disabled or deactivated.",
+		0x00000040: "TPM ownership was taken.",
+		0x00000080: "An endorsement key exists in the TPM.",
+		0x00000100: "The TPM owner authorization is not properly stored in the registry.",
+		0x00000200: "The Storage Root Key (SRK) authorization value is not all zeros.",
+		0x00000800: "The operating system's registry information about the TPM’s Storage Root Key does not match the TPM Storage Root Key.",
+		0x00001000: "The TPM permanent flag to allow reading of the Storage Root Key public value is not set.",
+		0x00002000: "The monotonic counter incremented during boot has not been created.",
+		0x00020000: "Windows Group Policy is configured to not store any TPM owner authorization so the TPM cannot be fully ready.",
+		0x00040000: "The EK Certificate was not read from the TPM NV Ram and stored in the registry.",
+		0x00080000: "The TCG event log is empty or cannot be read.",
+		0x00100000: "The TPM is not owned.",
+		0x00200000: "An error occurred, but not specific to a particular task.",
+		0x00400000: "The device lock counter has not been created.",
+		0x00800000: "The device identifier has not been created.",
+	}
 )
+
+func queryTPMState() (bool, error) {
+	var (
+		isReady     bool
+		statusFlags uint32
+	)
+
+	r, _, msg := tpm32IsReadyInformation.Call(uintptr(unsafe.Pointer(&isReady)), uintptr(unsafe.Pointer(&statusFlags)))
+	if r != 0 {
+		return false, fmt.Errorf("IsReadyInformation returned %X (%v)", r, msg)
+	}
+	if isReady {
+		return true, nil
+	}
+
+	var errStr string
+	for mask, err := range isReadyErrors {
+		if (statusFlags & mask) != 0 {
+			if errStr == "" {
+				errStr = err
+			} else {
+				errStr += ", " + err
+			}
+		}
+	}
+	return false, fmt.Errorf("TPM in invalid state: %s", errStr)
+}
 
 func utf16ToString(buf []byte) (string, error) {
 	b := make([]uint16, len(buf)/2)

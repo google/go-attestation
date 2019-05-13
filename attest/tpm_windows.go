@@ -75,6 +75,10 @@ func tbsConvertVersion(info tbsDeviceInfo) (TPMVersion, error) {
 }
 
 func openTPM(tpm probedTPM) (*TPM, error) {
+	if ready, err := queryTPMState(); !ready || err != nil {
+		return nil, err
+	}
+
 	pcp, err := openPCP()
 	if err != nil {
 		return nil, fmt.Errorf("openPCP() failed: %v", err)
