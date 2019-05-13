@@ -248,6 +248,12 @@ func (k *Key) Close(tpm *TPM) error {
 	return closeNCryptObject(k.hnd)
 }
 
+// Delete permenantly removes the key from the system. This method
+// invalidates Key and any further method invocations are invalid.
+func (k *Key) Delete(tpm *TPM) error {
+	return tpm.pcp.DeleteKey(k.hnd)
+}
+
 // MintAIK creates a persistent attestation key. The returned key must be
 // closed with a call to key.Close() when the caller has finished using it.
 func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
