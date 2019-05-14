@@ -60,9 +60,6 @@ var (
 
 	tbs              = windows.MustLoadDLL("Tbs.dll")
 	tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
-
-	tpm32                   = windows.MustLoadDLL("Win32_tpm.dll")
-	tpm32IsReadyInformation = tpm32.MustFindProc("IsReadyInformation")
 )
 
 // Error codes.
@@ -226,33 +223,6 @@ func maybeWinErr(err error) error {
 		return fmt.Errorf("tpm or subsystem failure: %s", code)
 	}
 	return nil
-}
-
-func queryTPMState() (bool, error) {
-	var (
-		isReady     bool
-		statusFlags uint32
-	)
-
-	r, _, msg := tpm32IsReadyInformation.Call(uintptr(unsafe.Pointer(&isReady)), uintptr(unsafe.Pointer(&statusFlags)))
-	if r != 0 {
-		return false, fmt.Errorf("IsReadyInformation returned %X (%v)", r, msg)
-	}
-	if isReady {
-		return true, nil
-	}
-
-	var errStr string
-	for mask, err := range isReadyErrors {
-		if (statusFlags & mask) != 0 {
-			if errStr == "" {
-				errStr = err
-			} else {
-				errStr += ", " + err
-			}
-		}
-	}
-	return false, fmt.Errorf("TPM in invalid state: %s", errStr)
 }
 
 func utf16ToString(buf []byte) (string, error) {
