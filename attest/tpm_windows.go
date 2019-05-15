@@ -17,7 +17,10 @@
 package attest
 
 import (
+	"bytes"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/json"
@@ -180,14 +183,112 @@ func (k *Key) Marshal() ([]byte, error) {
 	return json.Marshal(k)
 }
 
+func decodeTrousersCredential(secretKey, blob []byte) ([]byte, error) {
+	var header struct {
+		Credsize  uint32
+		AlgID     uint32
+		EncScheme uint16
+		SigScheme uint16
+		Parmsize  uint32
+	}
+	symbuf := bytes.NewReader(blob)
+	if err := binary.Read(symbuf, binary.BigEndian, &header); err != nil {
+		return nil, err
+	}
+	// Unload the symmetric key parameters.
+	parms := make([]byte, header.Parmsize)
+	if err := binary.Read(symbuf, binary.BigEndian, parms); err != nil {
+		return nil, err
+	}
+	// Unpack the symmetrically encrypted secret.
+	cred := make([]byte, header.Credsize)
+	if err := binary.Read(symbuf, binary.BigEndian, cred); err != nil {
+		return nil, err
+	}
+
+	// A TPM representation of a symmetric key, which is the
+	// format of the blob returned from TPM_ActivateIdentity.
+	var k struct {
+		AlgID     uint32
+		EncScheme uint16
+		Key       []byte
+	}
+	in := bytes.NewReader(secretKey)
+	if err := binary.Read(in, binary.BigEndian, &k.AlgID); err != nil {
+		return nil, err
+	}
+	if err := binary.Read(in, binary.BigEndian, &k.EncScheme); err != nil {
+		return nil, err
+	}
+	var size uint16
+	if err := binary.Read(in, binary.BigEndian, &size); err != nil {
+		return nil, err
+	}
+	key := make([]byte, size)
+	if err := binary.Read(in, binary.BigEndian, &key); err != nil {
+		return nil, err
+	}
+	k.Key = key
+
+	// Decrypt the credential.
+	var (
+		block     cipher.Block
+		iv        []byte
+		ciphertxt []byte
+		secret    []byte
+		err       error
+	)
+	switch id := k.AlgID; id {
+	case 6: // algAES128
+		block, err = aes.NewCipher(k.Key)
+		if err != nil {
+			return nil, fmt.Errorf("aes.NewCipher failed: %v", err)
+		}
+		iv = cred[:aes.BlockSize]
+		ciphertxt = cred[aes.BlockSize:]
+		secret = ciphertxt
+	default:
+		return nil, fmt.Errorf("%v is not a supported session key algorithm", id)
+	}
+	switch es := k.EncScheme; es {
+	case 4: // esSymCTR
+		stream := cipher.NewCTR(block, iv)
+		stream.XORKeyStream(secret, ciphertxt)
+	case 5: // esSymOFB
+		stream := cipher.NewOFB(block, iv)
+		stream.XORKeyStream(secret, ciphertxt)
+	case 0xff: // esSymCBCPKCS5 - tcsd specific
+		mode := cipher.NewCBCDecrypter(block, iv)
+		mode.CryptBlocks(secret, ciphertxt)
+		// Remove PKCS5 padding.
+		padlen := int(secret[len(secret)-1])
+		secret = secret[:len(secret)-padlen]
+	default:
+		return nil, fmt.Errorf("%v is not a supported encryption scheme", es)
+	}
+	return secret, nil
+}
+
 // ActivateCredential decrypts the specified credential using key.
 // This operation is synonymous with TPM2_ActivateCredential for TPM2.0
-// and TPM_ActivateIdentity for TPM1.2.
+// and TPM_ActivateIdentity with the trousers daemon for TPM1.2.
 func (k *Key) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error) {
 	if k.TPMVersion != tpm.version {
 		return nil, fmt.Errorf("tpm and key version mismatch")
 	}
-	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
+
+	switch tpm.version {
+	case TPMVersion12:
+		secretKey, err := tpm.pcp.ActivateCredential(k.hnd, in.Credential)
+		if err != nil {
+			return nil, err
+		}
+		return decodeTrousersCredential(secretKey, in.Secret)
+	case TPMVersion20:
+		return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
+	default:
+		return nil, fmt.Errorf("invalid TPM version: %v", tpm.version)
+	}
 }
 
 func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
