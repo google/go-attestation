@@ -164,7 +164,6 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 // Key represents a key bound to the TPM.
 type Key struct {
 	hnd         uintptr
-	hnd12       tpmutil.Handle
 	KeyEncoding KeyEncoding
 	TPMVersion  TPMVersion
 	Purpose     KeyPurpose
@@ -244,13 +243,13 @@ func (k *Key) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, erro
 	}
 }
 
-func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
+func (k *Key) quote12(tpm io.ReadWriter, hnd tpmutil.Handle, nonce []byte) (*Quote, error) {
 	selectedPCRs := make([]int, 24)
 	for pcr, _ := range selectedPCRs {
 		selectedPCRs[pcr] = pcr
 	}
 
-	sig, pcrc, err := tpm1.Quote(tpm, k.hnd12, nonce, selectedPCRs[:], wellKnownAuth[:])
+	sig, pcrc, err := tpm1.Quote(tpm, hnd, nonce, selectedPCRs[:], wellKnownAuth[:])
 	if err != nil {
 		return nil, fmt.Errorf("Quote() failed: %v", err)
 	}
@@ -269,22 +268,23 @@ func (k *Key) quote12(tpm io.ReadWriter, nonce []byte) (*Quote, error) {
 
 // Quote returns a quote over the platform state, signed by the key.
 func (k *Key) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
+	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
+	if err != nil {
+		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+	}
+
 	switch t.version {
 	case TPMVersion12:
 		tpm, err := t.pcp.TPMCommandInterface()
 		if err != nil {
 			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 		}
-		return k.quote12(tpm, nonce)
+		return k.quote12(tpm, tpmKeyHnd, nonce)
 
 	case TPMVersion20:
 		tpm, err := t.pcp.TPMCommandInterface()
 		if err != nil {
 			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-		}
-		tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
-		if err != nil {
-			return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
 		}
 		return quote20(tpm, tpmKeyHnd, alg, nonce)
 
