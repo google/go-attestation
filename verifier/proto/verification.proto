@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package goattestation.verifier;
+
+message AikVerificationResults {
+  bool succeeded = 1;
+
+  bool key_too_small = 2;
+  bool creation_attestation_mismatch = 3;
+
+  bool key_not_tpm_bound = 4;
+  bool key_usage_overly_broad = 5;
+
+  bool name_attestation_mismatch = 6;
+
+  bool signature_mismatch = 7;
+
+  bool roca_vulnerable_key = 8;
+}
+
+message QuoteVerificationResults {
+  bool succeeded = 1;
+  bool signature_mismatch = 2;
+  bytes pcr_digest = 3;
+  bool pcr_digest_mismatch = 4;
+  bool nonce_mismatch = 5;
+}
+
+message EkcertVerificationResults {
+  message CertSummary {
+    string issuer_cn = 1;
+    string issuer_org = 2;
+    string serial = 3;
+  }
+
+  bool succeeded = 1;
+  bool chain_verified = 2;
+  repeated CertSummary chain = 3;
+  string verification_error = 4;
+}
