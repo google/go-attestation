@@ -1,0 +1,114 @@
+// (-- api-linter: forbidden-types=disabled --)
+syntax = "proto3";
+
+package go_attestation.proto;
+
+enum TpmVersion {
+  TPM_VERSION_UNSPECIFIED = 0;
+  TPM_12 = 1;
+  TPM_20 = 2;
+}
+
+enum TpmInterface {
+  TPM_INTERFACE_UNSPECIFIED = 0;
+  DIRECT = 1;
+  KERNEL_MANAGED = 2;
+  DAEMON_MANAGED = 3;
+}
+
+// TpmInfo encapsulates version / device information
+// about the TPM, and how the attestation client interfaces
+// with it.
+message TpmInfo {
+  TpmVersion tpm_version = 1;
+  string manufacturer = 2;
+  TpmInterface tpm_interface = 3;
+
+  // This number represents the version of the support code which
+  // interfaces with the TPM.
+  uint32 tpm_interface_version = 4 [deprecated = true];
+
+  // This is the string provided by the TPM.
+  string tpm_opaque_info = 5;
+
+  // This is set if challenges must be generated
+  // in TrouSerS format for TPM 1.2 devices.
+  bool trousers_format = 6;
+}
+
+message EndorsementKey {
+  enum DataType {
+    DATA_TYPE_UNSPECIFIED = 0;
+    PUBLIC_BLOB = 1;  // Indicates data is encoded as a PKCS1 public key.
+    X509_CERT_BLOB = 2;
+  };
+
+  DataType datatype = 1;
+  bytes data = 2;
+}
+
+// Tpm20AikInfo describes an AIK using TPM 2.0 structures.
+message Tpm20AikInfo {
+  // This is a TPMT_PUBLIC structure.
+  bytes public_blob = 1;
+  // This is a TPMS_CREATION_DATA structure.
+  bytes creation_data = 2;
+  // This is a TPMU_ATTEST structure, with the dynamic section
+  // containing a CREATION_INFO structure.
+  bytes attestation_data = 3;
+  // This is a TPMT_SIGNATURE structure.
+  bytes signature_data = 4;
+}
+
+// Tpm12AikInfo describes an AIK using TPM 1.2 structures.
+message Tpm12AikInfo {
+  // This is a TPM_PUBKEY structure.
+  bytes public_blob = 1;
+  // This is auxillary data, provided for the purpose of debugging.
+  // on Windows devices, this represents the contents of PCP_ID_BINDING.
+  bytes aux = 2;
+}
+
+// AikInfo describes the public key, parameters, and creation information
+// of an attestation identity key.
+message AikInfo {
+  oneof tpm_aik_info {
+    Tpm20AikInfo tpm20 = 1;
+    Tpm12AikInfo tpm12 = 2;
+  }
+}
+
+// ChallengeInfo describes which challenge a nonce corresponds to.
+message ChallengeInfo {
+  enum ChallengeType {
+    CHALLENGE_UNSPECIFIED = 0;
+    CHALLENGE_CA = 1;
+  };
+
+  ChallengeType type = 1;
+}
+
+// ClientInfo is optional data sent from the client to identify what version
+// of racc-client it is running.
+message ClientInfo {
+  string machine_track = 1;
+  string cl_rollup = 2;
+  string version = 3;
+}
+
+// StatusReport describes information from a client which is distinct to any
+// attestation operation.
+message StatusReport {
+  enum ReportType {
+    REPORT_UNSPECIFIED = 0;
+    REPORT_TPM_UNSUITABLE = 1;
+    REPORT_TPM_OPERATION_FAILURE = 2;
+    REPORT_LOG_UNAVAILABLE = 3;
+  };
+
+  ReportType type = 1;
+  int64 code = 2;
+  string message = 3;
+  string operation = 4;
+  ClientInfo client_info = 5;
+}
