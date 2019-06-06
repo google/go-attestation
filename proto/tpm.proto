@@ -1,6 +1,7 @@
+// (-- api-linter: forbidden-types=disabled --)
 syntax = "proto3";
 
-package goattestation.proto;
+package go_attestation.proto;
 
 enum TpmVersion {
   TPM_VERSION_UNSPECIFIED = 0;

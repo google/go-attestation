@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package goattestation.verifier;
+package go_attestation.verifier;
 
 message AikVerificationResults {
   bool succeeded = 1;
