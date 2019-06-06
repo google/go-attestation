@@ -392,6 +392,16 @@ func (h *winPCP) EKCerts() ([]*x509.Certificate, error) {
 		c = append(c, eccCerts...)
 	}
 
+	// Reading the certificate from the system store has failed.
+	// Lets try reading the raw bytes directly from NVRAM intead.
+	if len(c) == 0 {
+		buf, err = getNCryptBufferProperty(h.hProv, "PCP_EKNVCERT")
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read PCP_EKNVCERT: %v", err)
+		}
+		c = append(c, buf)
+	}
+
 	var out []*x509.Certificate
 	for _, der := range c {
 		cert, err := x509.ParseCertificate(der)
