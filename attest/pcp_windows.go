@@ -369,7 +369,7 @@ func (h *winPCP) Close() error {
 	return closeNCryptObject(h.hProv)
 }
 
-// DeleteKey permenantly removes the key with the given handle
+// DeleteKey permanently removes the key with the given handle
 //  from the system, and frees its handle.
 func (h *winPCP) DeleteKey(kh uintptr) error {
 	r, _, msg := nCryptDeleteKey.Call(kh, 0)
@@ -393,7 +393,7 @@ func (h *winPCP) EKCerts() ([]*x509.Certificate, error) {
 	}
 
 	// Reading the certificate from the system store has failed.
-	// Lets try reading the raw bytes directly from NVRAM intead.
+	// Lets try reading the raw bytes directly from NVRAM instead.
 	if len(c) == 0 {
 		buf, err := getNCryptBufferProperty(h.hProv, "PCP_EKNVCERT")
 		if err != nil {
