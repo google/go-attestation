@@ -153,11 +153,11 @@ func parseCert(ekCert []byte) (*x509.Certificate, error) {
 		Raw asn1.RawContent
 	}
 	if _, err := asn1.Unmarshal(ekCert, &cert); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("asn1.Unmarshal() failed: %v", err)
 	}
 	c, err := x509.ParseCertificate(cert.Raw)
 	if err != nil && x509.IsFatal(err) {
-		return nil, err
+		return nil, fmt.Errorf("x509.ParseCertificate() failed: %v", err)
 	}
 	return c, nil
 }
