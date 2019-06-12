@@ -17,13 +17,13 @@ package attest
 import (
 	"bytes"
 	"crypto"
-	"encoding/asn1"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
 	"strings"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/google/go-tpm/tpm2"
@@ -152,9 +152,10 @@ func parseCert(ekCert []byte) (*x509.Certificate, error) {
 	var cert struct {
 		Raw asn1.RawContent
 	}
-	if _, err := asn1.Unmarshal(ekCert, &cert); err != nil {
+	if _, err := asn1.UnmarshalWithParams(ekCert, &cert, "lax"); err != nil && x509.IsFatal(err) {
 		return nil, fmt.Errorf("asn1.Unmarshal() failed: %v", err)
 	}
+
 	c, err := x509.ParseCertificate(cert.Raw)
 	if err != nil && x509.IsFatal(err) {
 		return nil, fmt.Errorf("x509.ParseCertificate() failed: %v", err)
