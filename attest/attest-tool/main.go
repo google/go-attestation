@@ -2,6 +2,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -13,13 +14,21 @@ import (
 )
 
 var (
-	keyPath   = flag.String("key", "aik.json", "Path to the key file")
-	nonceHex  = flag.String("nonce", "", "Hex string to use as nonce when quoting")
-	useSHA256 = flag.Bool("sha256", false, "Use SHA256 for quote operatons")
+	keyPath     = flag.String("key", "aik.json", "Path to the key file")
+	nonceHex    = flag.String("nonce", "", "Hex string to use as nonce when quoting")
+	randomNonce = flag.Bool("random-nonce", false, "Generate a random nonce instead of using one provided")
+	useSHA256   = flag.Bool("sha256", false, "Use SHA256 for quote operatons")
 )
 
 func main() {
 	flag.Parse()
+
+	if *randomNonce {
+		n := make([]byte, 8)
+		rand.Read(n)
+		*nonceHex = hex.EncodeToString(n)
+	}
+
 	tpm, err := attest.OpenTPM(nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error opening the TPM: %v\n", err)
