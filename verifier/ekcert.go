@@ -12,22 +12,6 @@ import (
 	pb "github.com/google/go-attestation/verifier/proto"
 )
 
-var (
-	// brokenCerts are a blacklist of certificate filenames which fail to parse
-	// due to being malformed. These certs are not processed and hence cannot
-	// form part of a trusted chain.
-	brokenCerts = map[string]bool{
-		// A number of ST Microelectronics certificates have malformed
-		// serial number fields.
-		"STM_TPM_ECC_Intermediate_CA_01.crt": true,
-		"STM_TPM_EK_Intermediate_CA_01.crt":  true,
-		"STM_TPM_EK_Intermediate_CA_02.crt":  true,
-		"STM_TPM_EK_Intermediate_CA_03.crt":  true,
-		"STM_TPM_EK_Intermediate_CA_04.crt":  true,
-		"STM_TPM_EK_Intermediate_CA_05.crt":  true,
-	}
-)
-
 // EKVerifier verifies x509 EK certificates based on a pool of allowed
 // parent certificates.
 type EKVerifier struct {
@@ -133,9 +117,6 @@ func parseCertsToPool(path string, files []os.FileInfo, pool *x509.CertPool) err
 			}
 			c, err := x509.ParseCertificate(d)
 			if err != nil && x509.IsFatal(err) {
-				if isBrokenCert(info.Name()) {
-					continue
-				}
 				return fmt.Errorf("%s parse failed: %v", info.Name(), err)
 			}
 			pool.AddCert(c)
@@ -148,9 +129,6 @@ func parseCertsToPool(path string, files []os.FileInfo, pool *x509.CertPool) err
 			}
 			c, err := x509.ParseCertificate(d)
 			if err != nil && x509.IsFatal(err) && !pool.AppendCertsFromPEM(d) {
-				if isBrokenCert(info.Name()) {
-					continue
-				}
 				return fmt.Errorf("%s parse failed: %v", info.Name(), err)
 			}
 			if err == nil {
@@ -159,8 +137,4 @@ func parseCertsToPool(path string, files []os.FileInfo, pool *x509.CertPool) err
 		}
 	}
 	return nil
-}
-
-func isBrokenCert(fname string) bool {
-	return brokenCerts[fname]
 }
