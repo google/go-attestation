@@ -130,6 +130,8 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 }
 
 func parseCert(ekCert []byte) (*x509.Certificate, error) {
+	var wasWrapped bool
+
 	// TCG PC Specific Implementation section 7.3.2 specifies
 	// a prefix when storing a certificate in NVRAM. We look
 	// for and unwrap the certificate if its present.
@@ -139,6 +141,7 @@ func parseCert(ekCert []byte) (*x509.Certificate, error) {
 			return nil, fmt.Errorf("parsing nvram header: ekCert size %d smaller than specified cert length %d", len(ekCert), certLen)
 		}
 		ekCert = ekCert[5 : 5+certLen]
+		wasWrapped = true
 	}
 
 	// If the cert parses fine without any changes, we are G2G.
@@ -153,7 +156,7 @@ func parseCert(ekCert []byte) (*x509.Certificate, error) {
 		Raw asn1.RawContent
 	}
 	if _, err := asn1.UnmarshalWithParams(ekCert, &cert, "lax"); err != nil && x509.IsFatal(err) {
-		return nil, fmt.Errorf("asn1.Unmarshal() failed: %v", err)
+		return nil, fmt.Errorf("asn1.Unmarshal() failed: %v, wasWrapped=%v", err, wasWrapped)
 	}
 
 	c, err := x509.ParseCertificate(cert.Raw)
