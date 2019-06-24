@@ -15,13 +15,15 @@
 package attest
 
 import (
+	"bytes"
 	"crypto"
-	"encoding/asn1"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
 	"strings"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/google/go-tpm/tpm2"
@@ -128,6 +130,20 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 }
 
 func parseCert(ekCert []byte) (*x509.Certificate, error) {
+	var wasWrapped bool
+
+	// TCG PC Specific Implementation section 7.3.2 specifies
+	// a prefix when storing a certificate in NVRAM. We look
+	// for and unwrap the certificate if its present.
+	if len(ekCert) > 5 && bytes.Equal(ekCert[:3], []byte{0x10, 0x01, 0x00}) {
+		certLen := binary.BigEndian.Uint16(ekCert[3:5])
+		if len(ekCert) < int(certLen+5) {
+			return nil, fmt.Errorf("parsing nvram header: ekCert size %d smaller than specified cert length %d", len(ekCert), certLen)
+		}
+		ekCert = ekCert[5 : 5+certLen]
+		wasWrapped = true
+	}
+
 	// If the cert parses fine without any changes, we are G2G.
 	if c, err := x509.ParseCertificate(ekCert); err == nil {
 		return c, nil
@@ -139,10 +155,15 @@ func parseCert(ekCert []byte) (*x509.Certificate, error) {
 	var cert struct {
 		Raw asn1.RawContent
 	}
-	if _, err := asn1.Unmarshal(ekCert, &cert); err != nil {
-		return nil, err
+	if _, err := asn1.UnmarshalWithParams(ekCert, &cert, "lax"); err != nil && x509.IsFatal(err) {
+		return nil, fmt.Errorf("asn1.Unmarshal() failed: %v, wasWrapped=%v", err, wasWrapped)
 	}
-	return x509.ParseCertificate(cert.Raw)
+
+	c, err := x509.ParseCertificate(cert.Raw)
+	if err != nil && x509.IsFatal(err) {
+		return nil, fmt.Errorf("x509.ParseCertificate() failed: %v", err)
+	}
+	return c, nil
 }
 
 func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
