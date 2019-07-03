@@ -104,6 +104,8 @@ message StatusReport {
     REPORT_TPM_UNSUITABLE = 1;
     REPORT_TPM_OPERATION_FAILURE = 2;
     REPORT_LOG_UNAVAILABLE = 3;
+    REPORT_EKCERT_UNAVAILABLE = 4;
+    REPORT_EKCERT_DEBUG = 5;
   };
 
   ReportType type = 1;
