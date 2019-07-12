@@ -417,7 +417,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 			return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 		}
 		// Pack the raw structure into a TPMU_SIGNATURE.
-		signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, sig)
+		signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, tpmutil.U16Bytes(sig))
 		if err != nil {
 			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 		}
