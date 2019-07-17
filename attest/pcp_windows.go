@@ -511,6 +511,11 @@ func (h *winPCP) MintAIK(name string) (uintptr, error) {
 	return kh, nil
 }
 
+// EKPub returns a BCRYPT_RSA_BLOB structure representing the EK.
+func (h *winPCP) EKPub() ([]byte, error) {
+	return getNCryptBufferProperty(h.hProv, "PCP_EKPUB")
+}
+
 type aikProps struct {
 	RawPublic       []byte
 	RawCreationData []byte

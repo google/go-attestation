@@ -22,11 +22,17 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"math/big"
+	"net/http"
 
 	tpm1 "github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
@@ -153,12 +159,93 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 		out = append(out, PlatformEK{cert, cert.PublicKey})
 	}
 
-	// TODO(jsonp): Fallback to reading PCP_RSA_EKPUB/PCP_ECC_EKPUB, and maybe direct.
-	// if len(out) == 0 {
-	//   ...
-	// }
+	if len(out) == 0 {
+		i, err := t.Info()
+		if err != nil {
+			return nil, err
+		}
+		if i.Manufacturer.String() == "Intel" {
+			eks, err := t.readEKCertFromServer("https://ekop.intel.com/ekcertservice/")
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, eks...)
+		}
+	}
 
 	return out, nil
+}
+
+func (t *TPM) readEKCertFromServer(url string) ([]PlatformEK, error) {
+	p, err := t.pcp.EKPub()
+	if err != nil {
+		return nil, fmt.Errorf("could not read ekpub: %v", err)
+	}
+	ekPub, err := decodeWindowsBcryptRSABlob(p)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode ekpub: %v", err)
+	}
+	pubHash := sha256.New()
+	pubHash.Write(ekPub.N.Bytes())
+	pubHash.Write([]byte{0x1, 0x00, 0x01})
+
+	resp, err := http.Get(url + base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %v")
+	}
+	defer resp.Body.Close()
+	d, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading EKCert from network: %v")
+	}
+
+	cert, err := parseCert(d)
+	if err != nil {
+		return nil, fmt.Errorf("parsing certificate: %v", err)
+	}
+	return []PlatformEK{{Cert: cert}}, nil
+}
+
+type bcryptRSABlobHeader struct {
+	Magic       uint32
+	BitLength   uint32
+	ExponentLen uint32
+	ModulusLen  uint32
+	Prime1Len   uint32
+	Prime2Len   uint32
+}
+
+func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
+	var (
+		r      = bytes.NewReader(b)
+		header = &bcryptRSABlobHeader{}
+		exp    = make([]byte, 8)
+		mod    = []byte("")
+	)
+	if err := binary.Read(r, binary.LittleEndian, header); err != nil {
+		return nil, err
+	}
+
+	if header.Magic != 0x31415352 { // "RSA1"
+		return nil, fmt.Errorf("invalid header magic %x", header.Magic)
+	}
+	if header.ExponentLen > 8 {
+		return nil, errors.New("exponent too large")
+	}
+
+	if _, err := r.Read(exp[8-header.ExponentLen:]); err != nil {
+		return nil, fmt.Errorf("failed to read public exponent: %v", err)
+	}
+
+	mod = make([]byte, header.ModulusLen)
+	if n, err := r.Read(mod); n != int(header.ModulusLen) || err != nil {
+		return nil, fmt.Errorf("failed to read modulus (%d, %v)", n, err)
+	}
+
+	return &rsa.PublicKey{
+		N: new(big.Int).SetBytes(mod),
+		E: int(binary.BigEndian.Uint64(exp)),
+	}, nil
 }
 
 // Key represents a key bound to the TPM.
