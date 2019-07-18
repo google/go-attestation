@@ -20,7 +20,6 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -264,10 +263,8 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 
 // Key represents a key bound to the TPM.
 type Key struct {
-	hnd         tpmutil.Handle
-	KeyEncoding KeyEncoding
-	TPMVersion  TPMVersion
-	Purpose     KeyPurpose
+	hnd        tpmutil.Handle
+	TPMVersion TPMVersion
 
 	KeyBlob           []byte // exclusive to TPM1.2
 	Public            []byte // used by both TPM1.2 and 2.0
@@ -279,7 +276,17 @@ type Key struct {
 // Marshal represents the key in a persistent format which may be
 // loaded at a later time using tpm.LoadKey().
 func (k *Key) Marshal() ([]byte, error) {
-	return json.Marshal(k)
+	return (&serializedKey{
+		Encoding:   KeyEncodingEncrypted,
+		Purpose:    AttestationKey,
+		TPMVersion: k.TPMVersion,
+
+		Blob:              k.KeyBlob,
+		Public:            k.Public,
+		CreateData:        k.CreateData,
+		CreateAttestation: k.CreateAttestation,
+		CreateSignature:   k.CreateSignature,
+	}).Serialize()
 }
 
 // Close frees any resources associated with the key.
@@ -382,11 +389,9 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 		}
 
 		return &Key{
-			KeyEncoding: KeyEncodingEncrypted,
-			TPMVersion:  t.version,
-			Purpose:     AttestationKey,
-			KeyBlob:     blob,
-			Public:      pub,
+			TPMVersion: t.version,
+			KeyBlob:    blob,
+			Public:     pub,
 		}, nil
 
 	case TPMVersion20:
@@ -424,9 +429,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 
 		return &Key{
 			hnd:               keyHandle,
-			KeyEncoding:       KeyEncodingEncrypted,
 			TPMVersion:        t.version,
-			Purpose:           AttestationKey,
 			KeyBlob:           blob,
 			Public:            pub,
 			CreateData:        creationData,
@@ -442,39 +445,39 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 // LoadKey loads a previously-created key into the TPM for use.
 // A key loaded via this function needs to be closed with .Close().
 func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
-	// TODO(b/124266168): Load under the key handle loaded by t.getPrimaryKeyHandle()
-
-	var k Key
-	var err error
-	if err = json.Unmarshal(opaqueBlob, &k); err != nil {
-		return nil, fmt.Errorf("Unmarshal failed: %v", err)
+	sKey, err := deserializeKey(opaqueBlob, t.version)
+	if err != nil {
+		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
 	}
 
-	if k.TPMVersion != t.version {
-		return nil, errors.New("key TPM version does not match opened TPM")
+	if sKey.Purpose != AttestationKey {
+		return nil, fmt.Errorf("unsupported key purpose: %x", sKey.Purpose)
 	}
-	if k.Purpose != AttestationKey {
-		return nil, fmt.Errorf("unsupported key kind: %x", k.Purpose)
+	if sKey.Encoding != KeyEncodingEncrypted {
+		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
+	}
+
+	k := Key{
+		TPMVersion:        sKey.TPMVersion,
+		KeyBlob:           sKey.Blob,
+		Public:            sKey.Public,
+		CreateData:        sKey.CreateData,
+		CreateAttestation: sKey.CreateAttestation,
+		CreateSignature:   sKey.CreateSignature,
 	}
 
 	switch t.version {
 	case TPMVersion12:
-		if k.KeyEncoding != KeyEncodingEncrypted {
-			return nil, fmt.Errorf("unsupported key encoding: %x", k.KeyEncoding)
-		}
-
 	case TPMVersion20:
-		if k.KeyEncoding != KeyEncodingEncrypted {
-			return nil, fmt.Errorf("unsupported key encoding: %x", k.KeyEncoding)
-		}
-
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 		}
 		if k.hnd, _, err = tpm2.Load(t.rwc, srk, "", k.Public, k.KeyBlob); err != nil {
-			return nil, fmt.Errorf("Load failed: %v", err)
+			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
+	default:
+		return nil, fmt.Errorf("unknown TPM version: %v", t.version)
 	}
 
 	return &k, nil

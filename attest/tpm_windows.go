@@ -26,7 +26,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -250,13 +249,10 @@ func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
 
 // Key represents a key bound to the TPM.
 type Key struct {
-	hnd         uintptr
-	KeyEncoding KeyEncoding
-	TPMVersion  TPMVersion
-	Purpose     KeyPurpose
+	hnd        uintptr
+	TPMVersion TPMVersion
 
 	PCPKeyName        string
-	KeyBlob           []byte
 	Public            []byte
 	CreateData        []byte
 	CreateAttestation []byte
@@ -266,7 +262,18 @@ type Key struct {
 // Marshal represents the key in a persistent format which may be
 // loaded at a later time using tpm.LoadKey().
 func (k *Key) Marshal() ([]byte, error) {
-	return json.Marshal(k)
+	out := serializedKey{
+		Encoding:   KeyEncodingOSManaged,
+		Purpose:    AttestationKey,
+		TPMVersion: k.TPMVersion,
+		Name:       k.PCPKeyName,
+
+		Public:            k.Public,
+		CreateData:        k.CreateData,
+		CreateAttestation: k.CreateAttestation,
+		CreateSignature:   k.CreateSignature,
+	}
+	return out.Serialize()
 }
 
 func decryptCredential(secretKey, blob []byte) ([]byte, error) {
@@ -412,9 +419,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 
 	return &Key{
 		hnd:               kh,
-		KeyEncoding:       KeyEncodingOSManaged,
 		TPMVersion:        t.version,
-		Purpose:           AttestationKey,
 		PCPKeyName:        name,
 		Public:            props.RawPublic,
 		CreateData:        props.RawCreationData,
@@ -426,22 +431,25 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 // LoadKey loads a previously-created key into the TPM for use.
 // A key loaded via this function needs to be closed with .Close().
 func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
-	var k Key
-	var err error
-	if err = json.Unmarshal(opaqueBlob, &k); err != nil {
-		return nil, fmt.Errorf("Unmarshal failed: %v", err)
+	sKey, err := deserializeKey(opaqueBlob, t.version)
+	if err != nil {
+		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
+	}
+	if sKey.Purpose != AttestationKey {
+		return nil, fmt.Errorf("unsupported key kind: %x", sKey.Purpose)
+	}
+	if sKey.Encoding != KeyEncodingOSManaged {
+		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
 
-	if k.TPMVersion != t.version {
-		return nil, errors.New("key TPM version does not match opened TPM")
+	k := Key{
+		TPMVersion:        sKey.TPMVersion,
+		PCPKeyName:        sKey.Name,
+		Public:            sKey.Public,
+		CreateData:        sKey.CreateData,
+		CreateAttestation: sKey.CreateAttestation,
+		CreateSignature:   sKey.CreateSignature,
 	}
-	if k.KeyEncoding != KeyEncodingOSManaged {
-		return nil, fmt.Errorf("unsupported key encoding: %x", k.KeyEncoding)
-	}
-	if k.Purpose != AttestationKey {
-		return nil, fmt.Errorf("unsupported key kind: %x", k.Purpose)
-	}
-
 	if k.hnd, err = t.pcp.LoadKeyByName(k.PCPKeyName); err != nil {
 		return nil, fmt.Errorf("pcp failed to load key: %v", err)
 	}

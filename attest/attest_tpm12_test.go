@@ -115,8 +115,7 @@ func TestMintAIK(t *testing.T) {
 		t.Fatalf("MintAIK failed: %v", err)
 	}
 
-	if (aik.TPMVersion != TPMVersion12) ||
-		(aik.Purpose != AttestationKey) {
+	if aik.TPMVersion != TPMVersion12 {
 		t.Error("aik does not match expected format")
 	}
 	t.Logf("aik blob: %x\naik pubkey: %x\n", aik.KeyBlob, aik.Public)
