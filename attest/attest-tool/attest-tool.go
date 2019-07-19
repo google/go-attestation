@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/google/go-attestation/attest"
-	"github.com/google/go-tpm/tpm2"
 )
 
 var (
@@ -73,7 +72,7 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			return err
 		}
-		k, err := tpm.LoadKey(b)
+		k, err := tpm.LoadAIK(b)
 		if err != nil {
 			return fmt.Errorf("tpm.LoadKey() failed: %v", err)
 		}
@@ -83,9 +82,9 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			return err
 		}
-		alg := tpm2.AlgSHA1
+		alg := attest.HashSHA1
 		if *useSHA256 {
-			alg = tpm2.AlgSHA256
+			alg = attest.HashSHA256
 		}
 
 		q, err := k.Quote(tpm, nonce, alg)
@@ -94,17 +93,6 @@ func runCommand(tpm *attest.TPM) error {
 		}
 		fmt.Printf("Quote: %x\n", q.Quote)
 		fmt.Printf("Signature: %x\n", q.Signature)
-
-	case "delete-aik":
-		b, err := ioutil.ReadFile(*keyPath)
-		if err != nil {
-			return err
-		}
-		k, err := tpm.LoadKey(b)
-		if err != nil {
-			return fmt.Errorf("tpm.LoadKey() failed: %v", err)
-		}
-		return k.Delete(tpm)
 
 	case "list-eks":
 		eks, err := tpm.EKs()
