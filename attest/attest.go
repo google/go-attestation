@@ -18,8 +18,10 @@ package attest
 import (
 	"crypto"
 	"errors"
+	"fmt"
 
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/go-tpm/tpm2"
 )
 
 // TPMVersion is used to configure a preference in
@@ -52,18 +54,33 @@ type OpenConfig struct {
 	TPMVersion TPMVersion
 }
 
-// KeyEncoding indicates how an exported TPM key is represented.
-type KeyEncoding uint8
+// keyEncoding indicates how an exported TPM key is represented.
+type keyEncoding uint8
+
+func (e keyEncoding) String() string {
+	switch e {
+	case keyEncodingInvalid:
+		return "invalid"
+	case keyEncodingOSManaged:
+		return "os-managed"
+	case keyEncodingEncrypted:
+		return "encrypted"
+	case keyEncodingParameterized:
+		return "parameterized"
+	default:
+		return fmt.Sprintf("keyEncoding<%d>", int(e))
+	}
+}
 
 // Key encodings
 const (
-	KeyEncodingInvalid KeyEncoding = iota
+	keyEncodingInvalid keyEncoding = iota
 	// Managed by the OS but loadable by name.
-	KeyEncodingOSManaged
+	keyEncodingOSManaged
 	// Key fully represented but in encrypted form.
-	KeyEncodingEncrypted
+	keyEncodingEncrypted
 	// Parameters stored, but key must be regenerated before use.
-	KeyEncodingParameterized
+	keyEncodingParameterized
 )
 
 // KeyPurpose indicates the intended use of the key. It is implied that
@@ -76,6 +93,49 @@ const (
 	AttestationKey KeyPurpose = iota
 	StorageKey
 )
+
+type aik interface {
+	Close(*TPM) error
+	Marshal() ([]byte, error)
+	ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error)
+	Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error)
+	Parameters() AIKParameters
+}
+
+// AIK represents a key which can be used for attestation.
+type AIK struct {
+	aik aik
+}
+
+// Close unloads the AIK from the system.
+func (k *AIK) Close(t *TPM) error {
+	return k.aik.Close(t)
+}
+
+// Marshal encodes the AIK in a format that can be reloaded with tpm.LoadAIK().
+// This method exists to allow consumers to store the key persistently and load
+// it as a later time. Users SHOULD NOT attempt to interpret or extract values
+// from this blob.
+func (k *AIK) Marshal() ([]byte, error) {
+	return k.aik.Marshal()
+}
+
+// ActivateCredential decrypts the specified credential using the key.
+// This operation is synonymous with TPM2_ActivateCredential.
+func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error) {
+	return k.aik.ActivateCredential(tpm, in)
+}
+
+// Quote returns a quote over the platform state, signed by the AIK.
+func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+	return k.aik.Quote(tpm, nonce, alg)
+}
+
+// Parameters returns information about the AIK, typically used to generate
+// a credential activation challenge.
+func (k *AIK) Parameters() AIKParameters {
+	return k.aik.Parameters()
+}
 
 // MintOptions encapsulates parameters for minting keys. This type is defined
 // now (despite being empty) for future interface compatibility.
@@ -110,6 +170,42 @@ type PlatformEK struct {
 	Cert   *x509.Certificate
 	Public crypto.PublicKey
 }
+
+// AIKParameters describes information about an AIK. This information
+// is typically used to generate an activation challenge.
+type AIKParameters struct {
+	// Public represents the public key in a TPM-version specific encoding.
+	// For TPM 2.0 devices, this is encoded as a TPMT_PUBLIC structure.
+	// For TPM 1.2 devices, this is a TPM_PUBKEY structure, as defined in
+	// the TPM Part 2 Structures specification, available at
+	// https://trustedcomputinggroup.org/wp-content/uploads/TPM-Main-Part-2-TPM-Structures_v1.2_rev116_01032011.pdf
+	Public []byte
+
+	// Subsequent fields are only populated for AIKs generated on a TPM
+	// implementing version 2.0 of the specification. The specific structures
+	// referenced for each field are defined in the TPM Revision 2, Part 2 -
+	// Structures specification, available here:
+	// https://www.trustedcomputinggroup.org/wp-content/uploads/TPM-Rev-2.0-Part-2-Structures-01.38.pdf
+
+	// CreateData represents the properties of a TPM 2.0 key. It is encoded
+	// as a TPMS_CREATION_DATA structure.
+	CreateData []byte
+	// CreateAttestation represents an assertion as to the details of the key.
+	// It is encoded as a TPMS_ATTEST structure.
+	CreateAttestation []byte
+	// CreateSignature represents a signature of the CreateAttestation structure.
+	// It is encoded as a TPMT_SIGNATURE structure.
+	CreateSignature []byte
+}
+
+// HashAlg identifies a hashing Algorithm.
+type HashAlg uint8
+
+// Valid hash algorithms.
+var (
+	HashSHA1   = HashAlg(tpm2.AlgSHA1)
+	HashSHA256 = HashAlg(tpm2.AlgSHA256)
+)
 
 var (
 	defaultOpenConfig = &OpenConfig{}
