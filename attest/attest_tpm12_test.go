@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tspi/verification"
 )
 
@@ -114,12 +113,8 @@ func TestMintAIK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MintAIK failed: %v", err)
 	}
-
-	if (aik.TPMVersion != TPMVersion12) ||
-		(aik.Purpose != AttestationKey) {
-		t.Error("aik does not match expected format")
-	}
-	t.Logf("aik blob: %x\naik pubkey: %x\n", aik.KeyBlob, aik.Public)
+	k := aik.aik.(*key12)
+	t.Logf("aik blob: %x\naik pubkey: %x\n", k.blob, k.public)
 }
 
 func TestTPMQuote(t *testing.T) {
@@ -140,7 +135,7 @@ func TestTPMQuote(t *testing.T) {
 		t.Fatalf("MintAIK failed: %v", err)
 	}
 
-	quote, err := aik.Quote(tpm, nonce, tpm2.AlgSHA1)
+	quote, err := aik.Quote(tpm, nonce, HashSHA1)
 	if err != nil {
 		t.Fatalf("Quote failed: %v", err)
 	}
@@ -187,7 +182,7 @@ func TestTPMActivateCredential(t *testing.T) {
 	}
 	ekcert := chooseEKCertRaw(t, EKs)
 
-	challenge.Credential, challenge.Secret, err = verification.GenerateChallenge(ekcert, aik.Public, nonce)
+	challenge.Credential, challenge.Secret, err = verification.GenerateChallenge(ekcert, aik.aik.(*key12).public, nonce)
 	if err != nil {
 		t.Fatalf("GenerateChallenge failed: %v", err)
 	}

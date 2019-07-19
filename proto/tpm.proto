@@ -1,7 +1,6 @@
-// (-- api-linter: forbidden-types=disabled --)
 syntax = "proto3";
 
-package go_attestation.proto;
+package go_attestation;
 
 enum TpmVersion {
   TPM_VERSION_UNSPECIFIED = 0;
@@ -86,29 +85,4 @@ message ChallengeInfo {
   };
 
   ChallengeType type = 1;
-}
-
-// ClientInfo is optional data sent from the client to identify what version
-// of racc-client it is running.
-message ClientInfo {
-  string machine_track = 1;
-  string cl_rollup = 2;
-  string version = 3;
-}
-
-// StatusReport describes information from a client which is distinct to any
-// attestation operation.
-message StatusReport {
-  enum ReportType {
-    REPORT_UNSPECIFIED = 0;
-    REPORT_TPM_UNSUITABLE = 1;
-    REPORT_TPM_OPERATION_FAILURE = 2;
-    REPORT_LOG_UNAVAILABLE = 3;
-  };
-
-  ReportType type = 1;
-  int64 code = 2;
-  string message = 3;
-  string operation = 4;
-  ClientInfo client_info = 5;
 }

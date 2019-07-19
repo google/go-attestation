@@ -105,16 +105,18 @@ func TestAIKCreateAndLoad(t *testing.T) {
 		t.Fatalf("aik.Close() failed: %v", err)
 	}
 
-	loaded, err := tpm.LoadKey(enc)
+	loaded, err := tpm.LoadAIK(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close(tpm)
 
-	if !bytes.Equal(loaded.Public, aik.Public) {
+	k1, k2 := aik.aik.(*key20), loaded.aik.(*key20)
+
+	if !bytes.Equal(k1.public, k2.public) {
 		t.Error("Original & loaded AIK public blobs did not match.")
-		t.Logf("Original = %v", aik.Public)
-		t.Logf("Loaded   = %v", loaded.Public)
+		t.Logf("Original = %v", k1.public)
+		t.Logf("Loaded   = %v", k2.public)
 	}
 }
 

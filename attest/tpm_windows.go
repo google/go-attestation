@@ -22,15 +22,19 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"math/big"
+	"net/http"
 
 	tpm1 "github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
-	"github.com/google/go-tpm/tpmutil"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 )
 
@@ -98,6 +102,11 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 	}, nil
 }
 
+// Version returns the version of the TPM.
+func (t *TPM) Version() TPMVersion {
+	return t.version
+}
+
 // Close shuts down the connection to the TPM.
 func (t *TPM) Close() error {
 	return t.pcp.Close()
@@ -153,33 +162,93 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 		out = append(out, PlatformEK{cert, cert.PublicKey})
 	}
 
-	// TODO(jsonp): Fallback to reading PCP_RSA_EKPUB/PCP_ECC_EKPUB, and maybe direct.
-	// if len(out) == 0 {
-	//   ...
-	// }
+	if len(out) == 0 {
+		i, err := t.Info()
+		if err != nil {
+			return nil, err
+		}
+		if i.Manufacturer.String() == "Intel" {
+			eks, err := t.readEKCertFromServer("https://ekop.intel.com/ekcertservice/")
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, eks...)
+		}
+	}
 
 	return out, nil
 }
 
-// Key represents a key bound to the TPM.
-type Key struct {
-	hnd         uintptr
-	KeyEncoding KeyEncoding
-	TPMVersion  TPMVersion
-	Purpose     KeyPurpose
+func (t *TPM) readEKCertFromServer(url string) ([]PlatformEK, error) {
+	p, err := t.pcp.EKPub()
+	if err != nil {
+		return nil, fmt.Errorf("could not read ekpub: %v", err)
+	}
+	ekPub, err := decodeWindowsBcryptRSABlob(p)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode ekpub: %v", err)
+	}
+	pubHash := sha256.New()
+	pubHash.Write(ekPub.N.Bytes())
+	pubHash.Write([]byte{0x1, 0x00, 0x01})
 
-	PCPKeyName        string
-	KeyBlob           []byte
-	Public            []byte
-	CreateData        []byte
-	CreateAttestation []byte
-	CreateSignature   []byte
+	resp, err := http.Get(url + base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %v")
+	}
+	defer resp.Body.Close()
+	d, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed reading EKCert from network: %v")
+	}
+
+	cert, err := parseCert(d)
+	if err != nil {
+		return nil, fmt.Errorf("parsing certificate: %v", err)
+	}
+	return []PlatformEK{{Cert: cert}}, nil
 }
 
-// Marshal represents the key in a persistent format which may be
-// loaded at a later time using tpm.LoadKey().
-func (k *Key) Marshal() ([]byte, error) {
-	return json.Marshal(k)
+type bcryptRSABlobHeader struct {
+	Magic       uint32
+	BitLength   uint32
+	ExponentLen uint32
+	ModulusLen  uint32
+	Prime1Len   uint32
+	Prime2Len   uint32
+}
+
+func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
+	var (
+		r      = bytes.NewReader(b)
+		header = &bcryptRSABlobHeader{}
+		exp    = make([]byte, 8)
+		mod    = []byte("")
+	)
+	if err := binary.Read(r, binary.LittleEndian, header); err != nil {
+		return nil, err
+	}
+
+	if header.Magic != 0x31415352 { // "RSA1"
+		return nil, fmt.Errorf("invalid header magic %x", header.Magic)
+	}
+	if header.ExponentLen > 8 {
+		return nil, errors.New("exponent too large")
+	}
+
+	if _, err := r.Read(exp[8-header.ExponentLen:]); err != nil {
+		return nil, fmt.Errorf("failed to read public exponent: %v", err)
+	}
+
+	mod = make([]byte, header.ModulusLen)
+	if n, err := r.Read(mod); n != int(header.ModulusLen) || err != nil {
+		return nil, fmt.Errorf("failed to read modulus (%d, %v)", n, err)
+	}
+
+	return &rsa.PublicKey{
+		N: new(big.Int).SetBytes(mod),
+		E: int(binary.BigEndian.Uint64(exp)),
+	}, nil
 }
 
 func decryptCredential(secretKey, blob []byte) ([]byte, error) {
@@ -221,92 +290,9 @@ func decryptCredential(secretKey, blob []byte) ([]byte, error) {
 	return secret, nil
 }
 
-// ActivateCredential decrypts the specified credential using key.
-// This operation is synonymous with TPM2_ActivateCredential for TPM2.0
-// and TPM_ActivateIdentity with the trousers daemon for TPM1.2.
-func (k *Key) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error) {
-	if k.TPMVersion != tpm.version {
-		return nil, fmt.Errorf("tpm and key version mismatch")
-	}
-
-	switch tpm.version {
-	case TPMVersion12:
-		secretKey, err := tpm.pcp.ActivateCredential(k.hnd, in.Credential)
-		if err != nil {
-			return nil, err
-		}
-		return decryptCredential(secretKey, in.Secret)
-	case TPMVersion20:
-		return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
-	default:
-		return nil, fmt.Errorf("invalid TPM version: %v", tpm.version)
-	}
-}
-
-func (k *Key) quote12(tpm io.ReadWriter, hnd tpmutil.Handle, nonce []byte) (*Quote, error) {
-	selectedPCRs := make([]int, 24)
-	for pcr, _ := range selectedPCRs {
-		selectedPCRs[pcr] = pcr
-	}
-
-	sig, pcrc, err := tpm1.Quote(tpm, hnd, nonce, selectedPCRs[:], wellKnownAuth[:])
-	if err != nil {
-		return nil, fmt.Errorf("Quote() failed: %v", err)
-	}
-	// Construct and return TPM_QUOTE_INFO
-	// Returning TPM_QUOTE_INFO allows us to verify the Quote at a higher resolution
-	// and matches what go-tspi returns.
-	quote, err := tpm1.NewQuoteInfo(nonce, selectedPCRs[:], pcrc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct Quote Info: %v", err)
-	}
-	return &Quote{
-		Quote:     quote,
-		Signature: sig,
-	}, nil
-}
-
-// Quote returns a quote over the platform state, signed by the key.
-func (k *Key) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
-	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
-	if err != nil {
-		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
-	}
-
-	switch t.version {
-	case TPMVersion12:
-		tpm, err := t.pcp.TPMCommandInterface()
-		if err != nil {
-			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-		}
-		return k.quote12(tpm, tpmKeyHnd, nonce)
-
-	case TPMVersion20:
-		tpm, err := t.pcp.TPMCommandInterface()
-		if err != nil {
-			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-		}
-		return quote20(tpm, tpmKeyHnd, alg, nonce)
-
-	default:
-		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
-	}
-}
-
-// Close frees any resources associated with the key.
-func (k *Key) Close(tpm *TPM) error {
-	return closeNCryptObject(k.hnd)
-}
-
-// Delete permenantly removes the key from the system. This method
-// invalidates Key and any further method invocations are invalid.
-func (k *Key) Delete(tpm *TPM) error {
-	return tpm.pcp.DeleteKey(k.hnd)
-}
-
 // MintAIK creates a persistent attestation key. The returned key must be
 // closed with a call to key.Close() when the caller has finished using it.
-func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
+func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 	nameHex := make([]byte, 5)
 	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
 		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
@@ -323,42 +309,71 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 		return nil, fmt.Errorf("pcp failed to read attestation key properties: %v", err)
 	}
 
-	return &Key{
-		hnd:               kh,
-		KeyEncoding:       KeyEncodingOSManaged,
-		TPMVersion:        t.version,
-		Purpose:           AttestationKey,
-		PCPKeyName:        name,
-		Public:            props.RawPublic,
-		CreateData:        props.RawCreationData,
-		CreateAttestation: props.RawAttest,
-		CreateSignature:   props.RawSignature,
-	}, nil
+	switch t.version {
+	case TPMVersion12:
+		return &AIK{
+			aik: &key12{
+				hnd:        kh,
+				pcpKeyName: name,
+				public:     props.RawPublic,
+			},
+		}, nil
+
+	case TPMVersion20:
+		return &AIK{
+			aik: &key20{
+				hnd:               kh,
+				pcpKeyName:        name,
+				public:            props.RawPublic,
+				createData:        props.RawCreationData,
+				createAttestation: props.RawAttest,
+				createSignature:   props.RawSignature,
+			},
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
+	}
 }
 
-// LoadKey loads a previously-created key into the TPM for use.
-// A key loaded via this function needs to be closed with .Close().
-func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
-	var k Key
-	var err error
-	if err = json.Unmarshal(opaqueBlob, &k); err != nil {
-		return nil, fmt.Errorf("Unmarshal failed: %v", err)
+func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
+	sKey, err := deserializeKey(opaqueBlob, t.version)
+	if err != nil {
+		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
+	}
+	if sKey.Encoding != keyEncodingOSManaged {
+		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
 
-	if k.TPMVersion != t.version {
-		return nil, errors.New("key TPM version does not match opened TPM")
-	}
-	if k.KeyEncoding != KeyEncodingOSManaged {
-		return nil, fmt.Errorf("unsupported key encoding: %x", k.KeyEncoding)
-	}
-	if k.Purpose != AttestationKey {
-		return nil, fmt.Errorf("unsupported key kind: %x", k.Purpose)
-	}
-
-	if k.hnd, err = t.pcp.LoadKeyByName(k.PCPKeyName); err != nil {
+	hnd, err := t.pcp.LoadKeyByName(sKey.Name)
+	if err != nil {
 		return nil, fmt.Errorf("pcp failed to load key: %v", err)
 	}
-	return &k, nil
+
+	switch t.version {
+	case TPMVersion12:
+		return &AIK{
+			aik: &key12{
+				hnd:        hnd,
+				pcpKeyName: sKey.Name,
+				public:     sKey.Public,
+			},
+		}, nil
+	case TPMVersion20:
+		return &AIK{
+			aik: &key20{
+				hnd:               hnd,
+				pcpKeyName:        sKey.Name,
+				public:            sKey.Public,
+				createData:        sKey.CreateData,
+				createAttestation: sKey.CreateAttestation,
+				createSignature:   sKey.CreateSignature,
+			},
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
+	}
 }
 
 func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {

@@ -56,24 +56,26 @@ func (v *EKVerifier) VerifyEKCert(certBytes []byte) (*pb.EkcertVerificationResul
 }
 
 // NewEKVerifier returns an EKVerifier initialized using the certificates in the specified
-// directory. Directories are resolved recursively.
+// directories. Directories are resolved recursively.
 // The specified directory should be structured in the forms:
 // <XXXX>/RootCA/<cert>.{der,cer,crt)
 // <XXXX>/IntermediateCA/<cert>.{der,cer,crt)
-func NewEKVerifier(certsPath string) (*EKVerifier, error) {
+func NewEKVerifier(certsPath []string) (*EKVerifier, error) {
 	roots := x509.NewCertPool()
 	intermediates := x509.NewCertPool()
 
-	root, err := ioutil.ReadDir(certsPath)
-	if err != nil {
-		return nil, err
-	}
-	for _, f := range root {
-		if !f.IsDir() {
-			continue
-		}
-		if err := readCertificates(filepath.Join(certsPath, f.Name()), roots, intermediates); err != nil {
+	for _, dir := range certsPath {
+		root, err := ioutil.ReadDir(dir)
+		if err != nil {
 			return nil, err
+		}
+		for _, f := range root {
+			if !f.IsDir() {
+				continue
+			}
+			if err := readCertificates(filepath.Join(dir, f.Name()), roots, intermediates); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -85,11 +87,13 @@ func NewEKVerifier(certsPath string) (*EKVerifier, error) {
 
 func readCertificates(dir string, roots, intermediates *x509.CertPool) error {
 	rootFiles, err := ioutil.ReadDir(filepath.Join(dir, "RootCA"))
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := parseCertsToPool(filepath.Join(dir, "RootCA"), rootFiles, roots); err != nil {
-		return err
+	if err == nil {
+		if err := parseCertsToPool(filepath.Join(dir, "RootCA"), rootFiles, roots); err != nil {
+			return err
+		}
 	}
 	intermediateFiles, err := ioutil.ReadDir(filepath.Join(dir, "IntermediateCA"))
 	if err != nil {

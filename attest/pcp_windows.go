@@ -395,11 +395,11 @@ func (h *winPCP) EKCerts() ([]*x509.Certificate, error) {
 	// Reading the certificate from the system store has failed.
 	// Lets try reading the raw bytes directly from NVRAM instead.
 	if len(c) == 0 {
-		buf, err := getNCryptBufferProperty(h.hProv, "PCP_EKNVCERT")
+		certs, err := getPCPCerts(h.hProv, "PCP_EKNVCERT")
 		if err != nil {
 			return nil, fmt.Errorf("Failed to read PCP_EKNVCERT: %v", err)
 		}
-		c = append(c, buf)
+		c = append(c, certs...)
 	}
 
 	var out []*x509.Certificate
@@ -509,6 +509,11 @@ func (h *winPCP) MintAIK(name string) (uintptr, error) {
 	}
 
 	return kh, nil
+}
+
+// EKPub returns a BCRYPT_RSA_BLOB structure representing the EK.
+func (h *winPCP) EKPub() ([]byte, error) {
+	return getNCryptBufferProperty(h.hProv, "PCP_EKPUB")
 }
 
 type aikProps struct {
