@@ -21,10 +21,16 @@ import (
 
 // serializedKey represents a loadable, TPM-backed key.
 type serializedKey struct {
-	Encoding   keyEncoding `json:"KeyEncoding"`
+	// Encoding describes the strategy by which the key should be
+	// loaded/unloaded.
+	Encoding keyEncoding `json:"KeyEncoding"`
+	// TPMVersion describes the version of the TPM which the key was generated
+	// on. deserializeKey() returns an error if it attempts to deserialize a key
+	// which is from a different TPM version to the currently opened TPM.
 	TPMVersion TPMVersion
 
-	// Public represents the public key, in a TPM-specific format.
+	// Public represents the public key, in a TPM-specific format. This
+	// field is populated on all platforms and TPM versions.
 	Public []byte
 	// The following fields are only valid for TPM 2.0 hardware, holding
 	// information returned as the result to a TPM2_CertifyCreation command.
@@ -34,9 +40,11 @@ type serializedKey struct {
 	CreateAttestation []byte
 	CreateSignature   []byte
 
-	// Name is only valid for KeyEncodingOSManaged.
+	// Name is only valid for KeyEncodingOSManaged, which is only used
+	// on Windows.
 	Name string
-	// Blob represents the key material for KeyEncodingEncrypted keys.
+	// Blob represents the key material for KeyEncodingEncrypted keys. This
+	// is only used on Linux.
 	Blob []byte `json:"KeyBlob"`
 }
 

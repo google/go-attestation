@@ -34,7 +34,7 @@ type key12 struct {
 // loaded at a later time using tpm.LoadKey().
 func (k *key12) Marshal() ([]byte, error) {
 	out := serializedKey{
-		Encoding:   KeyEncodingEncrypted,
+		Encoding:   keyEncodingEncrypted,
 		TPMVersion: TPMVersion12,
 		Blob:       k.blob,
 		Public:     k.public,
@@ -57,7 +57,7 @@ func (k *key12) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, erro
 }
 
 // Quote returns a quote over the platform state, signed by the key.
-func (k *key12) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
+func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	quote, rawSig, err := attestation.GetQuote(t.ctx, k.blob, nonce)
 	if err != nil {
 		return nil, fmt.Errorf("Quote() failed: %v", err)
@@ -73,8 +73,7 @@ func (k *key12) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) 
 // Parameters returns information about the AIK.
 func (k *key12) Parameters() AIKParameters {
 	return AIKParameters{
-		Version: TPMVersion12,
-		Public:  k.public,
+		Public: k.public,
 	}
 }
 
@@ -93,7 +92,7 @@ type key20 struct {
 // loaded at a later time using tpm.LoadKey().
 func (k *key20) Marshal() ([]byte, error) {
 	return (&serializedKey{
-		Encoding:   KeyEncodingEncrypted,
+		Encoding:   keyEncodingEncrypted,
 		TPMVersion: TPMVersion20,
 
 		Blob:              k.blob,
@@ -142,14 +141,13 @@ func (k *key20) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, erro
 }
 
 // Quote returns a quote over the platform state, signed by the key.
-func (k *key20) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
-	return quote20(t.rwc, k.hnd, alg, nonce)
+func (k *key20) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+	return quote20(t.rwc, k.hnd, tpm2.Algorithm(alg), nonce)
 }
 
 // Parameters returns information about the AIK.
 func (k *key20) Parameters() AIKParameters {
 	return AIKParameters{
-		Version:           TPMVersion20,
 		Public:            k.public,
 		CreateData:        k.createData,
 		CreateAttestation: k.createAttestation,

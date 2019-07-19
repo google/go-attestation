@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tspi/verification"
 )
 
@@ -136,7 +135,7 @@ func TestTPMQuote(t *testing.T) {
 		t.Fatalf("MintAIK failed: %v", err)
 	}
 
-	quote, err := aik.Quote(tpm, nonce, tpm2.AlgSHA1)
+	quote, err := aik.Quote(tpm, nonce, HashSHA1)
 	if err != nil {
 		t.Fatalf("Quote failed: %v", err)
 	}

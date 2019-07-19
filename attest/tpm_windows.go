@@ -102,6 +102,11 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 	}, nil
 }
 
+// Version returns the version of the TPM.
+func (t *TPM) Version() TPMVersion {
+	return t.version
+}
+
 // Close shuts down the connection to the TPM.
 func (t *TPM) Close() error {
 	return t.pcp.Close()
@@ -331,14 +336,12 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 	}
 }
 
-// LoadAIK loads a previously-created AIK into the TPM for use.
-// A key loaded via this function needs to be closed with .Close().
-func (t *TPM) LoadAIK(opaqueBlob []byte) (*AIK, error) {
+func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
 	}
-	if sKey.Encoding != KeyEncodingOSManaged {
+	if sKey.Encoding != keyEncodingOSManaged {
 		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
 

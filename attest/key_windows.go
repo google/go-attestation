@@ -34,7 +34,7 @@ type key12 struct {
 // loaded at a later time using tpm.LoadKey().
 func (k *key12) Marshal() ([]byte, error) {
 	out := serializedKey{
-		Encoding:   KeyEncodingOSManaged,
+		Encoding:   keyEncodingOSManaged,
 		TPMVersion: TPMVersion12,
 		Name:       k.pcpKeyName,
 		Public:     k.public,
@@ -53,7 +53,7 @@ func (k *key12) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, er
 }
 
 // Quote returns a quote over the platform state, signed by the key.
-func (k *key12) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
+func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
 	if err != nil {
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
@@ -94,8 +94,7 @@ func (k *key12) Close(tpm *TPM) error {
 // Parameters returns information about the AIK.
 func (k *key12) Parameters() AIKParameters {
 	return AIKParameters{
-		Version: TPMVersion12,
-		Public:  k.public,
+		Public: k.public,
 	}
 }
 
@@ -114,7 +113,7 @@ type key20 struct {
 // loaded at a later time using tpm.LoadKey().
 func (k *key20) Marshal() ([]byte, error) {
 	out := serializedKey{
-		Encoding:   KeyEncodingOSManaged,
+		Encoding:   keyEncodingOSManaged,
 		TPMVersion: TPMVersion20,
 		Name:       k.pcpKeyName,
 
@@ -133,7 +132,7 @@ func (k *key20) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, er
 }
 
 // Quote returns a quote over the platform state, signed by the key.
-func (k *key20) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
+func (k *key20) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
 	if err != nil {
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
@@ -143,7 +142,7 @@ func (k *key20) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) 
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 	}
-	return quote20(tpm, tpmKeyHnd, alg, nonce)
+	return quote20(tpm, tpmKeyHnd, tpm2.Algorithm(alg), nonce)
 }
 
 // Close frees any resources associated with the key.
@@ -160,7 +159,6 @@ func (k *key20) Delete(tpm *TPM) error {
 // Parameters returns information about the AIK.
 func (k *key20) Parameters() AIKParameters {
 	return AIKParameters{
-		Version:           TPMVersion20,
 		Public:            k.public,
 		CreateData:        k.createData,
 		CreateAttestation: k.createAttestation,

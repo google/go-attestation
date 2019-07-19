@@ -169,7 +169,7 @@ func TestSimTPM20Quote(t *testing.T) {
 	defer aik.Close(tpm)
 
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	quote, err := aik.Quote(tpm, nonce, tpm2.AlgSHA256)
+	quote, err := aik.Quote(tpm, nonce, HashSHA256)
 	if err != nil {
 		t.Fatalf("aik.Quote() failed: %v", err)
 	}
