@@ -17,6 +17,7 @@
 package attest
 
 import (
+	"crypto"
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
@@ -28,6 +29,25 @@ type key12 struct {
 	hnd        uintptr
 	pcpKeyName string
 	public     []byte
+
+	publicKey crypto.PublicKey
+}
+
+func newKey12(hnd uintptr, pcpKeyName string, public []byte) (aik, error) {
+	rsaPub, err := tpm1.UnmarshalPubRSAPublicKey(public)
+	if err != nil {
+		return nil, fmt.Errorf("parsing public key: %v", err)
+	}
+	return &key12{
+		hnd:        hnd,
+		pcpKeyName: pcpKeyName,
+		public:     public,
+		publicKey:  rsaPub,
+	}, nil
+}
+
+func (k *key12) Public() crypto.PublicKey {
+	return k.publicKey
 }
 
 // Marshal represents the key in a persistent format which may be
@@ -107,6 +127,32 @@ type key20 struct {
 	createData        []byte
 	createAttestation []byte
 	createSignature   []byte
+
+	publicKey crypto.PublicKey
+}
+
+func newKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) (aik, error) {
+	pub, err := tpm2.DecodePublic(public)
+	if err != nil {
+		return nil, fmt.Errorf("parsing TPM public key structure: %v", err)
+	}
+	pubKey, err := pub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("parsing public key: %v", err)
+	}
+	return &key20{
+		hnd:               hnd,
+		pcpKeyName:        pcpKeyName,
+		public:            public,
+		createData:        createData,
+		createAttestation: createAttest,
+		createSignature:   createSig,
+		publicKey:         pubKey,
+	}, nil
+}
+
+func (k *key20) Public() crypto.PublicKey {
+	return k.publicKey
 }
 
 // Marshal represents the key in a persistent format which may be

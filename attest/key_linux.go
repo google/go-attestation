@@ -17,8 +17,10 @@
 package attest
 
 import (
+	"crypto"
 	"fmt"
 
+	"github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 	"github.com/google/go-tspi/attestation"
@@ -28,6 +30,20 @@ import (
 type key12 struct {
 	blob   []byte
 	public []byte
+
+	publicKey crypto.PublicKey
+}
+
+func newKey12(blob, public []byte) (aik, error) {
+	rsaPub, err := tpm.UnmarshalPubRSAPublicKey(public)
+	if err != nil {
+		return nil, fmt.Errorf("parsing public key: %v", err)
+	}
+	return &key12{
+		blob:      blob,
+		public:    public,
+		publicKey: rsaPub,
+	}, nil
 }
 
 // Marshal represents the key in a persistent format which may be
@@ -70,6 +86,10 @@ func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	}, nil
 }
 
+func (k *key12) Public() crypto.PublicKey {
+	return k.publicKey
+}
+
 // Parameters returns information about the AIK.
 func (k *key12) Parameters() AIKParameters {
 	return AIKParameters{
@@ -86,6 +106,28 @@ type key20 struct {
 	createData        []byte
 	createAttestation []byte
 	createSignature   []byte
+
+	publicKey crypto.PublicKey
+}
+
+func newKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) (aik, error) {
+	pub, err := tpm2.DecodePublic(public)
+	if err != nil {
+		return nil, fmt.Errorf("parsing TPM public key structure: %v", err)
+	}
+	pubKey, err := pub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("parsing public key: %v", err)
+	}
+	return &key20{
+		hnd:               hnd,
+		blob:              blob,
+		public:            public,
+		createData:        createData,
+		createAttestation: createAttestation,
+		createSignature:   createSig,
+		publicKey:         pubKey,
+	}, nil
 }
 
 // Marshal represents the key in a persistent format which may be
@@ -153,4 +195,8 @@ func (k *key20) Parameters() AIKParameters {
 		CreateAttestation: k.createAttestation,
 		CreateSignature:   k.createSignature,
 	}
+}
+
+func (k *key20) Public() crypto.PublicKey {
+	return k.publicKey
 }
