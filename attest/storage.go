@@ -17,14 +17,11 @@ package attest
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 )
 
 // serializedKey represents a loadable, TPM-backed key.
 type serializedKey struct {
-	Encoding   KeyEncoding `json:"KeyEncoding"`
-	Purpose    KeyPurpose
-	Platform   string
+	Encoding   keyEncoding `json:"KeyEncoding"`
 	TPMVersion TPMVersion
 
 	// Public represents the public key, in a TPM-specific format.
@@ -46,7 +43,6 @@ type serializedKey struct {
 // Serialize represents the key in a persistent format which may be
 // loaded at a later time using deserializeKey().
 func (k *serializedKey) Serialize() ([]byte, error) {
-	k.Platform = runtime.GOOS
 	return json.Marshal(k)
 }
 
@@ -57,9 +53,6 @@ func deserializeKey(b []byte, version TPMVersion) (*serializedKey, error) {
 		return nil, fmt.Errorf("json.Unmarshal() failed: %v", err)
 	}
 
-	if k.Platform != "" && k.Platform != runtime.GOOS {
-		return nil, fmt.Errorf("key for different platform: %s", k.Platform)
-	}
 	if k.TPMVersion != version {
 		return nil, fmt.Errorf("key for different TPM version: %v", k.TPMVersion)
 	}

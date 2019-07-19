@@ -20,6 +20,7 @@ import (
 	"errors"
 
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/go-tpm/tpm2"
 )
 
 // TPMVersion is used to configure a preference in
@@ -52,12 +53,12 @@ type OpenConfig struct {
 	TPMVersion TPMVersion
 }
 
-// KeyEncoding indicates how an exported TPM key is represented.
-type KeyEncoding uint8
+// keyEncoding indicates how an exported TPM key is represented.
+type keyEncoding uint8
 
 // Key encodings
 const (
-	KeyEncodingInvalid KeyEncoding = iota
+	KeyEncodingInvalid keyEncoding = iota
 	// Managed by the OS but loadable by name.
 	KeyEncodingOSManaged
 	// Key fully represented but in encrypted form.
@@ -76,6 +77,49 @@ const (
 	AttestationKey KeyPurpose = iota
 	StorageKey
 )
+
+type aik interface {
+	Close(*TPM) error
+	Marshal() ([]byte, error)
+	ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error)
+	Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error)
+	Parameters() AIKParameters
+}
+
+// AIK represents a key which can be used for attestation.
+type AIK struct {
+	aik aik
+}
+
+// Close unloads the AIK from the system.
+func (k *AIK) Close(t *TPM) error {
+	return k.aik.Close(t)
+}
+
+// Marshal encodes the AIK in a format that can be reloaded with tpm.LoadAIK().
+// This method exists to allow consumers to store the key persistently and load
+// it as a later time. Users SHOULD NOT attempt to interpret or extract values
+// from this blob.
+func (k *AIK) Marshal() ([]byte, error) {
+	return k.aik.Marshal()
+}
+
+// ActivateCredential decrypts the specified credential using the key.
+// This operation is synonymous with TPM2_ActivateCredential.
+func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error) {
+	return k.aik.ActivateCredential(tpm, in)
+}
+
+// Quote returns a quote over the platform state, signed by the AIK.
+func (k *AIK) Quote(tpm *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
+	return k.aik.Quote(tpm, nonce, alg)
+}
+
+// Parameters returns information about the AIK, typically used to generate
+// a credential activation challenge.
+func (k *AIK) Parameters() AIKParameters {
+	return k.aik.Parameters()
+}
 
 // MintOptions encapsulates parameters for minting keys. This type is defined
 // now (despite being empty) for future interface compatibility.
@@ -109,6 +153,17 @@ type PCR struct {
 type PlatformEK struct {
 	Cert   *x509.Certificate
 	Public crypto.PublicKey
+}
+
+// AIKParameters describes information about an AIK. This information
+// is typically used to generate an activation challenge.
+type AIKParameters struct {
+	Version TPMVersion
+
+	Public            []byte
+	CreateData        []byte
+	CreateAttestation []byte
+	CreateSignature   []byte
 }
 
 var (

@@ -114,11 +114,8 @@ func TestMintAIK(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MintAIK failed: %v", err)
 	}
-
-	if aik.TPMVersion != TPMVersion12 {
-		t.Error("aik does not match expected format")
-	}
-	t.Logf("aik blob: %x\naik pubkey: %x\n", aik.KeyBlob, aik.Public)
+	k := aik.aik.(*key12)
+	t.Logf("aik blob: %x\naik pubkey: %x\n", k.blob, k.public)
 }
 
 func TestTPMQuote(t *testing.T) {
@@ -186,7 +183,7 @@ func TestTPMActivateCredential(t *testing.T) {
 	}
 	ekcert := chooseEKCertRaw(t, EKs)
 
-	challenge.Credential, challenge.Secret, err = verification.GenerateChallenge(ekcert, aik.Public, nonce)
+	challenge.Credential, challenge.Secret, err = verification.GenerateChallenge(ekcert, aik.aik.(*key12).public, nonce)
 	if err != nil {
 		t.Fatalf("GenerateChallenge failed: %v", err)
 	}

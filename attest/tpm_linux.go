@@ -261,137 +261,19 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 	}, nil
 }
 
-// Key represents a key bound to the TPM.
-type Key struct {
-	hnd        tpmutil.Handle
-	TPMVersion TPMVersion
-
-	KeyBlob           []byte // exclusive to TPM1.2
-	Public            []byte // used by both TPM1.2 and 2.0
-	CreateData        []byte
-	CreateAttestation []byte
-	CreateSignature   []byte
-}
-
-// Marshal represents the key in a persistent format which may be
-// loaded at a later time using tpm.LoadKey().
-func (k *Key) Marshal() ([]byte, error) {
-	return (&serializedKey{
-		Encoding:   KeyEncodingEncrypted,
-		Purpose:    AttestationKey,
-		TPMVersion: k.TPMVersion,
-
-		Blob:              k.KeyBlob,
-		Public:            k.Public,
-		CreateData:        k.CreateData,
-		CreateAttestation: k.CreateAttestation,
-		CreateSignature:   k.CreateSignature,
-	}).Serialize()
-}
-
-// Close frees any resources associated with the key.
-func (k *Key) Close(tpm *TPM) error {
-	switch tpm.version {
-	case TPMVersion12:
-		return nil
-	case TPMVersion20:
-		return tpm2.FlushContext(tpm.rwc, k.hnd)
-	default:
-		return fmt.Errorf("unsupported TPM version: %x", tpm.version)
-	}
-}
-
-// Delete is not yet supported on linux systems.
-func (k *Key) Delete(tpm *TPM) error {
-	return errors.New("key deletion is not yet supported on linux systems")
-}
-
-// ActivateCredential decrypts the specified credential using key.
-// This operation is synonymous with TPM2_ActivateCredential.
-func (k *Key) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, error) {
-	switch t.version {
-	case TPMVersion12:
-		cred, err := attestation.AIKChallengeResponse(t.ctx, k.KeyBlob, in.Credential, in.Secret)
-		if err != nil {
-			return nil, fmt.Errorf("failed to refresh aik: %v", err)
-		}
-		return cred, nil
-
-	case TPMVersion20:
-		ekHnd, _, err := t.getPrimaryKeyHandle(commonEkEquivalentHandle)
-		if err != nil {
-			return nil, err
-		}
-
-		sessHandle, _, err := tpm2.StartAuthSession(
-			t.rwc,
-			tpm2.HandleNull,  /*tpmKey*/
-			tpm2.HandleNull,  /*bindKey*/
-			make([]byte, 16), /*nonceCaller*/
-			nil,              /*secret*/
-			tpm2.SessionPolicy,
-			tpm2.AlgNull,
-			tpm2.AlgSHA256)
-		if err != nil {
-			return nil, fmt.Errorf("creating session: %v", err)
-		}
-		defer tpm2.FlushContext(t.rwc, sessHandle)
-
-		if _, err := tpm2.PolicySecret(t.rwc, tpm2.HandleEndorsement, tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}, sessHandle, nil, nil, nil, 0); err != nil {
-			return nil, fmt.Errorf("tpm2.PolicySecret() failed: %v", err)
-		}
-
-		return tpm2.ActivateCredentialUsingAuth(t.rwc, []tpm2.AuthCommand{
-			{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
-			{Session: sessHandle, Attributes: tpm2.AttrContinueSession},
-		}, k.hnd, ekHnd, in.Credential[2:], in.Secret[2:])
-
-	default:
-		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
-
-	}
-}
-
-func (k *Key) quote12(ctx *tspi.Context, nonce []byte) (*Quote, error) {
-	quote, rawSig, err := attestation.GetQuote(ctx, k.KeyBlob, nonce)
-	if err != nil {
-		return nil, fmt.Errorf("GetQuote() failed: %v", err)
-	}
-
-	return &Quote{
-		Version:   TPMVersion12,
-		Quote:     quote,
-		Signature: rawSig,
-	}, nil
-}
-
-// Quote returns a quote over the platform state, signed by the key.
-func (k *Key) Quote(t *TPM, nonce []byte, alg tpm2.Algorithm) (*Quote, error) {
-	switch t.version {
-	case TPMVersion12:
-		return k.quote12(t.ctx, nonce)
-
-	case TPMVersion20:
-		return quote20(t.rwc, k.hnd, alg, nonce)
-
-	default:
-		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
-	}
-}
-
 // MintAIK creates an attestation key.
-func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
+func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 	switch t.version {
 	case TPMVersion12:
 		pub, blob, err := attestation.CreateAIK(t.ctx)
 		if err != nil {
 			return nil, fmt.Errorf("CreateAIK failed: %v", err)
 		}
-
-		return &Key{
-			TPMVersion: t.version,
-			KeyBlob:    blob,
-			Public:     pub,
+		return &AIK{
+			aik: &key12{
+				blob:   blob,
+				public: pub,
+			},
 		}, nil
 
 	case TPMVersion20:
@@ -403,11 +285,11 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 
 		_, blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", aikTemplate)
 		if err != nil {
-			return nil, fmt.Errorf("CreateKeyEx failed: %v", err)
+			return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
 		}
 		keyHandle, _, err := tpm2.Load(t.rwc, srk, "", pub, blob)
 		if err != nil {
-			return nil, fmt.Errorf("Load failed: %v", err)
+			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
 		// If any errors occur, free the AIK's handle.
 		defer func() {
@@ -427,14 +309,15 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 		}
 
-		return &Key{
-			hnd:               keyHandle,
-			TPMVersion:        t.version,
-			KeyBlob:           blob,
-			Public:            pub,
-			CreateData:        creationData,
-			CreateAttestation: attestation,
-			CreateSignature:   signature,
+		return &AIK{
+			aik: &key20{
+				hnd:               keyHandle,
+				blob:              blob,
+				public:            pub,
+				createData:        creationData,
+				createAttestation: attestation,
+				createSignature:   signature,
+			},
 		}, nil
 
 	default:
@@ -442,45 +325,48 @@ func (t *TPM) MintAIK(opts *MintOptions) (*Key, error) {
 	}
 }
 
-// LoadKey loads a previously-created key into the TPM for use.
+// LoadAIK loads a previously-created aik into the TPM for use.
 // A key loaded via this function needs to be closed with .Close().
-func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
+func (t *TPM) LoadAIK(opaqueBlob []byte) (*AIK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
-	}
-
-	if sKey.Purpose != AttestationKey {
-		return nil, fmt.Errorf("unsupported key purpose: %x", sKey.Purpose)
 	}
 	if sKey.Encoding != KeyEncodingEncrypted {
 		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
 
-	k := Key{
-		TPMVersion:        sKey.TPMVersion,
-		KeyBlob:           sKey.Blob,
-		Public:            sKey.Public,
-		CreateData:        sKey.CreateData,
-		CreateAttestation: sKey.CreateAttestation,
-		CreateSignature:   sKey.CreateSignature,
-	}
-
-	switch t.version {
+	switch sKey.TPMVersion {
 	case TPMVersion12:
+		return &AIK{
+			aik: &key12{
+				blob:   sKey.Blob,
+				public: sKey.Public,
+			},
+		}, nil
 	case TPMVersion20:
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 		}
-		if k.hnd, _, err = tpm2.Load(t.rwc, srk, "", k.Public, k.KeyBlob); err != nil {
+		var hnd tpmutil.Handle
+		if hnd, _, err = tpm2.Load(t.rwc, srk, "", sKey.Public, sKey.Blob); err != nil {
 			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
-	default:
-		return nil, fmt.Errorf("unknown TPM version: %v", t.version)
-	}
 
-	return &k, nil
+		return &AIK{
+			aik: &key20{
+				hnd:               hnd,
+				blob:              sKey.Blob,
+				public:            sKey.Public,
+				createData:        sKey.CreateData,
+				createAttestation: sKey.CreateAttestation,
+				createSignature:   sKey.CreateSignature,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("cannot load AIK with TPM version: %v", sKey.TPMVersion)
+	}
 }
 
 // allPCRs12 returns a map of all the PCR values on the TPM
