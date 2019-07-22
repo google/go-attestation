@@ -100,6 +100,7 @@ type aik interface {
 	ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error)
 	Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error)
 	Parameters() AIKParameters
+	Public() crypto.PublicKey
 }
 
 // AIK represents a key which can be used for attestation.
@@ -135,6 +136,11 @@ func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 // a credential activation challenge.
 func (k *AIK) Parameters() AIKParameters {
 	return k.aik.Parameters()
+}
+
+// Public returns the public part of the AIK.
+func (k *AIK) Public() crypto.PublicKey {
+	return k.aik.Public()
 }
 
 // MintOptions encapsulates parameters for minting keys. This type is defined

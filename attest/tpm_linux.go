@@ -274,13 +274,11 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("CreateAIK failed: %v", err)
 		}
-		return &AIK{
-			aik: &key12{
-				blob:   blob,
-				public: pub,
-			},
-		}, nil
-
+		aik, err := newKey12(blob, pub)
+		if err != nil {
+			return nil, fmt.Errorf("")
+		}
+		return &AIK{aik: aik}, nil
 	case TPMVersion20:
 		// TODO(jsonp): Abstract choice of hierarchy & parent.
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
@@ -314,17 +312,11 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 		}
 
-		return &AIK{
-			aik: &key20{
-				hnd:               keyHandle,
-				blob:              blob,
-				public:            pub,
-				createData:        creationData,
-				createAttestation: attestation,
-				createSignature:   signature,
-			},
-		}, nil
-
+		aik, err := newKey20(keyHandle, blob, pub, creationData, attestation, signature)
+		if err != nil {
+			return nil, fmt.Errorf("unpacking public key: %v", err)
+		}
+		return &AIK{aik: aik}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -341,12 +333,11 @@ func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 
 	switch sKey.TPMVersion {
 	case TPMVersion12:
-		return &AIK{
-			aik: &key12{
-				blob:   sKey.Blob,
-				public: sKey.Public,
-			},
-		}, nil
+		aik, err := newKey12(sKey.Blob, sKey.Public)
+		if err != nil {
+			return nil, fmt.Errorf("unpacking aik: %v", err)
+		}
+		return &AIK{aik: aik}, nil
 	case TPMVersion20:
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
@@ -357,16 +348,11 @@ func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
 
-		return &AIK{
-			aik: &key20{
-				hnd:               hnd,
-				blob:              sKey.Blob,
-				public:            sKey.Public,
-				createData:        sKey.CreateData,
-				createAttestation: sKey.CreateAttestation,
-				createSignature:   sKey.CreateSignature,
-			},
-		}, nil
+		aik, err := newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)
+		if err != nil {
+			return nil, fmt.Errorf("unpacking aik: %v", err)
+		}
+		return &AIK{aik: aik}, nil
 	default:
 		return nil, fmt.Errorf("cannot load AIK with TPM version: %v", sKey.TPMVersion)
 	}
