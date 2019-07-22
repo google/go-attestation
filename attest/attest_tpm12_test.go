@@ -20,9 +20,6 @@ import (
 	"flag"
 	"sort"
 	"testing"
-
-	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/go-tspi/verification"
 )
 
 var (
@@ -143,27 +140,10 @@ func TestTPMQuote(t *testing.T) {
 	t.Logf("Quote{version: %v, quote: %x, signature: %x}\n", quote.Version, quote.Quote, quote.Signature)
 }
 
-// chooseEKCertRaw selects the EK cert which will be activated against.
-func chooseEKCertRaw(t *testing.T, eks []PlatformEK) []byte {
-	t.Helper()
-
-	for _, ek := range eks {
-		if ek.Cert != nil && ek.Cert.PublicKeyAlgorithm == x509.RSA || ek.Cert.PublicKeyAlgorithm == x509.RSAESOAEP {
-			return ek.Cert.Raw
-		}
-	}
-
-	t.Skip("No suitable RSA EK found")
-	return nil
-}
-
 func TestTPMActivateCredential(t *testing.T) {
 	if !*testTPM12 {
 		t.SkipNow()
 	}
-	var challenge EncryptedCredential
-	nonce := make([]byte, 20)
-	rand.Read(nonce)
 
 	tpm, err := OpenTPM(tpm12config)
 	if err != nil {
@@ -180,20 +160,25 @@ func TestTPMActivateCredential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read EKs: %v", err)
 	}
-	ekcert := chooseEKCertRaw(t, EKs)
+	ek := chooseEKPub(t, EKs)
 
-	challenge.Credential, challenge.Secret, err = verification.GenerateChallenge(ekcert, aik.aik.(*key12).public, nonce)
+	ap := ActivationParameters{
+		TPMVersion: TPMVersion12,
+		AIK:        aik.AttestationParameters(),
+		EK:         ek,
+	}
+	secret, challenge, err := ap.Generate()
 	if err != nil {
-		t.Fatalf("GenerateChallenge failed: %v", err)
+		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	validation, err := aik.ActivateCredential(tpm, challenge)
+	validation, err := aik.ActivateCredential(tpm, *challenge)
 	if err != nil {
 		t.Fatalf("ActivateCredential failed: %v", err)
 	}
 
-	if !bytes.Equal(validation, nonce) {
-		t.Errorf("secret mismatch: expected %x, got %x", nonce, validation)
+	if !bytes.Equal(validation, secret) {
+		t.Errorf("secret mismatch: expected %x, got %x", secret, validation)
 	}
 
 	t.Logf("validation: %x", validation)

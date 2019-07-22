@@ -1,21 +1,33 @@
-// Package activation verifies AIK parameters & the binding between AIKs & EKs.
-package activation
+package attest
 
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
 
-	"github.com/google/go-attestation/attest"
 	tpm1 "github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
+
+	// TODO(jsonp): Move activation generation code to internal package.
+	"github.com/google/go-tpm/tpm2/credactivation"
+	"github.com/google/go-tspi/verification"
 )
 
 const (
-	minRSABits          = 2048
+	// minRSABits is the minimum accepted bit size of an RSA key.
+	minRSABits = 2048
+	// activationSecretLen is the size in bytes of the generated secret
+	// which is generated for credential activation.
+	activationSecretLen = 32
+	// symBlockSize is the block size used for symmetric ciphers used
+	// when generating the credential activation challenge.
+	symBlockSize = 16
+	// tpm20GeneratedMagic is a magic tag when can only be present on a
+	// TPM structure if the structure was generated wholly by the TPM.
 	tpm20GeneratedMagic = 0xff544347
 )
 
@@ -34,10 +46,10 @@ func cryptoHash(h tpm2.Algorithm) (crypto.Hash, error) {
 	}
 }
 
-// Parameters encapsulates the inputs for activating an AIK.
-type Parameters struct {
+// ActivationParameters encapsulates the inputs for activating an AIK.
+type ActivationParameters struct {
 	// TPMVersion holds the version of the TPM, either 1.2 or 2.0.
-	TPMVersion attest.TPMVersion
+	TPMVersion TPMVersion
 
 	// EK, the endorsement key, describes an asymmetric key who's
 	// private key is permenantly bound to the TPM.
@@ -53,46 +65,34 @@ type Parameters struct {
 	// structures.
 	// The values from this structure can be obtained by calling
 	// Parameters() on an attest.AIK.
-	AIK attest.AIKParameters
+	AIK AttestationParameters
 
 	// Rand is a source of randomness to generate a seed and secret for the
 	// challenge.
 	//
 	// If nil, this defaults to crypto.Rand.
 	Rand io.Reader
-
-	// InsecureSkipROCACheck disables the check for ROCA vulnerable private keys.
-	// If false & the key is vulnerable, calls to Generate() will return an error.
-	InsecureSkipROCACheck bool
-
-	// InsecureSkipParametersCheck disables the check for non-exportable key
-	// usage & acceptable key sizes. If false & the key has any of these issues,
-	// calls to Generate() will return an error.
-	InsecureSkipParametersCheck bool
-}
-
-// ROCAVulnerable returns true if the key is vulnerable to ROCA.
-func (p *Parameters) ROCAVulnerable() bool {
-	return true
 }
 
 // checkAIKParameters examines properties of an AIK and a creation
 // attestation, to determine if it is suitable for use as an attestation key.
-func (p *Parameters) checkAIKParameters() error {
+func (p *ActivationParameters) checkAIKParameters() error {
 	switch p.TPMVersion {
-	case attest.TPMVersion12:
+	case TPMVersion12:
 		return p.checkTPM12AIKParameters()
 
-	case attest.TPMVersion20:
+	case TPMVersion20:
 		return p.checkTPM20AIKParameters()
 
 	default:
 		return fmt.Errorf("TPM version %d not supported", p.TPMVersion)
 	}
-	panic("unreachable")
 }
 
-func (p *Parameters) checkTPM12AIKParameters() error {
+func (p *ActivationParameters) checkTPM12AIKParameters() error {
+	// TODO(jsonp): Implement helper to parse public blobs, ie:
+	//   func ParsePublic(publicBlob []byte) (crypto.Public, error)
+
 	pub, err := tpm1.UnmarshalPubRSAPublicKey(p.AIK.Public)
 	if err != nil {
 		return fmt.Errorf("unmarshalling public key: %v", err)
@@ -103,27 +103,28 @@ func (p *Parameters) checkTPM12AIKParameters() error {
 	return nil
 }
 
-func (p *Parameters) checkTPM20AIKParameters() error {
+func (p *ActivationParameters) checkTPM20AIKParameters() error {
 	if len(p.AIK.CreateSignature) < 8 {
 		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.AIK.CreateSignature))
 	}
 
 	pub, err := tpm2.DecodePublic(p.AIK.Public)
 	if err != nil {
-		return err
+		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
 	_, err = tpm2.DecodeCreationData(p.AIK.CreateData)
 	if err != nil {
-		return err
+		return fmt.Errorf("DecodeCreationData() failed: %v", err)
 	}
 	att, err := tpm2.DecodeAttestationData(p.AIK.CreateAttestation)
 	if err != nil {
-		return err
+		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
 	if att.Type != tpm2.TagAttestCreation {
 		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
 	}
 
+	// TODO: Support ECC AIKs.
 	switch pub.Type {
 	case tpm2.AlgRSA:
 		if pub.RSAParameters.KeyBits < minRSABits {
@@ -137,7 +138,7 @@ func (p *Parameters) checkTPM20AIKParameters() error {
 	// attestation structure.
 	nameHashConstructor, err := pub.NameAlg.HashConstructor()
 	if err != nil {
-		return err
+		return fmt.Errorf("HashConstructor() failed: %v", err)
 	}
 	h := nameHashConstructor()
 	h.Write(p.AIK.CreateData)
@@ -185,8 +186,17 @@ func (p *Parameters) checkTPM20AIKParameters() error {
 	if err != nil {
 		return err
 	}
-	//TODO(jsonp): Decode to tpm2.Signature & use that, once PR to expose DecodeSignature() is in.
-	if err := rsa.VerifyPKCS1v15(&pk, verifyHash, hsh.Sum(nil), p.AIK.CreateSignature[6:]); err != nil {
+
+	if len(p.AIK.CreateSignature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.AIK.CreateSignature))
+	}
+
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AIK.CreateSignature))
+	if err != nil {
+		return fmt.Errorf("DecodeSignature() failed: %v", err)
+	}
+
+	if err := rsa.VerifyPKCS1v15(&pk, verifyHash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
 		return fmt.Errorf("could not verify attestation: %v", err)
 	}
 
@@ -196,12 +206,75 @@ func (p *Parameters) checkTPM20AIKParameters() error {
 // Generate returns a credential activation challenge, which can be provided
 // to the TPM to verify the AIK parameters given are authentic & the AIK
 // is present on the same TPM as the EK.
-func (p *Parameters) Generate() (secret []byte, ec *attest.EncryptedCredential, err error) {
-	if !p.InsecureSkipParametersCheck {
-		if err := p.checkAIKParameters(); err != nil {
-			return nil, nil, err
-		}
+func (p *ActivationParameters) Generate() (secret []byte, ec *EncryptedCredential, err error) {
+	if err := p.checkAIKParameters(); err != nil {
+		return nil, nil, err
 	}
 
-	return nil, nil, nil
+	if p.EK == nil {
+		return nil, nil, errors.New("no EK provided")
+	}
+
+	rnd, secret := p.Rand, make([]byte, activationSecretLen)
+	if rnd == nil {
+		rnd = rand.Reader
+	}
+	if _, err = io.ReadFull(rnd, secret); err != nil {
+		return nil, nil, fmt.Errorf("error generating activation secret: %v", err)
+	}
+
+	switch p.TPMVersion {
+	case TPMVersion12:
+		ec, err = p.generateChallengeTPM12(secret)
+	case TPMVersion20:
+		ec, err = p.generateChallengeTPM20(secret)
+	default:
+		return nil, nil, fmt.Errorf("unrecognised TPM version: %v", p.TPMVersion)
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+	return secret, ec, nil
+}
+
+func (p *ActivationParameters) generateChallengeTPM20(secret []byte) (*EncryptedCredential, error) {
+	att, err := tpm2.DecodeAttestationData(p.AIK.CreateAttestation)
+	if err != nil {
+		return nil, fmt.Errorf("DecodeAttestationData() failed: %v", err)
+	}
+	cred, encSecret, err := credactivation.Generate(att.AttestedCreationInfo.Name.Digest, p.EK, symBlockSize, secret)
+	if err != nil {
+		return nil, fmt.Errorf("credactivation.Generate() failed: %v", err)
+	}
+
+	return &EncryptedCredential{
+		Credential: cred,
+		Secret:     encSecret,
+	}, nil
+}
+
+func (p *ActivationParameters) generateChallengeTPM12(secret []byte) (*EncryptedCredential, error) {
+	pk, ok := p.EK.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("got EK of type %T, want an RSA key", p.EK)
+	}
+
+	var (
+		cred, encSecret []byte
+		err             error
+	)
+	if p.AIK.UseTCSDActivationFormat {
+		cred, encSecret, err = verification.GenerateChallengeEx(pk, p.AIK.Public, secret)
+	} else {
+		cred, encSecret, err = generateChallenge12(pk, p.AIK.Public, secret)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("challenge generation failed: %v", err)
+	}
+	return &EncryptedCredential{
+		Credential: cred,
+		Secret:     encSecret,
+	}, nil
 }
