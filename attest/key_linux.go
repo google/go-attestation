@@ -90,10 +90,11 @@ func (k *key12) Public() crypto.PublicKey {
 	return k.publicKey
 }
 
-// Parameters returns information about the AIK.
-func (k *key12) Parameters() AIKParameters {
-	return AIKParameters{
-		Public: k.public,
+// AttestationParameters returns information about the AIK.
+func (k *key12) AttestationParameters() AttestationParameters {
+	return AttestationParameters{
+		Public:                  k.public,
+		UseTCSDActivationFormat: true,
 	}
 }
 
@@ -187,9 +188,9 @@ func (k *key20) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	return quote20(t.rwc, k.hnd, tpm2.Algorithm(alg), nonce)
 }
 
-// Parameters returns information about the AIK.
-func (k *key20) Parameters() AIKParameters {
-	return AIKParameters{
+// AttestationParameters returns information about the AIK.
+func (k *key20) AttestationParameters() AttestationParameters {
+	return AttestationParameters{
 		Public:            k.public,
 		CreateData:        k.createData,
 		CreateAttestation: k.createAttestation,

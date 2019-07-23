@@ -286,7 +286,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 		}
 
-		_, blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", aikTemplate)
+		blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", aikTemplate)
 		if err != nil {
 			return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
 		}
