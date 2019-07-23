@@ -46,7 +46,7 @@ var (
 	aikTemplate = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
-		Attributes: tpm2.FlagSignerDefault | tpm2.FlagNoDA,
+		Attributes: tpm2.FlagSignerDefault,
 		RSAParameters: &tpm2.RSAParams{
 			Sign: &tpm2.SigScheme{
 				Alg:  tpm2.AlgRSASSA,
@@ -59,7 +59,7 @@ var (
 	defaultSRKTemplate = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
-		Attributes: tpm2.FlagStorageDefault,
+		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
 		RSAParameters: &tpm2.RSAParams{
 			Symmetric: &tpm2.SymScheme{
 				Alg:     tpm2.AlgAES,
