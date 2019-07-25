@@ -52,7 +52,6 @@ var (
 				Hash: tpm2.AlgSHA256,
 			},
 			KeyBits:    2048,
-			ModulusRaw: make([]byte, 256), // public.unique must be all zeros
 		},
 	}
 	defaultSRKTemplate = tpm2.Public{
@@ -66,7 +65,6 @@ var (
 				Mode:    tpm2.AlgCFB,
 			},
 			KeyBits:    2048,
-			ModulusRaw: make([]byte, 256), // public.unique must be all zeros
 		},
 	}
 	// Default EK template defined in:
