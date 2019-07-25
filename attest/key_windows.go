@@ -111,9 +111,9 @@ func (k *key12) Close(tpm *TPM) error {
 	return closeNCryptObject(k.hnd)
 }
 
-// Parameters returns information about the AIK.
-func (k *key12) Parameters() AIKParameters {
-	return AIKParameters{
+// AttestationParameters returns information about the AIK.
+func (k *key12) AttestationParameters() AttestationParameters {
+	return AttestationParameters{
 		Public: k.public,
 	}
 }
@@ -202,9 +202,9 @@ func (k *key20) Delete(tpm *TPM) error {
 	return tpm.pcp.DeleteKey(k.hnd)
 }
 
-// Parameters returns information about the AIK.
-func (k *key20) Parameters() AIKParameters {
-	return AIKParameters{
+// AttestationParameters returns information about the AIK.
+func (k *key20) AttestationParameters() AttestationParameters {
+	return AttestationParameters{
 		Public:            k.public,
 		CreateData:        k.createData,
 		CreateAttestation: k.createAttestation,

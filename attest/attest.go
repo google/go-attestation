@@ -99,7 +99,7 @@ type aik interface {
 	Marshal() ([]byte, error)
 	ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error)
 	Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error)
-	Parameters() AIKParameters
+	AttestationParameters() AttestationParameters
 	Public() crypto.PublicKey
 }
 
@@ -134,8 +134,8 @@ func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 
 // Parameters returns information about the AIK, typically used to generate
 // a credential activation challenge.
-func (k *AIK) Parameters() AIKParameters {
-	return k.aik.Parameters()
+func (k *AIK) AttestationParameters() AttestationParameters {
+	return k.aik.AttestationParameters()
 }
 
 // Public returns the public part of the AIK.
@@ -177,15 +177,20 @@ type PlatformEK struct {
 	Public crypto.PublicKey
 }
 
-// AIKParameters describes information about an AIK. This information
-// is typically used to generate an activation challenge.
-type AIKParameters struct {
+// AttestationParameters describes information about a key which is necessary
+// for verifying its properties remotely.
+type AttestationParameters struct {
 	// Public represents the public key in a TPM-version specific encoding.
 	// For TPM 2.0 devices, this is encoded as a TPMT_PUBLIC structure.
 	// For TPM 1.2 devices, this is a TPM_PUBKEY structure, as defined in
 	// the TPM Part 2 Structures specification, available at
 	// https://trustedcomputinggroup.org/wp-content/uploads/TPM-Main-Part-2-TPM-Structures_v1.2_rev116_01032011.pdf
 	Public []byte
+
+	// UseTCSDActivationFormat is set when tcsd (trousers daemon) is operating
+	// as an intermediary between this library and the TPM. A value of true
+	// indicates that activation challenges should use the TCSD-specific format.
+	UseTCSDActivationFormat bool
 
 	// Subsequent fields are only populated for AIKs generated on a TPM
 	// implementing version 2.0 of the specification. The specific structures

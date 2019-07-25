@@ -26,7 +26,6 @@ import (
 
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
-	"github.com/google/go-tpm/tpm2/credactivation"
 )
 
 func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
@@ -133,21 +132,17 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	}
 	ek := chooseEKPub(t, EKs)
 
-	att, err := tpm2.DecodeAttestationData(aik.aik.(*key20).createAttestation)
-	if err != nil {
-		t.Fatalf("tpm2.DecodeAttestationData() failed: %v", err)
+	ap := ActivationParameters{
+		TPMVersion: TPMVersion20,
+		AIK:        aik.AttestationParameters(),
+		EK:         ek,
 	}
-	secret := []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}
-
-	id, encSecret, err := credactivation.Generate(att.AttestedCreationInfo.Name.Digest, ek, 16, secret)
+	secret, challenge, err := ap.Generate()
 	if err != nil {
-		t.Fatalf("credactivation.Generate() failed: %v", err)
+		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	decryptedSecret, err := aik.ActivateCredential(tpm, EncryptedCredential{
-		Credential: id,
-		Secret:     encSecret,
-	})
+	decryptedSecret, err := aik.ActivateCredential(tpm, *challenge)
 	if err != nil {
 		t.Errorf("aik.ActivateCredential() failed: %v", err)
 	}
