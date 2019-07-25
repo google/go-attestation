@@ -175,7 +175,7 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 	}
 
 	// Check the signature over the attestation data verifies correctly.
-	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent), N: pub.RSAParameters.Modulus}
+	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
 	signHashConstructor, err := pub.RSAParameters.Sign.Hash.HashConstructor()
 	if err != nil {
 		return err
