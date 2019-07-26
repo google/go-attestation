@@ -253,7 +253,7 @@ func (t *TPM) EKs() ([]PlatformEK, error) {
 			}
 
 			return []PlatformEK{
-				{nil, &rsa.PublicKey{E: int(pub.RSAParameters.Exponent), N: pub.RSAParameters.Modulus}},
+				{nil, &rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}},
 			}, nil
 		}
 
