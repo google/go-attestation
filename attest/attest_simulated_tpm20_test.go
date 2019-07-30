@@ -153,6 +153,21 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	}
 }
 
+func TestParseAIKPublic20(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	aik, err := tpm.MintAIK(nil)
+	if err != nil {
+		t.Fatalf("MintAIK() failed: %v", err)
+	}
+	defer aik.Close(tpm)
+	params := aik.AttestationParameters()
+	if _, err := ParseAIKPublic(TPMVersion20, params.Public); err != nil {
+		t.Errorf("parsing AIK public blob: %v", err)
+	}
+}
+
 func TestSimTPM20Quote(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()

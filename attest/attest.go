@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
 )
 
@@ -100,7 +101,6 @@ type aik interface {
 	ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error)
 	Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error)
 	AttestationParameters() AttestationParameters
-	Public() crypto.PublicKey
 }
 
 // AIK represents a key which can be used for attestation.
@@ -136,11 +136,6 @@ func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 // a credential activation challenge.
 func (k *AIK) AttestationParameters() AttestationParameters {
 	return k.aik.AttestationParameters()
-}
-
-// Public returns the public part of the AIK.
-func (k *AIK) Public() crypto.PublicKey {
-	return k.aik.Public()
 }
 
 // MintOptions encapsulates parameters for minting keys. This type is defined
@@ -180,12 +175,16 @@ type PlatformEK struct {
 // AttestationParameters describes information about a key which is necessary
 // for verifying its properties remotely.
 type AttestationParameters struct {
-	// Public represents the public key in a TPM-version specific encoding.
-	// For TPM 2.0 devices, this is encoded as a TPMT_PUBLIC structure.
-	// For TPM 1.2 devices, this is a TPM_PUBKEY structure, as defined in
+	// Public represents the AIK's canonical encoding. This blob includes the
+	// public key, as well as signing parameters such as the hash algorithm
+	// used to generate quotes.
+	//
+	// Use ParseAIKPublic to access the key's data.
+	Public []byte
+	// For TPM 2.0 devices, Public is encoded as a TPMT_PUBLIC structure.
+	// For TPM 1.2 devices, Public is a TPM_PUBKEY structure, as defined in
 	// the TPM Part 2 Structures specification, available at
 	// https://trustedcomputinggroup.org/wp-content/uploads/TPM-Main-Part-2-TPM-Structures_v1.2_rev116_01032011.pdf
-	Public []byte
 
 	// UseTCSDActivationFormat is set when tcsd (trousers daemon) is operating
 	// as an intermediary between this library and the TPM. A value of true
@@ -207,6 +206,52 @@ type AttestationParameters struct {
 	// CreateSignature represents a signature of the CreateAttestation structure.
 	// It is encoded as a TPMT_SIGNATURE structure.
 	CreateSignature []byte
+}
+
+// AIKPublic holds structured information about an AIK's public key.
+type AIKPublic struct {
+	// Public is the public part of the AIK. This can either be an *rsa.PublicKey or
+	// and *ecdsa.PublicKey.
+	Public crypto.PublicKey
+	// Hash is the hashing algorithm the AIK will use when signing quotes.
+	Hash crypto.Hash
+}
+
+// ParseAIKPublic parses the Public blob from the AttestationParameters,
+// returning the public key and signing parameters for the key.
+func ParseAIKPublic(version TPMVersion, public []byte) (*AIKPublic, error) {
+	switch version {
+	case TPMVersion12:
+		rsaPub, err := tpm.UnmarshalPubRSAPublicKey(public)
+		if err != nil {
+			return nil, fmt.Errorf("parsing public key: %v", err)
+		}
+		return &AIKPublic{Public: rsaPub, Hash: crypto.SHA1}, nil
+	case TPMVersion20:
+		pub, err := tpm2.DecodePublic(public)
+		if err != nil {
+			return nil, fmt.Errorf("parsing TPM public key structure: %v", err)
+		}
+		pubKey, err := pub.Key()
+		if err != nil {
+			return nil, fmt.Errorf("parsing public key: %v", err)
+		}
+		var h crypto.Hash
+		switch pub.Type {
+		case tpm2.AlgRSA:
+			h, err = cryptoHash(pub.RSAParameters.Sign.Hash)
+		case tpm2.AlgECC:
+			h, err = cryptoHash(pub.ECCParameters.Sign.Hash)
+		default:
+			return nil, fmt.Errorf("unsupported public key type 0x%x", pub.Type)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("invalid public key hash: %v", err)
+		}
+		return &AIKPublic{Public: pubKey, Hash: h}, nil
+	default:
+		return nil, fmt.Errorf("unknown tpm version 0x%x", version)
+	}
 }
 
 // HashAlg identifies a hashing Algorithm.

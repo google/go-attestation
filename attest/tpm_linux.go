@@ -274,11 +274,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("CreateAIK failed: %v", err)
 		}
-		aik, err := newKey12(blob, pub)
-		if err != nil {
-			return nil, fmt.Errorf("")
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey12(blob, pub)}, nil
 	case TPMVersion20:
 		// TODO(jsonp): Abstract choice of hierarchy & parent.
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
@@ -311,12 +307,7 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 		}
-
-		aik, err := newKey20(keyHandle, blob, pub, creationData, attestation, signature)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking public key: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -333,11 +324,7 @@ func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 
 	switch sKey.TPMVersion {
 	case TPMVersion12:
-		aik, err := newKey12(sKey.Blob, sKey.Public)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking aik: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey12(sKey.Blob, sKey.Public)}, nil
 	case TPMVersion20:
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
@@ -347,12 +334,7 @@ func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 		if hnd, _, err = tpm2.Load(t.rwc, srk, "", sKey.Public, sKey.Blob); err != nil {
 			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
-
-		aik, err := newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking aik: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot load AIK with TPM version: %v", sKey.TPMVersion)
 	}

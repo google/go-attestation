@@ -27,7 +27,7 @@ var (
 	tpm12config = &OpenConfig{TPMVersion12}
 )
 
-func TestTPM12Info(t *testing.T) {
+func openTPM12(t *testing.T) *TPM {
 	if !*testTPM12 {
 		t.SkipNow()
 	}
@@ -35,6 +35,11 @@ func TestTPM12Info(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to open tpm 1.2: %v", err)
 	}
+	return tpm
+}
+
+func TestTPM12Info(t *testing.T) {
+	tpm := openTPM12(t)
 	defer tpm.Close()
 
 	Info, err := tpm.Info()
@@ -46,13 +51,7 @@ func TestTPM12Info(t *testing.T) {
 }
 
 func TestTPM12PCRs(t *testing.T) {
-	if !*testTPM12 {
-		t.SkipNow()
-	}
-	tpm, err := OpenTPM(tpm12config)
-	if err != nil {
-		t.Fatalf("Failed to open tpm 1.2: %v", err)
-	}
+	tpm := openTPM12(t)
 	defer tpm.Close()
 
 	PCRs, _, err := tpm.PCRs()
@@ -75,13 +74,7 @@ func TestTPM12PCRs(t *testing.T) {
 }
 
 func TestTPM12EKs(t *testing.T) {
-	if !*testTPM12 {
-		t.SkipNow()
-	}
-	tpm, err := OpenTPM(tpm12config)
-	if err != nil {
-		t.Fatalf("Failed to open tpm 1.2: %v", err)
-	}
+	tpm := openTPM12(t)
 	defer tpm.Close()
 
 	EKs, err := tpm.EKs()
@@ -97,13 +90,7 @@ func TestTPM12EKs(t *testing.T) {
 }
 
 func TestMintAIK(t *testing.T) {
-	if !*testTPM12 {
-		t.SkipNow()
-	}
-	tpm, err := OpenTPM(tpm12config)
-	if err != nil {
-		t.Fatalf("failed to open tpm 1.2: %v", err)
-	}
+	tpm := openTPM12(t)
 	defer tpm.Close()
 
 	aik, err := tpm.MintAIK(nil)
@@ -115,17 +102,13 @@ func TestMintAIK(t *testing.T) {
 }
 
 func TestTPMQuote(t *testing.T) {
-	if !*testTPM12 {
-		t.SkipNow()
-	}
-	nonce := make([]byte, 20)
-	rand.Read(nonce)
-
-	tpm, err := OpenTPM(tpm12config)
-	if err != nil {
-		t.Fatalf("Failed to open tpm 1.2: %v", err)
-	}
+	tpm := openTPM12(t)
 	defer tpm.Close()
+
+	nonce := make([]byte, 20)
+	if _, err := rand.Read(nonce); err != nil {
+		t.Fatalf("reading nonce: %v", err)
+	}
 
 	aik, err := tpm.MintAIK(nil)
 	if err != nil {
@@ -140,15 +123,23 @@ func TestTPMQuote(t *testing.T) {
 	t.Logf("Quote{version: %v, quote: %x, signature: %x}\n", quote.Version, quote.Quote, quote.Signature)
 }
 
-func TestTPMActivateCredential(t *testing.T) {
-	if !*testTPM12 {
-		t.SkipNow()
-	}
+func TestParseAIKPublic12(t *testing.T) {
+	tpm := openTPM12(t)
+	defer tpm.Close()
 
-	tpm, err := OpenTPM(tpm12config)
+	aik, err := tpm.MintAIK(nil)
 	if err != nil {
-		t.Fatalf("failed to open tpm 1.2: %v", err)
+		t.Fatalf("MintAIK() failed: %v", err)
 	}
+	defer aik.Close(tpm)
+	params := aik.AttestationParameters()
+	if _, err := ParseAIKPublic(TPMVersion12, params.Public); err != nil {
+		t.Errorf("parsing AIK public blob: %v", err)
+	}
+}
+
+func TestTPMActivateCredential(t *testing.T) {
+	tpm := openTPM12(t)
 	defer tpm.Close()
 
 	aik, err := tpm.MintAIK(nil)

@@ -311,17 +311,9 @@ func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		aik, err := newKey12(kh, name, props.RawPublic)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking aik: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey12(kh, name, props.RawPublic)}, nil
 	case TPMVersion20:
-		aik, err := newKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking aik: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
@@ -343,17 +335,9 @@ func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		aik, err := newKey12(hnd, sKey.Name, sKey.Public)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking aik: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey12(hnd, sKey.Name, sKey.Public)}, nil
 	case TPMVersion20:
-		aik, err := newKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)
-		if err != nil {
-			return nil, fmt.Errorf("unpacking aik: %v", err)
-		}
-		return &AIK{aik: aik}, nil
+		return &AIK{aik: newKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
