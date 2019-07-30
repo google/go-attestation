@@ -1,6 +1,8 @@
 Go-Attestation
 ==============
 
+[![GoDoc](https://godoc.org/github.com/google/go-attestation/attest?status.svg)](https://godoc.org/github.com/google/go-attestation/attest)
+
 Go-Attestation abstracts remote attestation operations across a variety of platforms
 and TPMs.
 
