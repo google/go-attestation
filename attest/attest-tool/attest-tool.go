@@ -65,7 +65,7 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			return err
 		}
-		return ioutil.WriteFile(*keyPath, b, 0755)
+		return ioutil.WriteFile(*keyPath, b, 0644)
 
 	case "quote":
 		b, err := ioutil.ReadFile(*keyPath)
