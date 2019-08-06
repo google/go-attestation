@@ -121,9 +121,11 @@ func (k *AIK) Marshal() ([]byte, error) {
 	return k.aik.Marshal()
 }
 
-// ActivateCredential decrypts the specified credential using the key.
+// ActivateCredential decrypts the secret using the key to prove that the AIK
+// was generated on the same TPM as the EK.
+//
 // This operation is synonymous with TPM2_ActivateCredential.
-func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error) {
+func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
 	return k.aik.ActivateCredential(tpm, in)
 }
 
