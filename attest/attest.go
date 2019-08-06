@@ -83,17 +83,6 @@ const (
 	keyEncodingParameterized
 )
 
-// KeyPurpose indicates the intended use of the key. It is implied that
-// the key was created with usage restrictions to constrain its use
-// to the given purpose.
-type KeyPurpose uint8
-
-// Key purposes.
-const (
-	AttestationKey KeyPurpose = iota
-	StorageKey
-)
-
 type aik interface {
 	Close(*TPM) error
 	Marshal() ([]byte, error)
