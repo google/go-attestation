@@ -16,7 +16,7 @@ package attest
 
 // TCGVendorID represents a unique TCG manufacturer code.
 // The canonical reference used is located at:
-// https://trustedcomputinggroup.org/wp-content/uploads/Vendor_ID_Registry_0-8_clean.pdf
+// https://trustedcomputinggroup.org/wp-content/uploads/TCG-TPM-Vendor-ID-Registry-Version-1.01-Revision-1.00.pdf
 type TCGVendorID uint32
 
 var vendors = map[TCGVendorID]string{
@@ -24,6 +24,8 @@ var vendors = map[TCGVendorID]string{
 	1096043852: "Atmel",
 	1112687437: "Broadcom",
 	1229081856: "IBM",
+	1213220096: "HPE",
+	1297303124: "Microsoft",
 	1229346816: "Infineon",
 	1229870147: "Intel",
 	1279610368: "Lenovo",
@@ -38,6 +40,7 @@ var vendors = map[TCGVendorID]string{
 	1415073280: "Texas Instruments",
 	1464156928: "Winbond",
 	1380926275: "Fuzhou Rockchip",
+	1196379975: "Google",
 }
 
 func (id TCGVendorID) String() string {
