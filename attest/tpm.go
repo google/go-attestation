@@ -30,8 +30,9 @@ import (
 )
 
 const (
-	tpmPtManufacturer = 0x00000100 + 5 // PT_FIXED + offset of 5
-	tpmPtVendorString = 0x00000100 + 6 // PT_FIXED + offset of 6
+	tpmPtManufacturer = 0x00000100 + 5  // PT_FIXED + offset of 5
+	tpmPtVendorString = 0x00000100 + 6  // PT_FIXED + offset of 6
+	tpmPtFwVersion1   = 0x00000100 + 11 // PT_FIXED + offset of 11
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities".
 	nvramCertIndex = 0x1c00002
@@ -95,7 +96,14 @@ var (
 	}
 )
 
-func readTPM2VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
+type tpm20Info struct {
+	vendor       string
+	manufacturer TCGVendorID
+	fwMajor      int
+	fwMinor      int
+}
+
+func readTPM2VendorAttributes(tpm io.ReadWriter) (tpm20Info, error) {
 	var vendorInfo string
 	// The Vendor String is split up into 4 sections of 4 bytes,
 	// for a maximum length of 16 octets of ASCII text. We iterate
@@ -104,11 +112,11 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 	for i := 0; i < 4; i++ {
 		caps, _, err := tpm2.GetCapability(tpm, tpm2.CapabilityTPMProperties, 1, tpmPtVendorString+uint32(i))
 		if err != nil {
-			return TCGVendorID(0), "", fmt.Errorf("tpm2.GetCapability(PT_VENDOR_STRING_%d) failed: %v", i+1, err)
+			return tpm20Info{}, fmt.Errorf("tpm2.GetCapability(PT_VENDOR_STRING_%d) failed: %v", i+1, err)
 		}
 		subset, ok := caps[0].(tpm2.TaggedProperty)
 		if !ok {
-			return TCGVendorID(0), "", fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
+			return tpm20Info{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
 		}
 		// Reconstruct the 4 ASCII octets from the uint32 value.
 		vendorInfo += string(subset.Value&0xFF000000) + string(subset.Value&0xFF0000) + string(subset.Value&0xFF00) + string(subset.Value&0xFF)
@@ -116,14 +124,28 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 
 	caps, _, err := tpm2.GetCapability(tpm, tpm2.CapabilityTPMProperties, 1, tpmPtManufacturer)
 	if err != nil {
-		return TCGVendorID(0), "", fmt.Errorf("tpm2.GetCapability(PT_MANUFACTURER) failed: %v", err)
+		return tpm20Info{}, fmt.Errorf("tpm2.GetCapability(PT_MANUFACTURER) failed: %v", err)
 	}
 	manu, ok := caps[0].(tpm2.TaggedProperty)
 	if !ok {
-		return TCGVendorID(0), "", fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
+		return tpm20Info{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
 	}
 
-	return TCGVendorID(manu.Value), strings.Trim(vendorInfo, "\x00"), nil
+	caps, _, err = tpm2.GetCapability(tpm, tpm2.CapabilityTPMProperties, 1, tpmPtFwVersion1)
+	if err != nil {
+		return tpm20Info{}, fmt.Errorf("tpm2.GetCapability(PT_FIRMWARE_VERSION_1) failed: %v", err)
+	}
+	fw, ok := caps[0].(tpm2.TaggedProperty)
+	if !ok {
+		return tpm20Info{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
+	}
+
+	return tpm20Info{
+		vendor:       strings.Trim(vendorInfo, "\x00"),
+		manufacturer: TCGVendorID(manu.Value),
+		fwMajor:      int((fw.Value & 0xffff0000) >> 16),
+		fwMinor:      int(fw.Value & 0x0000ffff),
+	}, nil
 }
 
 func parseCert(ekCert []byte) (*x509.Certificate, error) {
