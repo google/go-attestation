@@ -140,8 +140,8 @@ func (t *TPM) Info() (*TPMInfo, error) {
 		t2Info, err = readTPM2VendorAttributes(tpm)
 		tInfo.Manufacturer = t2Info.manufacturer
 		tInfo.VendorInfo = t2Info.vendor
-		tInfo.FWVersionMajor = t2Info.fwMajor
-		tInfo.FWVersionMinor = t2Info.fwMinor
+		tInfo.FirmwareVersionMajor = t2Info.fwMajor
+		tInfo.FirmwareVersionMinor = t2Info.fwMinor
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}

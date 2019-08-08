@@ -224,16 +224,17 @@ var (
 
 // TPMInfo contains information about the version & interface
 // of an open TPM.
-// FWVersionMajor and FWVersionMinor describe the firmware version of
-// the TPM, but are only available for TPM 2.0 devices.
 type TPMInfo struct {
 	Version      TPMVersion
 	Interface    TPMInterface
 	VendorInfo   string
 	Manufacturer TCGVendorID
 
-	FWVersionMajor int
-	FWVersionMinor int
+	// FirmwareVersionMajor and FirmwareVersionMinor describe
+	// the firmware version of the TPM, but are only available
+	// for TPM 2.0 devices.
+	FirmwareVersionMajor int
+	FirmwareVersionMinor int
 }
 
 // probedTPM identifies a TPM device on the system, which
