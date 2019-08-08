@@ -123,18 +123,25 @@ func readTPM12VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 
 // Info returns information about the TPM.
 func (t *TPM) Info() (*TPMInfo, error) {
-	var manufacturer TCGVendorID
-	var vendorInfo string
-	var err error
+	tInfo := TPMInfo{
+		Version:   t.version,
+		Interface: TPMInterfaceKernelManaged,
+	}
 	tpm, err := t.pcp.TPMCommandInterface()
 	if err != nil {
 		return nil, err
 	}
+
 	switch t.version {
 	case TPMVersion12:
-		manufacturer, vendorInfo, err = readTPM12VendorAttributes(tpm)
+		tInfo.Manufacturer, tInfo.VendorInfo, err = readTPM12VendorAttributes(tpm)
 	case TPMVersion20:
-		manufacturer, vendorInfo, err = readTPM2VendorAttributes(tpm)
+		var t2Info tpm20Info
+		t2Info, err = readTPM2VendorAttributes(tpm)
+		tInfo.Manufacturer = t2Info.manufacturer
+		tInfo.VendorInfo = t2Info.vendor
+		tInfo.FirmwareVersionMajor = t2Info.fwMajor
+		tInfo.FirmwareVersionMinor = t2Info.fwMinor
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -142,12 +149,7 @@ func (t *TPM) Info() (*TPMInfo, error) {
 		return nil, err
 	}
 
-	return &TPMInfo{
-		Version:      t.version,
-		Interface:    TPMInterfaceKernelManaged,
-		VendorInfo:   vendorInfo,
-		Manufacturer: manufacturer,
-	}, nil
+	return &tInfo, nil
 }
 
 // EKs returns the Endorsement Keys burned-in to the platform.

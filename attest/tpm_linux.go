@@ -163,14 +163,22 @@ func readTPM12VendorAttributes(context *tspi.Context) (TCGVendorID, string, erro
 
 // Info returns information about the TPM.
 func (t *TPM) Info() (*TPMInfo, error) {
-	var manufacturer TCGVendorID
-	var vendorInfo string
+	tInfo := TPMInfo{
+		Version:   t.version,
+		Interface: t.interf,
+	}
+
 	var err error
 	switch t.version {
 	case TPMVersion12:
-		manufacturer, vendorInfo, err = readTPM12VendorAttributes(t.ctx)
+		tInfo.Manufacturer, tInfo.VendorInfo, err = readTPM12VendorAttributes(t.ctx)
 	case TPMVersion20:
-		manufacturer, vendorInfo, err = readTPM2VendorAttributes(t.rwc)
+		var t2Info tpm20Info
+		t2Info, err = readTPM2VendorAttributes(t.rwc)
+		tInfo.Manufacturer = t2Info.manufacturer
+		tInfo.VendorInfo = t2Info.vendor
+		tInfo.FirmwareVersionMajor = t2Info.fwMajor
+		tInfo.FirmwareVersionMinor = t2Info.fwMinor
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -178,12 +186,7 @@ func (t *TPM) Info() (*TPMInfo, error) {
 		return nil, err
 	}
 
-	return &TPMInfo{
-		Version:      t.version,
-		Interface:    t.interf,
-		VendorInfo:   vendorInfo,
-		Manufacturer: manufacturer,
-	}, nil
+	return &tInfo, nil
 }
 
 // Return value: handle, whether we generated a new one, error

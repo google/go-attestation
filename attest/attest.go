@@ -274,6 +274,12 @@ type TPMInfo struct {
 	Interface    TPMInterface
 	VendorInfo   string
 	Manufacturer TCGVendorID
+
+	// FirmwareVersionMajor and FirmwareVersionMinor describe
+	// the firmware version of the TPM, but are only available
+	// for TPM 2.0 devices.
+	FirmwareVersionMajor int
+	FirmwareVersionMinor int
 }
 
 // probedTPM identifies a TPM device on the system, which
