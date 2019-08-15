@@ -74,7 +74,7 @@ func verifyAIK20(public, creationData, attestationData, signature []byte) (*pb.A
 		if pub.RSAParameters.KeyBits < 2048 {
 			out.KeyTooSmall = true
 		}
-		out.RocaVulnerableKey = ROCAVulnerableKey(&rsa.PublicKey{N: pub.RSAParameters.Modulus})
+		out.RocaVulnerableKey = ROCAVulnerableKey(&rsa.PublicKey{N: pub.RSAParameters.Modulus()})
 	default:
 		return nil, fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
 	}
@@ -109,7 +109,7 @@ func verifyAIK20(public, creationData, attestationData, signature []byte) (*pb.A
 	out.NameAttestationMismatch = !match
 
 	// Check the signature over the attestation data verifies correctly.
-	p := rsa.PublicKey{E: int(pub.RSAParameters.Exponent), N: pub.RSAParameters.Modulus}
+	p := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
 	signHashConstructor, err := pub.RSAParameters.Sign.Hash.HashConstructor()
 	if err != nil {
 		return nil, err
