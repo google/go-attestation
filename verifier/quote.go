@@ -79,7 +79,7 @@ func VerifyQuote(tpmVersion tpb.TpmVersion, public, attestationData, signature [
 		pcrDigestMatched = bytes.Equal(compositeDigest.Sum(nil), digest)
 
 		// Check the signature over the attestation data verifies correctly.
-		p := rsa.PublicKey{E: int(pub.RSAParameters.Exponent), N: pub.RSAParameters.Modulus}
+		p := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
 		signHashConstructor, err := pub.RSAParameters.Sign.Hash.HashConstructor()
 		if err != nil {
 			return nil, err
