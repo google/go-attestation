@@ -54,7 +54,7 @@ func TestTPM12PCRs(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	PCRs, _, err := tpm.PCRs()
+	PCRs, err := tpm.PCRs(HashSHA1)
 	if err != nil {
 		t.Fatalf("Failed to get PCR values: %v", err)
 	}

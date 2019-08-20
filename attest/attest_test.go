@@ -146,7 +146,7 @@ func TestPCRs(t *testing.T) {
 	}
 	defer tpm.Close()
 
-	PCRs, _, err := tpm.PCRs()
+	PCRs, err := tpm.PCRs(HashSHA1)
 	if err != nil {
 		t.Fatalf("PCRs() failed: %v", err)
 	}

@@ -18,7 +18,6 @@ package attest
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -34,7 +33,6 @@ import (
 	"net/http"
 
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 )
 
@@ -364,55 +362,49 @@ func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
 	return out, nil
 }
 
-// PCRs returns the present value of all Platform Configuration Registers.
-func (t *TPM) PCRs() (map[int]PCR, tpm2.Algorithm, error) {
+// PCRs returns the present value of Platform Configuration Registers with the
+// given digest algorithm.
+func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	var PCRs map[uint32][]byte
-	var alg crypto.Hash
+
 	switch t.version {
 	case TPMVersion12:
-		alg = crypto.SHA1
+		if alg != HashSHA1 {
+			return nil, fmt.Errorf("non-SHA1 algorithm %v is not supported on TPM 1.2", alg)
+		}
 		tpm, err := t.pcp.TPMCommandInterface()
 		if err != nil {
-			return nil, 0, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 		}
 		PCRs, err = allPCRs12(tpm)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+			return nil, fmt.Errorf("failed to read PCRs: %v", err)
 		}
 
 	case TPMVersion20:
 		tpm, err := t.pcp.TPMCommandInterface()
 		if err != nil {
-			return nil, 0, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 		}
-		PCRs, alg, err = allPCRs20(tpm)
+		PCRs, err = readAllPCRs20(tpm, alg.goTPMAlg())
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+			return nil, fmt.Errorf("failed to read PCRs: %v", err)
 		}
 
 	default:
-		return nil, 0, fmt.Errorf("unsupported TPM version: %x", t.version)
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
 
-	out := map[int]PCR{}
-	var lastAlg crypto.Hash
+	out := make([]PCR, len(PCRs))
 	for index, digest := range PCRs {
 		out[int(index)] = PCR{
 			Index:     int(index),
 			Digest:    digest,
-			DigestAlg: alg,
+			DigestAlg: alg.cryptoHash(),
 		}
-		lastAlg = alg
 	}
 
-	switch lastAlg {
-	case crypto.SHA1:
-		return out, tpm2.AlgSHA1, nil
-	case crypto.SHA256:
-		return out, tpm2.AlgSHA256, nil
-	default:
-		return nil, 0, fmt.Errorf("unexpected algorithm: %v", lastAlg)
-	}
+	return out, nil
 }
 
 // MeasurementLog returns the present value of the System Measurement Log.
