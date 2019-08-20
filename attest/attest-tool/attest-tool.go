@@ -113,11 +113,14 @@ func runCommand(tpm *attest.TPM) error {
 		}
 
 	case "list-pcrs":
-		pcrs, alg, err := tpm.PCRs()
+		alg := attest.HashSHA1
+		if *useSHA256 {
+			alg = attest.HashSHA256
+		}
+		pcrs, err := tpm.PCRs(alg)
 		if err != nil {
 			return fmt.Errorf("failed to read PCRs: %v", err)
 		}
-		fmt.Printf("PCR digest: %v\n", alg)
 		for _, pcr := range pcrs {
 			fmt.Printf("PCR[%d]: %x\n", pcr.Index, pcr.Digest)
 		}
@@ -180,12 +183,8 @@ func runDump(tpm *attest.TPM) (*internal.Dump, error) {
 		return nil, fmt.Errorf("failed to read measurement log: %v", err)
 	}
 	// Get PCR values.
-	pcrs, _, err := tpm.PCRs()
-	if err != nil {
+	if out.Log.PCRs, err = tpm.PCRs(out.Quote.Alg); err != nil {
 		return nil, fmt.Errorf("failed to read PCRs: %v", err)
-	}
-	for _, pcr := range pcrs {
-		out.Log.PCRs = append(out.Log.PCRs, pcr)
 	}
 
 	return &out, nil

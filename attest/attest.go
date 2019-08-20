@@ -254,6 +254,26 @@ var (
 	HashSHA256 = HashAlg(tpm2.AlgSHA256)
 )
 
+func (a HashAlg) cryptoHash() crypto.Hash {
+	switch a {
+	case HashSHA1:
+		return crypto.SHA1
+	case HashSHA256:
+		return crypto.SHA256
+	}
+	return 0
+}
+
+func (a HashAlg) goTPMAlg() tpm2.Algorithm {
+	switch a {
+	case HashSHA1:
+		return tpm2.AlgSHA1
+	case HashSHA256:
+		return tpm2.AlgSHA256
+	}
+	return 0
+}
+
 var (
 	defaultOpenConfig = &OpenConfig{}
 

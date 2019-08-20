@@ -25,7 +25,6 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/google/go-tpm-tools/simulator"
-	"github.com/google/go-tpm/tpm2"
 )
 
 func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
@@ -193,16 +192,14 @@ func TestSimTPM20PCRs(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	PCRs, alg, err := tpm.PCRs()
+	PCRs, err := tpm.PCRs(HashSHA256)
 	if err != nil {
 		t.Fatalf("PCRs() failed: %v", err)
 	}
 	if len(PCRs) != 24 {
 		t.Errorf("len(PCRs) = %d, want %d", len(PCRs), 24)
 	}
-	if got, want := tpm2.AlgSHA256, alg; got != want {
-		t.Errorf("alg = %v, want %v", got, want)
-	}
+
 	for i, pcr := range PCRs {
 		if len(pcr.Digest) != pcr.DigestAlg.Size() {
 			t.Errorf("PCR %d len(digest) = %d, expected match with digest algorithm size (%d)", pcr.Index, len(pcr.Digest), pcr.DigestAlg.Size())
