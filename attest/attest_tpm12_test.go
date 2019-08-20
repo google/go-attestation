@@ -77,16 +77,14 @@ func TestTPM12EKs(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	EKs, err := tpm.EKs()
+	eks, err := tpm.EKs()
 	if err != nil {
 		t.Fatalf("Failed to get EKs: %v", err)
 	}
 
-	if len(EKs) == 0 {
+	if len(eks) == 0 {
 		t.Fatalf("EKs returned nothing")
 	}
-
-	t.Logf("EKCert Raw: %x\n", EKs[0].Cert.Raw)
 }
 
 func TestMintAIK(t *testing.T) {
@@ -151,7 +149,7 @@ func TestTPMActivateCredential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read EKs: %v", err)
 	}
-	ek := chooseEKPub(t, EKs)
+	ek := chooseEK(t, EKs)
 
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion12,

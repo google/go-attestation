@@ -17,11 +17,8 @@ package attest
 import (
 	"bytes"
 	"crypto"
-	"crypto/rsa"
 	"flag"
 	"testing"
-
-	"github.com/google/certificate-transparency-go/x509"
 )
 
 var (
@@ -121,18 +118,14 @@ func TestAIKCreateAndLoad(t *testing.T) {
 }
 
 // chooseEK selects the EK public which will be activated against.
-func chooseEK(t *testing.T, eks []PlatformEK) crypto.PublicKey {
+func chooseEK(t *testing.T, eks []EK) crypto.PublicKey {
 	t.Helper()
 
 	for _, ek := range eks {
-		if ek.Cert != nil && ek.Cert.PublicKeyAlgorithm == x509.RSA {
-			return ek.Cert.PublicKey.(*rsa.PublicKey)
-		} else if ek.Public != nil {
-			return ek.Public
-		}
+		return ek.Public
 	}
 
-	t.Skip("No suitable RSA EK found")
+	t.Fatalf("No suitable EK found")
 	return nil
 }
 

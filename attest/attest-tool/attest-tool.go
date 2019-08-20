@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
@@ -107,9 +108,11 @@ func runCommand(tpm *attest.TPM) error {
 			return fmt.Errorf("failed to read EKs: %v", err)
 		}
 		for _, ek := range eks {
-			if ek.Cert != nil {
-				fmt.Printf("EK certificate: %x\n", ek.Cert.Raw)
+			data, err := encodeEK(ek)
+			if err != nil {
+				return fmt.Errorf("encoding ek: %v", err)
 			}
+			fmt.Printf("%s\n", data)
 		}
 
 	case "list-pcrs":
@@ -143,6 +146,33 @@ func runCommand(tpm *attest.TPM) error {
 		return fmt.Errorf("no such command %q", flag.Arg(0))
 	}
 	return nil
+}
+
+func encodeEK(ek attest.EK) ([]byte, error) {
+	if ek.Certificate != nil {
+		return pem.EncodeToMemory(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: ek.Certificate.Raw,
+		}), nil
+	}
+	switch pub := ek.Public.(type) {
+	case *ecdsa.PublicKey:
+		data, err := x509.MarshalPKIXPublicKey(pub)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling ec public key: %v", err)
+		}
+		return pem.EncodeToMemory(&pem.Block{
+			Type:  "EC PUBLIC KEY",
+			Bytes: data,
+		}), nil
+	case *rsa.PublicKey:
+		return pem.EncodeToMemory(&pem.Block{
+			Type:  "RSA PUBLIC KEY",
+			Bytes: x509.MarshalPKCS1PublicKey(pub),
+		}), nil
+	default:
+		return nil, fmt.Errorf("unsupported public key type %T", pub)
+	}
 }
 
 func runDump(tpm *attest.TPM) (*internal.Dump, error) {
@@ -201,11 +231,8 @@ func rsaEKPEM(tpm *attest.TPM) ([]byte, error) {
 		buf bytes.Buffer
 	)
 	for _, ek := range eks {
-		if ek.Cert != nil && ek.Cert.PublicKeyAlgorithm == x509.RSA {
-			pk = ek.Cert.PublicKey.(*rsa.PublicKey)
-			break
-		} else if ek.Public != nil {
-			pk = ek.Public.(*rsa.PublicKey)
+		if pub, ok := ek.Public.(*rsa.PublicKey); ok {
+			pk = pub
 			break
 		}
 	}

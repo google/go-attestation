@@ -16,6 +16,9 @@ package attest
 
 import (
 	"bytes"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -147,7 +150,8 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (tpm20Info, error) {
 	}, nil
 }
 
-func parseCert(ekCert []byte) (*x509.Certificate, error) {
+// ParseEKCertificate parses a raw DER encoded EK certificate blob.
+func ParseEKCertificate(ekCert []byte) (*x509.Certificate, error) {
 	var wasWrapped bool
 
 	// TCG PC Specific Implementation section 7.3.2 specifies
@@ -184,12 +188,25 @@ func parseCert(ekCert []byte) (*x509.Certificate, error) {
 	return c, nil
 }
 
+const (
+	manufacturerIntel     = "Intel"
+	intelEKCertServiceURL = "https://ekop.intel.com/ekcertservice/"
+)
+
+func intelEKURL(ekPub *rsa.PublicKey) string {
+	pubHash := sha256.New()
+	pubHash.Write(ekPub.N.Bytes())
+	pubHash.Write([]byte{0x1, 0x00, 0x01})
+
+	return intelEKCertServiceURL + base64.URLEncoding.EncodeToString(pubHash.Sum(nil))
+}
+
 func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
 	ekCert, err := tpm2.NVReadEx(tpm, nvramCertIndex, tpm2.HandleOwner, "", 0)
 	if err != nil {
 		return nil, fmt.Errorf("reading EK cert: %v", err)
 	}
-	return parseCert(ekCert)
+	return ParseEKCertificate(ekCert)
 }
 
 func quote20(tpm io.ReadWriter, aikHandle tpmutil.Handle, hashAlg tpm2.Algorithm, nonce []byte) (*Quote, error) {

@@ -19,10 +19,7 @@ package attest
 import (
 	"bytes"
 	"crypto"
-	"crypto/rsa"
 	"testing"
-
-	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/google/go-tpm-tools/simulator"
 )
@@ -49,7 +46,7 @@ func TestSimTPM20EK(t *testing.T) {
 	if err != nil {
 		t.Errorf("EKs() failed: %v", err)
 	}
-	if len(eks) == 0 || (eks[0].Cert == nil && eks[0].Public == nil) {
+	if len(eks) == 0 || (eks[0].Public == nil) {
 		t.Errorf("EKs() = %v, want at least 1 EK with populated fields", eks)
 	}
 }
@@ -99,22 +96,6 @@ func TestSimTPM20AIKCreateAndLoad(t *testing.T) {
 	}
 }
 
-// chooseEKPub selects the EK public which will be activated against.
-func chooseEKPub(t *testing.T, eks []PlatformEK) crypto.PublicKey {
-	t.Helper()
-
-	for _, ek := range eks {
-		if ek.Cert != nil && ek.Cert.PublicKeyAlgorithm == x509.RSA {
-			return ek.Cert.PublicKey.(*rsa.PublicKey)
-		} else if ek.Public != nil {
-			return ek.Public
-		}
-	}
-
-	t.Skip("No suitable RSA EK found")
-	return nil
-}
-
 func TestSimTPM20ActivateCredential(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
@@ -129,7 +110,7 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EKs() failed: %v", err)
 	}
-	ek := chooseEKPub(t, EKs)
+	ek := chooseEK(t, EKs)
 
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion20,
