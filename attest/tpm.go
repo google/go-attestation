@@ -16,7 +16,6 @@ package attest
 
 import (
 	"bytes"
-	"crypto"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -249,16 +248,6 @@ func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, er
 	}
 
 	return out, nil
-}
-
-func allPCRs20(tpm io.ReadWriter) (map[uint32][]byte, crypto.Hash, error) {
-	out256, err256 := readAllPCRs20(tpm, tpm2.AlgSHA256)
-	if err256 != nil {
-		// TPM may not implement active banks with SHA256 - try SHA1.
-		out1, err1 := readAllPCRs20(tpm, tpm2.AlgSHA1)
-		return out1, crypto.SHA1, err1
-	}
-	return out256, crypto.SHA256, nil
 }
 
 // LoadAIK loads a previously-created aik into the TPM for use.

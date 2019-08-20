@@ -17,7 +17,6 @@
 package attest
 
 import (
-	"crypto"
 	"crypto/rsa"
 	"encoding/binary"
 	"errors"
@@ -359,48 +358,40 @@ func allPCRs12(ctx *tspi.Context) (map[uint32][]byte, error) {
 }
 
 // PCRs returns the present value of all Platform Configuration Registers.
-func (t *TPM) PCRs() (map[int]PCR, tpm2.Algorithm, error) {
+func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	var PCRs map[uint32][]byte
-	var alg crypto.Hash
 	var err error
 
 	switch t.version {
 	case TPMVersion12:
+		if alg != HashSHA1 {
+			return nil, fmt.Errorf("non-SHA1 algorithm %v is not supported on TPM 1.2", alg)
+		}
 		PCRs, err = allPCRs12(t.ctx)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+			return nil, fmt.Errorf("failed to read PCRs: %v", err)
 		}
-		alg = crypto.SHA1
 
 	case TPMVersion20:
-		PCRs, alg, err = allPCRs20(t.rwc)
+		PCRs, err = readAllPCRs20(t.rwc, alg.goTPMAlg())
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to read PCRs: %v", err)
+			return nil, fmt.Errorf("failed to read PCRs: %v", err)
 		}
 
 	default:
-		return nil, 0, fmt.Errorf("unsupported TPM version: %x", t.version)
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
 
-	out := map[int]PCR{}
-	var lastAlg crypto.Hash
+	out := make([]PCR, len(PCRs))
 	for index, digest := range PCRs {
 		out[int(index)] = PCR{
 			Index:     int(index),
 			Digest:    digest,
-			DigestAlg: alg,
+			DigestAlg: alg.cryptoHash(),
 		}
-		lastAlg = alg
 	}
 
-	switch lastAlg {
-	case crypto.SHA1:
-		return out, tpm2.AlgSHA1, nil
-	case crypto.SHA256:
-		return out, tpm2.AlgSHA256, nil
-	default:
-		return nil, 0, fmt.Errorf("unexpected algorithm: %v", lastAlg)
-	}
+	return out, nil
 }
 
 // MeasurementLog returns the present value of the System Measurement Log.
