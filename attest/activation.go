@@ -225,7 +225,7 @@ func (p *ActivationParameters) Generate() (secret []byte, ec *EncryptedCredentia
 
 	switch p.TPMVersion {
 	case TPMVersion12:
-		ec, err = p.generateChallengeTPM12(secret)
+		ec, err = p.generateChallengeTPM12(rnd, secret)
 	case TPMVersion20:
 		ec, err = p.generateChallengeTPM20(secret)
 	default:
@@ -254,7 +254,7 @@ func (p *ActivationParameters) generateChallengeTPM20(secret []byte) (*Encrypted
 	}, nil
 }
 
-func (p *ActivationParameters) generateChallengeTPM12(secret []byte) (*EncryptedCredential, error) {
+func (p *ActivationParameters) generateChallengeTPM12(rand io.Reader, secret []byte) (*EncryptedCredential, error) {
 	pk, ok := p.EK.(*rsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("got EK of type %T, want an RSA key", p.EK)
@@ -267,7 +267,7 @@ func (p *ActivationParameters) generateChallengeTPM12(secret []byte) (*Encrypted
 	if p.AIK.UseTCSDActivationFormat {
 		cred, encSecret, err = verification.GenerateChallengeEx(pk, p.AIK.Public, secret)
 	} else {
-		cred, encSecret, err = generateChallenge12(pk, p.AIK.Public, secret)
+		cred, encSecret, err = generateChallenge12(rand, pk, p.AIK.Public, secret)
 	}
 
 	if err != nil {

@@ -2,6 +2,7 @@ package attest
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"testing"
@@ -51,7 +52,7 @@ func TestGenerateChallengeSymHeader(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, sym, err := generateChallenge12(cert.PublicKey.(*rsa.PublicKey), []byte("pubkey yo"), []byte("secretz"))
+	_, sym, err := generateChallenge12(rand.Reader, cert.PublicKey.(*rsa.PublicKey), []byte("pubkey yo"), []byte("secretz"))
 	if err != nil {
 		t.Fatal(err)
 	}
