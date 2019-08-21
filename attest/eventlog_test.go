@@ -53,6 +53,16 @@ func testParseEventLog(t *testing.T, testdata string) {
 	}
 }
 
+func TestParseCryptoAgileEventLog(t *testing.T) {
+	data, err := ioutil.ReadFile("testdata/crypto_agile_eventlog")
+	if err != nil {
+		t.Fatalf("reading test data: %v", err)
+	}
+	if _, err := parseEventLog(data); err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+}
+
 func TestEventLogLinux(t *testing.T) {
 	testEventLog(t, "testdata/linux_tpm12.json")
 }
