@@ -58,12 +58,9 @@ func TestSimTPM20Info(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	info, err := tpm.Info()
-	if err != nil {
+	if _, err := tpm.Info(); err != nil {
 		t.Errorf("tpm.Info() failed: %v", err)
 	}
-	// We dont expect anything to be meaningfully populated as this is a simulator.
-	t.Logf("TPM Info = %+v", info)
 }
 
 func TestSimTPM20AIKCreateAndLoad(t *testing.T) {
@@ -217,20 +214,15 @@ func TestSimTPM20Persistence(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	ekHnd, p, err := tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, _, err := tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("getPrimaryKeyHandle() failed: %v", err)
 	}
 	if ekHnd != commonEkEquivalentHandle {
 		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
 	}
-	if p {
-		t.Logf("generated a new key")
-	} else {
-		t.Logf("used existing key")
-	}
 
-	ekHnd, p, err = tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, p, err := tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("second getPrimaryKeyHandle() failed: %v", err)
 	}
