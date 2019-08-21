@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
+	"io"
 )
 
 const (
@@ -102,13 +102,13 @@ func pad(plaintext []byte, bsize int) []byte {
 // the secret encrypted with the session key credential contained in asymenc.
 // To use this, pass asymenc as the input to the TPM_ActivateIdentity command.
 // Use the returned credential as the aes key to decode the secret in symenc.
-func generateChallenge12(pubkey *rsa.PublicKey, aikpub, secret []byte) (asymenc []byte, symenc []byte, err error) {
+func generateChallenge12(rand io.Reader, pubkey *rsa.PublicKey, aikpub, secret []byte) (asymenc []byte, symenc []byte, err error) {
 	aeskey := make([]byte, 16)
 	iv := make([]byte, 16)
-	if _, err = rand.Read(aeskey); err != nil {
+	if _, err = io.ReadFull(rand, aeskey); err != nil {
 		return nil, nil, err
 	}
-	if _, err = rand.Read(iv); err != nil {
+	if _, err = io.ReadFull(rand, iv); err != nil {
 		return nil, nil, err
 	}
 
@@ -117,7 +117,7 @@ func generateChallenge12(pubkey *rsa.PublicKey, aikpub, secret []byte) (asymenc 
 		return nil, nil, err
 	}
 	label := []byte{'T', 'C', 'P', 'A'}
-	asymenc, err = rsa.EncryptOAEP(sha1.New(), rand.Reader, pubkey, makeEkBlob(activationBlob), label)
+	asymenc, err = rsa.EncryptOAEP(sha1.New(), rand, pubkey, makeEkBlob(activationBlob), label)
 	if err != nil {
 		return nil, nil, fmt.Errorf("EncryptOAEP() failed: %v", err)
 	}
