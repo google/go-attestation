@@ -17,6 +17,7 @@
 package attest
 
 import (
+	"crypto"
 	"crypto/rsa"
 	"encoding/binary"
 	"errors"
@@ -221,51 +222,52 @@ func readEKCertFromNVRAM12(ctx *tspi.Context) (*x509.Certificate, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading EK cert: %v", err)
 	}
-	return parseCert(ekCert)
+	return ParseEKCertificate(ekCert)
 }
 
 // EKs returns the endorsement keys burned-in to the platform.
-func (t *TPM) EKs() ([]PlatformEK, error) {
-	var cert *x509.Certificate
-	var err error
+func (t *TPM) EKs() ([]EK, error) {
 	switch t.version {
 	case TPMVersion12:
-		cert, err = readEKCertFromNVRAM12(t.ctx)
-
+		cert, err := readEKCertFromNVRAM12(t.ctx)
 		if err != nil {
 			return nil, fmt.Errorf("readEKCertFromNVRAM failed: %v", err)
 		}
-
+		return []EK{
+			{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
+		}, nil
 	case TPMVersion20:
-		cert, err = readEKCertFromNVRAM20(t.rwc)
-
-		if err != nil {
-			ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
-			if err != nil {
-				return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
-			}
-			defer tpm2.FlushContext(t.rwc, ekHnd)
-
-			pub, _, _, err := tpm2.ReadPublic(t.rwc, ekHnd)
-			if err != nil {
-				return nil, fmt.Errorf("EK ReadPublic failed: %v", err)
-			}
-			if pub.RSAParameters == nil {
-				return nil, errors.New("ECC EK not yet supported")
-			}
-
-			return []PlatformEK{
-				{nil, &rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}},
+		if cert, err := readEKCertFromNVRAM20(t.rwc); err == nil {
+			return []EK{
+				{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
 			}, nil
 		}
 
+		// Attempt to create an EK.
+		ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
+		}
+		defer tpm2.FlushContext(t.rwc, ekHnd)
+
+		pub, _, _, err := tpm2.ReadPublic(t.rwc, ekHnd)
+		if err != nil {
+			return nil, fmt.Errorf("EK ReadPublic failed: %v", err)
+		}
+		if pub.RSAParameters == nil {
+			return nil, errors.New("ECC EK not yet supported")
+		}
+		return []EK{
+			{
+				Public: &rsa.PublicKey{
+					E: int(pub.RSAParameters.Exponent()),
+					N: pub.RSAParameters.Modulus(),
+				},
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
-
-	return []PlatformEK{
-		{cert, cert.PublicKey},
-	}, nil
 }
 
 // MintAIK creates an attestation key.

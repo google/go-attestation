@@ -22,15 +22,11 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
-	"net/http"
 
 	tpm1 "github.com/google/go-tpm/tpm"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
@@ -151,35 +147,36 @@ func (t *TPM) Info() (*TPMInfo, error) {
 }
 
 // EKs returns the Endorsement Keys burned-in to the platform.
-func (t *TPM) EKs() ([]PlatformEK, error) {
+func (t *TPM) EKs() ([]EK, error) {
 	ekCerts, err := t.pcp.EKCerts()
 	if err != nil {
 		return nil, fmt.Errorf("could not read EKCerts: %v", err)
 	}
-
-	var out []PlatformEK
-	for _, cert := range ekCerts {
-		out = append(out, PlatformEK{cert, cert.PublicKey})
+	if len(ekCerts) > 0 {
+		var eks []EK
+		for _, cert := range ekCerts {
+			eks = append(eks, EK{Certificate: cert, Public: cert.PublicKey})
+		}
+		return eks, nil
 	}
 
-	if len(out) == 0 {
-		i, err := t.Info()
-		if err != nil {
-			return nil, err
-		}
-		if i.Manufacturer.String() == "Intel" {
-			eks, err := t.readEKCertFromServer("https://ekop.intel.com/ekcertservice/")
-			if err != nil {
-				return nil, err
-			}
-			out = append(out, eks...)
-		}
+	pub, err := t.ekPub()
+	if err != nil {
+		return nil, fmt.Errorf("could not read ek public key from tpm: %v", err)
 	}
+	ek := EK{Public: pub}
 
-	return out, nil
+	i, err := t.Info()
+	if err != nil {
+		return nil, err
+	}
+	if i.Manufacturer.String() == manufacturerIntel {
+		ek.CertificateURL = intelEKURL(pub)
+	}
+	return []EK{ek}, nil
 }
 
-func (t *TPM) readEKCertFromServer(url string) ([]PlatformEK, error) {
+func (t *TPM) ekPub() (*rsa.PublicKey, error) {
 	p, err := t.pcp.EKPub()
 	if err != nil {
 		return nil, fmt.Errorf("could not read ekpub: %v", err)
@@ -188,25 +185,7 @@ func (t *TPM) readEKCertFromServer(url string) ([]PlatformEK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not decode ekpub: %v", err)
 	}
-	pubHash := sha256.New()
-	pubHash.Write(ekPub.N.Bytes())
-	pubHash.Write([]byte{0x1, 0x00, 0x01})
-
-	resp, err := http.Get(url + base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %v")
-	}
-	defer resp.Body.Close()
-	d, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading EKCert from network: %v")
-	}
-
-	cert, err := parseCert(d)
-	if err != nil {
-		return nil, fmt.Errorf("parsing certificate: %v", err)
-	}
-	return []PlatformEK{{Cert: cert}}, nil
+	return ekPub, nil
 }
 
 type bcryptRSABlobHeader struct {

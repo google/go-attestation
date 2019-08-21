@@ -156,11 +156,19 @@ type PCR struct {
 	DigestAlg crypto.Hash
 }
 
-// PlatformEK represents a burned-in Endorsement Key, and its
-// corrresponding EKCert (where present).
-type PlatformEK struct {
-	Cert   *x509.Certificate
+// EK is a burned-in endorcement key bound to a TPM. This optionally contains
+// a certificate that can chain to the TPM manufacturer.
+type EK struct {
+	// Public key of the EK.
 	Public crypto.PublicKey
+
+	// Certificate is the EK certificate for TPMs that provide it.
+	Certificate *x509.Certificate
+
+	// For Intel TPMs, Intel hosts certificates at a public URL derived from the
+	// Public key. Clients or servers can perform an HTTP GET to this URL, and
+	// use ParseEKCertificate on the response body.
+	CertificateURL string
 }
 
 // AttestationParameters describes information about a key which is necessary
