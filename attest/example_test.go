@@ -45,7 +45,7 @@ func ExampleAIK() {
 	}
 }
 
-func Example_credentialActivation() {
+func ExampleAIK_credentialActivation() {
 	tpm, err := attest.OpenTPM(nil)
 	if err != nil {
 		log.Fatalf("Failed to open TPM: %v", err)
@@ -91,10 +91,41 @@ func Example_credentialActivation() {
 	}
 }
 
+func ExampleAIK_quote() {
+	tpm, err := attest.OpenTPM(nil)
+	if err != nil {
+		log.Fatalf("Failed to open TPM: %v", err)
+	}
+	defer tpm.Close()
+
+	// Create a new AIK.
+	aik, err := tpm.MintAIK(nil)
+	if err != nil {
+		log.Fatalf("Failed to create AIK: %v", err)
+	}
+	defer aik.Close(tpm)
+
+	// The nonce would typically be provided by the server.
+	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+
+	// Perform the quote & gather information necessary to verify it.
+	quote, err := aik.Quote(tpm, nonce, attest.HashSHA1)
+	if err != nil {
+		log.Fatalf("Failed to generate quote: %v", err)
+	}
+	pcrs, err := tpm.PCRs(attest.HashSHA1)
+	if err != nil {
+		log.Fatalf("Failed to collect PCR values: %v", err)
+	}
+	log.Printf("quote = %+v", quote)
+	log.Printf("PCRs = %+v", pcrs)
+}
+
 func TestExampleAIK(t *testing.T) {
 	if !*testExamples {
 		t.SkipNow()
 	}
 	ExampleAIK()
-	Example_credentialActivation()
+	ExampleAIK_credentialActivation()
+	ExampleAIK_quote()
 }
