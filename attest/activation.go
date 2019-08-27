@@ -206,6 +206,11 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 // Generate returns a credential activation challenge, which can be provided
 // to the TPM to verify the AIK parameters given are authentic & the AIK
 // is present on the same TPM as the EK.
+//
+// The caller is expected to verify the secret returned from the TPM as
+// as result of calling ActivateCredential() matches the secret returned here.
+// The caller should use subtle.ConstantTimeCompare to avoid potential
+// timing attack vectors.
 func (p *ActivationParameters) Generate() (secret []byte, ec *EncryptedCredential, err error) {
 	if err := p.checkAIKParameters(); err != nil {
 		return nil, nil, err
