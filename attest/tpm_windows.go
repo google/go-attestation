@@ -269,16 +269,16 @@ func decryptCredential(secretKey, blob []byte) ([]byte, error) {
 	return secret, nil
 }
 
-// MintAIK creates a persistent attestation key. The returned key must be
+// NewAIK creates a persistent attestation key. The returned key must be
 // closed with a call to key.Close() when the caller has finished using it.
-func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
+func (t *TPM) NewAIK(opts *AIKConfig) (*AIK, error) {
 	nameHex := make([]byte, 5)
 	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
 		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
 	}
 	name := fmt.Sprintf("aik-%x", nameHex)
 
-	kh, err := t.pcp.MintAIK(name)
+	kh, err := t.pcp.NewAIK(name)
 	if err != nil {
 		return nil, fmt.Errorf("pcp failed to mint attestation key: %v", err)
 	}

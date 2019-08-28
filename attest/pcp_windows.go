@@ -452,8 +452,8 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 	return out, nil
 }
 
-// MintAIK creates a persistent attestation key of the specified name.
-func (h *winPCP) MintAIK(name string) (uintptr, error) {
+// NewAIK creates a persistent attestation key of the specified name.
+func (h *winPCP) NewAIK(name string) (uintptr, error) {
 	var kh uintptr
 	utf16Name, err := windows.UTF16FromString(name)
 	if err != nil {
