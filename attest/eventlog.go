@@ -1,16 +1,30 @@
+// Copyright 2019 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+
 package attest
 
 import (
 	"bytes"
 	"crypto"
-	"crypto/rsa"
-	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"sort"
 
 	// Ensure hashes are available.
+	"crypto/rsa"
+	"crypto/sha1"
 	_ "crypto/sha256"
 
 	"github.com/google/go-tpm/tpm2"
@@ -48,49 +62,26 @@ type Event struct {
 	// match their data to their digest.
 }
 
-// EventLog contains the data required to parse and validate an event log.
-type EventLog struct {
-	// AIKPublic is the activated public key that has been proven to be under the
-	// control of the TPM.
-	AIKPublic crypto.PublicKey
-	// AIKHash is the hash used to generate the quote.
-	AIKHash crypto.Hash
-
-	// Quote is a signature over the values of a PCR.
-	Quote *Quote
-	// PCRs are the hash values in a given number of registers.
-	PCRs []PCR
-	// Nonce is additional data used to validate the quote signature. It's used
-	// by the server to prevent clients from re-playing quotes.
-	Nonce []byte
-
-	// MeasurementLog contains the raw event log data, which is matched against
-	// the PCRs for validation.
-	MeasurementLog []byte
-}
-
-// Validate verifies the signature of the quote agains the public key, that the
-// quote matches the PCRs, parses the measurement log, and replays the PCRs.
-//
-// Events for PCRs not in the quote are dropped.
-func (e *EventLog) Validate() (events []Event, err error) {
-	var pcrs []PCR
-	switch e.Quote.Version {
-	case TPMVersion12:
-		pcrs, err = e.validate12Quote()
-	case TPMVersion20:
-		pcrs, err = e.validate20Quote()
-	default:
-		return nil, fmt.Errorf("quote used unknown tpm version 0x%x", e.Quote.Version)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("invalid quote: %v", err)
-	}
-	rawEvents, err := parseEventLog(e.MeasurementLog)
+// ParseEventLog parses an unverified measurement log.
+func ParseEventLog(measurementLog []byte) (*EventLog, error) {
+	rawEvents, err := parseEventLog(measurementLog)
 	if err != nil {
 		return nil, fmt.Errorf("parsing measurement log: %v", err)
 	}
-	events, err = replayEvents(rawEvents, pcrs)
+	return &EventLog{rawEvents}, nil
+}
+
+// EventLog is a parsed measurement log. This contains unverified data representing
+// boot events that must be replayed against PCR values to determine authenticity.
+type EventLog struct {
+	rawEvents []rawEvent
+}
+
+// Verify replays the event log against a TPM's PCR values, returning events
+// from the event log, or an error if the replayed PCR values did not match the
+// provided PCR values.
+func (e *EventLog) Verify(pcrs []PCR) ([]Event, error) {
+	events, err := replayEvents(e.rawEvents, pcrs)
 	if err != nil {
 		return nil, fmt.Errorf("pcrs failed to replay: %v", err)
 	}
@@ -114,113 +105,112 @@ type rawPCRComposite struct {
 	Values  tpmutil.U32Bytes
 }
 
-func (e *EventLog) validate12Quote() (pcrs []PCR, err error) {
-	pub, ok := e.AIKPublic.(*rsa.PublicKey)
+func (a *AIKPublic) validate12Quote(quote Quote, pcrs []PCR, nonce []byte) error {
+	pub, ok := a.Public.(*rsa.PublicKey)
 	if !ok {
-		return nil, fmt.Errorf("unsupported public key type: %T", e.AIKPublic)
+		return fmt.Errorf("unsupported public key type: %T", a.Public)
 	}
-	quote := sha1.Sum(e.Quote.Quote)
-	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA1, quote[:], e.Quote.Signature); err != nil {
-		return nil, fmt.Errorf("invalid quote signature: %v", err)
+	qHash := sha1.Sum(quote.Quote)
+	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA1, qHash[:], quote.Signature); err != nil {
+		return fmt.Errorf("invalid quote signature: %v", err)
 	}
 
 	var att rawAttestationData
-	if _, err := tpmutil.Unpack(e.Quote.Quote, &att); err != nil {
-		return nil, fmt.Errorf("parsing quote: %v", err)
+	if _, err := tpmutil.Unpack(quote.Quote, &att); err != nil {
+		return fmt.Errorf("parsing quote: %v", err)
 	}
 	// TODO(ericchiang): validate Version field.
-	if att.Nonce != sha1.Sum(e.Nonce) {
-		return nil, fmt.Errorf("invalid nonce")
+	if att.Nonce != sha1.Sum(nonce) {
+		return fmt.Errorf("invalid nonce")
 	}
 	if att.Fixed != fixedQuote {
-		return nil, fmt.Errorf("quote wasn't a QUOT object: %x", att.Fixed)
+		return fmt.Errorf("quote wasn't a QUOT object: %x", att.Fixed)
 	}
 
 	// See 5.4.1 Creating a PCR composite hash
-	sort.Slice(e.PCRs, func(i, j int) bool { return e.PCRs[i].Index < e.PCRs[j].Index })
+	sort.Slice(pcrs, func(i, j int) bool { return pcrs[i].Index < pcrs[j].Index })
 	var (
 		pcrMask [3]byte // bitmap indicating which PCRs are active
 		values  []byte  // appended values of all PCRs
 	)
-	for _, pcr := range e.PCRs {
+	for _, pcr := range pcrs {
 		if pcr.Index < 0 || pcr.Index >= 24 {
-			return nil, fmt.Errorf("invalid PCR index: %d", pcr.Index)
+			return fmt.Errorf("invalid PCR index: %d", pcr.Index)
 		}
 		pcrMask[pcr.Index/8] |= 1 << uint(pcr.Index%8)
 		values = append(values, pcr.Digest...)
 	}
 	composite, err := tpmutil.Pack(rawPCRComposite{3, pcrMask, values})
 	if err != nil {
-		return nil, fmt.Errorf("marshaling PCRss: %v", err)
+		return fmt.Errorf("marshaling PCRs: %v", err)
 	}
 	if att.Digest != sha1.Sum(composite) {
-		return nil, fmt.Errorf("PCRs passed didn't match quote: %v", err)
+		return fmt.Errorf("PCRs passed didn't match quote: %v", err)
 	}
-	return e.PCRs, nil
+	return nil
 }
 
-func (e *EventLog) validate20Quote() (pcrs []PCR, err error) {
-	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(e.Quote.Signature))
+func (a *AIKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error {
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(quote.Signature))
 	if err != nil {
-		return nil, fmt.Errorf("parse quote signature: %v", err)
+		return fmt.Errorf("parse quote signature: %v", err)
 	}
 
-	sigHash := e.AIKHash.New()
-	sigHash.Write(e.Quote.Quote)
+	sigHash := a.Hash.New()
+	sigHash.Write(quote.Quote)
 
-	switch pub := e.AIKPublic.(type) {
+	switch pub := a.Public.(type) {
 	case *rsa.PublicKey:
 		if sig.RSA == nil {
-			return nil, fmt.Errorf("rsa public key provided for ec signature")
+			return fmt.Errorf("rsa public key provided for ec signature")
 		}
 		sigBytes := []byte(sig.RSA.Signature)
-		if err := rsa.VerifyPKCS1v15(pub, e.AIKHash, sigHash.Sum(nil), sigBytes); err != nil {
-			return nil, fmt.Errorf("invalid quote signature: %v", err)
+		if err := rsa.VerifyPKCS1v15(pub, a.Hash, sigHash.Sum(nil), sigBytes); err != nil {
+			return fmt.Errorf("invalid quote signature: %v", err)
 		}
 	default:
 		// TODO(ericchiang): support ecdsa
-		return nil, fmt.Errorf("unsupported public key type %T", pub)
+		return fmt.Errorf("unsupported public key type %T", pub)
 	}
 
-	att, err := tpm2.DecodeAttestationData(e.Quote.Quote)
+	att, err := tpm2.DecodeAttestationData(quote.Quote)
 	if err != nil {
-		return nil, fmt.Errorf("parsing quote signature: %v", err)
+		return fmt.Errorf("parsing quote signature: %v", err)
 	}
 	if att.Type != tpm2.TagAttestQuote {
-		return nil, fmt.Errorf("attestation isn't a quote, tag of type 0x%x", att.Type)
+		return fmt.Errorf("attestation isn't a quote, tag of type 0x%x", att.Type)
 	}
-	if !bytes.Equal([]byte(att.ExtraData), e.Nonce) {
-		return nil, fmt.Errorf("nonce didn't match: %v", err)
+	if !bytes.Equal([]byte(att.ExtraData), nonce) {
+		return fmt.Errorf("nonce didn't match: %v", err)
 	}
 
 	pcrByIndex := map[int][]byte{}
-	for _, pcr := range e.PCRs {
+	for _, pcr := range pcrs {
 		pcrByIndex[pcr.Index] = pcr.Digest
 	}
 
 	n := len(att.AttestedQuoteInfo.PCRDigest)
 	hash, ok := hashBySize[n]
 	if !ok {
-		return nil, fmt.Errorf("quote used unsupported hash algorithm length: %d", n)
+		return fmt.Errorf("quote used unsupported hash algorithm length: %d", n)
 	}
-	var validatedPCRs []PCR
+
 	h := hash.New()
 	for _, index := range att.AttestedQuoteInfo.PCRSelection.PCRs {
 		digest, ok := pcrByIndex[index]
 		if !ok {
-			return nil, fmt.Errorf("quote was over PCR %d which wasn't provided", index)
+			return fmt.Errorf("quote was over PCR %d which wasn't provided", index)
 		}
 		if len(digest) != hash.Size() {
-			return nil, fmt.Errorf("mismatch pcr and quote hash, pcr hash length=%d, quote hash length=%d", len(digest), hash.Size())
+			return fmt.Errorf("mismatch pcr and quote hash, pcr hash length=%d, quote hash length=%d", len(digest), hash.Size())
 		}
 		h.Write(digest)
-		validatedPCRs = append(validatedPCRs, PCR{Index: index, Digest: digest})
 	}
 
 	if !bytes.Equal(h.Sum(nil), att.AttestedQuoteInfo.PCRDigest) {
-		return nil, fmt.Errorf("quote digest didn't match pcrs provided")
+		return fmt.Errorf("quote digest didn't match pcrs provided")
 	}
-	return validatedPCRs, nil
+	return nil
 }
 
 var hashBySize = map[int]crypto.Hash{
