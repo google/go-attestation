@@ -64,7 +64,7 @@ func runCommand(tpm *attest.TPM) error {
 		fmt.Printf("Manufactorer: %v\n", info.Manufacturer)
 
 	case "make-aik":
-		k, err := tpm.MintAIK(nil)
+		k, err := tpm.NewAIK(nil)
 		if err != nil {
 			return fmt.Errorf("failed to mint an AIK: %v", err)
 		}
@@ -186,7 +186,7 @@ func runDump(tpm *attest.TPM) (*internal.Dump, error) {
 		return nil, err
 	}
 
-	k, err := tpm.MintAIK(nil)
+	k, err := tpm.NewAIK(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to mint an AIK: %v", err)
 	}

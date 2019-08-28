@@ -129,9 +129,9 @@ func (k *AIK) AttestationParameters() AttestationParameters {
 	return k.aik.AttestationParameters()
 }
 
-// MintOptions encapsulates parameters for minting keys. This type is defined
+// AIKConfig encapsulates parameters for minting keys. This type is defined
 // now (despite being empty) for future interface compatibility.
-type MintOptions struct {
+type AIKConfig struct {
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated

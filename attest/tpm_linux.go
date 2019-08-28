@@ -270,8 +270,8 @@ func (t *TPM) EKs() ([]EK, error) {
 	}
 }
 
-// MintAIK creates an attestation key.
-func (t *TPM) MintAIK(opts *MintOptions) (*AIK, error) {
+// NewAIK creates an attestation key.
+func (t *TPM) NewAIK(opts *AIKConfig) (*AIK, error) {
 	switch t.version {
 	case TPMVersion12:
 		pub, blob, err := attestation.CreateAIK(t.ctx)

@@ -64,9 +64,9 @@ func TestSimTPM20AIKCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
+		t.Fatalf("NewAIK() failed: %v", err)
 	}
 
 	enc, err := aik.Marshal()
@@ -97,9 +97,9 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
+		t.Fatalf("NewAIK() failed: %v", err)
 	}
 	defer aik.Close(tpm)
 
@@ -134,9 +134,9 @@ func TestParseAIKPublic20(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
+		t.Fatalf("NewAIK() failed: %v", err)
 	}
 	defer aik.Close(tpm)
 	params := aik.AttestationParameters()
@@ -149,9 +149,9 @@ func TestSimTPM20Quote(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
+		t.Fatalf("NewAIK() failed: %v", err)
 	}
 	defer aik.Close(tpm)
 

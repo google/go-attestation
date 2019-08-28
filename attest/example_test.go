@@ -21,7 +21,7 @@ func ExampleAIK() {
 	defer tpm.Close()
 
 	// Create a new AIK.
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
 		log.Fatalf("Failed to create AIK: %v", err)
 	}
@@ -53,7 +53,7 @@ func ExampleAIK_credentialActivation() {
 	defer tpm.Close()
 
 	// Create a new AIK.
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
 		log.Fatalf("Failed to create AIK: %v", err)
 	}
@@ -99,7 +99,7 @@ func ExampleAIK_quote() {
 	defer tpm.Close()
 
 	// Create a new AIK.
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
 		log.Fatalf("Failed to create AIK: %v", err)
 	}

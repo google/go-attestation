@@ -88,9 +88,9 @@ func TestAIKCreateAndLoad(t *testing.T) {
 	}
 	defer tpm.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
+		t.Fatalf("NewAIK() failed: %v", err)
 	}
 
 	enc, err := aik.Marshal()

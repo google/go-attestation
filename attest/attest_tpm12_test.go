@@ -87,13 +87,13 @@ func TestTPM12EKs(t *testing.T) {
 	}
 }
 
-func TestMintAIK(t *testing.T) {
+func TestNewAIK(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK failed: %v", err)
+		t.Fatalf("NewAIK failed: %v", err)
 	}
 	k := aik.aik.(*key12)
 	t.Logf("aik blob: %x\naik pubkey: %x\n", k.blob, k.public)
@@ -108,9 +108,9 @@ func TestTPMQuote(t *testing.T) {
 		t.Fatalf("reading nonce: %v", err)
 	}
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK failed: %v", err)
+		t.Fatalf("NewAIK failed: %v", err)
 	}
 
 	quote, err := aik.Quote(tpm, nonce, HashSHA1)
@@ -125,9 +125,9 @@ func TestParseAIKPublic12(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK() failed: %v", err)
+		t.Fatalf("NewAIK() failed: %v", err)
 	}
 	defer aik.Close(tpm)
 	params := aik.AttestationParameters()
@@ -140,9 +140,9 @@ func TestTPMActivateCredential(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	aik, err := tpm.MintAIK(nil)
+	aik, err := tpm.NewAIK(nil)
 	if err != nil {
-		t.Fatalf("MintAIK failed: %v", err)
+		t.Fatalf("NewAIK failed: %v", err)
 	}
 
 	EKs, err := tpm.EKs()
