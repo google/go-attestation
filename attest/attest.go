@@ -253,6 +253,25 @@ func ParseAIKPublic(version TPMVersion, public []byte) (*AIKPublic, error) {
 	}
 }
 
+// Verify is used to prove authenticity of the PCR measurements. It ensures that
+// the quote was signed by the AIK, and that its contents matches the PCR and
+// nonce combination.
+//
+// The nonce is used to prevent replays of Quote and PCRs and is signed by the
+// quote. Some TPMs don't support nonces longer than 20 bytes, and if the
+// nonce is used to tie additional data to the quote, the additional data should be
+// hashed to construct the nonce.
+func (a *AIKPublic) Verify(quote Quote, pcrs []PCR, nonce []byte) error {
+	switch quote.Version {
+	case TPMVersion12:
+		return a.validate12Quote(quote, pcrs, nonce)
+	case TPMVersion20:
+		return a.validate20Quote(quote, pcrs, nonce)
+	default:
+		return fmt.Errorf("quote used unknown tpm version 0x%x", quote.Version)
+	}
+}
+
 // HashAlg identifies a hashing Algorithm.
 type HashAlg uint8
 

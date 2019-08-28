@@ -1,3 +1,17 @@
+// Copyright 2019 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+
 package attest
 
 import (
@@ -85,20 +99,19 @@ func testEventLog(t *testing.T, testdata string) {
 	if err != nil {
 		t.Fatalf("parsing AIK: %v", err)
 	}
-
-	el := EventLog{
-		AIKPublic: aik.Public,
-		AIKHash:   aik.Hash,
-		Quote: &Quote{
-			Version:   dump.Static.TPMVersion,
-			Quote:     dump.Quote.Quote,
-			Signature: dump.Quote.Signature,
-		},
-		Nonce:          dump.Quote.Nonce,
-		PCRs:           dump.Log.PCRs,
-		MeasurementLog: dump.Log.Raw,
+	if err := aik.Verify(Quote{
+		Version:   dump.Static.TPMVersion,
+		Quote:     dump.Quote.Quote,
+		Signature: dump.Quote.Signature,
+	}, dump.Log.PCRs, dump.Quote.Nonce); err != nil {
+		t.Fatalf("verifying quote: %v", err)
 	}
-	if _, err := el.Validate(); err != nil {
+
+	el, err := ParseEventLog(dump.Log.Raw)
+	if err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+	if _, err := el.Verify(dump.Log.PCRs); err != nil {
 		t.Fatalf("validating event log: %v", err)
 	}
 }
