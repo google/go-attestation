@@ -164,6 +164,12 @@ func ParseSecureBoot(events []attest.Event) (*SecureBoot, error) {
 					if !sb.Enabled {
 						return nil, fmt.Errorf("%s/%s present when secure boot wasn't enabled", t, data.name)
 					}
+					if len(sb.Authority) != 0 {
+						// If a malicious value is appended to the eventlog,
+						// ensure we only trust the first value written by
+						// the UEFI firmware.
+						return nil, fmt.Errorf("%s/%s was already present earlier in the event log", t, data.name)
+					}
 					sb.Authority = data.data
 				}
 			}
