@@ -89,6 +89,7 @@ func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 		return nil, fmt.Errorf("failed to construct Quote Info: %v", err)
 	}
 	return &Quote{
+		Version:   TPMVersion12,
 		Quote:     quote,
 		Signature: sig,
 	}, nil
