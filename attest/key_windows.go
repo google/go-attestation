@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
 )
 
 // key12 represents a Windows-managed key on a TPM1.2 TPM.
@@ -62,6 +61,10 @@ func (k *key12) ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, er
 
 // Quote returns a quote over the platform state, signed by the key.
 func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+	if alg != HashSHA1 {
+		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not HashAlg(%v)", alg)
+	}
+
 	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
 	if err != nil {
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
@@ -162,7 +165,7 @@ func (k *key20) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 	}
-	return quote20(tpm, tpmKeyHnd, tpm2.Algorithm(alg), nonce)
+	return quote20(tpm, tpmKeyHnd, alg.goTPMAlg(), nonce)
 }
 
 // Close frees any resources associated with the key.

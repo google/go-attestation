@@ -65,6 +65,10 @@ func (k *key12) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, erro
 
 // Quote returns a quote over the platform state, signed by the key.
 func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+	if alg != HashSHA1 {
+		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not HashAlg(%v)", alg)
+	}
+
 	quote, rawSig, err := attestation.GetQuote(t.ctx, k.blob, nonce)
 	if err != nil {
 		return nil, fmt.Errorf("Quote() failed: %v", err)
