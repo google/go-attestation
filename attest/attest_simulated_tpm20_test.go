@@ -13,6 +13,9 @@
 // the License.
 
 // +build !localtest !tpm12
+// +build cgo
+
+// NOTE: simulator requires cgo, hence the build tag.
 
 package attest
 
@@ -30,12 +33,12 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return tpm, &TPM{
+	return tpm, &TPM{&platformTPM{
 		version: TPMVersion20,
 		interf:  TPMInterfaceKernelManaged,
 		sysPath: "/dev/tpmrm0",
 		rwc:     tpm,
-	}
+	}}
 }
 
 func TestSimTPM20EK(t *testing.T) {
@@ -195,7 +198,7 @@ func TestSimTPM20Persistence(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	ekHnd, _, err := tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, _, err := tpm.tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("getPrimaryKeyHandle() failed: %v", err)
 	}
@@ -203,7 +206,7 @@ func TestSimTPM20Persistence(t *testing.T) {
 		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
 	}
 
-	ekHnd, p, err := tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, p, err := tpm.tpm.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("second getPrimaryKeyHandle() failed: %v", err)
 	}

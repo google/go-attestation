@@ -39,7 +39,7 @@ func newKey12(blob, public []byte) aik {
 
 // Marshal represents the key in a persistent format which may be
 // loaded at a later time using tpm.LoadKey().
-func (k *key12) Marshal() ([]byte, error) {
+func (k *key12) marshal() ([]byte, error) {
 	out := serializedKey{
 		Encoding:   keyEncodingEncrypted,
 		TPMVersion: TPMVersion12,
@@ -49,13 +49,11 @@ func (k *key12) Marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *key12) Close(tpm *TPM) error {
+func (k *key12) close(tpm *platformTPM) error {
 	return nil // No state for tpm 1.2.
 }
 
-// ActivateCredential decrypts the specified credential using key.
-// This operation is synonymous with TPM2_ActivateCredential.
-func (k *key12) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, error) {
+func (k *key12) activateCredential(t *platformTPM, in EncryptedCredential) ([]byte, error) {
 	cred, err := attestation.AIKChallengeResponse(t.ctx, k.blob, in.Credential, in.Secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to activate aik: %v", err)
@@ -63,8 +61,7 @@ func (k *key12) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, erro
 	return cred, nil
 }
 
-// Quote returns a quote over the platform state, signed by the key.
-func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *key12) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not HashAlg(%v)", alg)
 	}
@@ -81,8 +78,7 @@ func (k *key12) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	}, nil
 }
 
-// AttestationParameters returns information about the AIK.
-func (k *key12) AttestationParameters() AttestationParameters {
+func (k *key12) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public:                  k.public,
 		UseTCSDActivationFormat: true,
@@ -111,9 +107,7 @@ func newKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, c
 	}
 }
 
-// Marshal represents the key in a persistent format which may be
-// loaded at a later time using tpm.LoadKey().
-func (k *key20) Marshal() ([]byte, error) {
+func (k *key20) marshal() ([]byte, error) {
 	return (&serializedKey{
 		Encoding:   keyEncodingEncrypted,
 		TPMVersion: TPMVersion20,
@@ -126,14 +120,11 @@ func (k *key20) Marshal() ([]byte, error) {
 	}).Serialize()
 }
 
-// Close frees any resources associated with the key.
-func (k *key20) Close(tpm *TPM) error {
+func (k *key20) close(tpm *platformTPM) error {
 	return tpm2.FlushContext(tpm.rwc, k.hnd)
 }
 
-// ActivateCredential decrypts the specified credential using key.
-// This operation is synonymous with TPM2_ActivateCredential.
-func (k *key20) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, error) {
+func (k *key20) activateCredential(t *platformTPM, in EncryptedCredential) ([]byte, error) {
 	ekHnd, _, err := t.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		return nil, err
@@ -163,13 +154,11 @@ func (k *key20) ActivateCredential(t *TPM, in EncryptedCredential) ([]byte, erro
 	}, k.hnd, ekHnd, in.Credential[2:], in.Secret[2:])
 }
 
-// Quote returns a quote over the platform state, signed by the key.
-func (k *key20) Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *key20) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	return quote20(t.rwc, k.hnd, tpm2.Algorithm(alg), nonce)
 }
 
-// AttestationParameters returns information about the AIK.
-func (k *key20) AttestationParameters() AttestationParameters {
+func (k *key20) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public:            k.public,
 		CreateData:        k.createData,

@@ -34,8 +34,7 @@ import (
 
 var wellKnownAuth [20]byte
 
-// TPM interfaces with a TPM device on the system.
-type TPM struct {
+type platformTPM struct {
 	version TPMVersion
 	pcp     *winPCP
 }
@@ -90,19 +89,17 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		return nil, fmt.Errorf("tbsConvertVersion(%v) failed: %v", info.TBSInfo.TPMVersion, err)
 	}
 
-	return &TPM{
+	return &TPM{&platformTPM{
 		pcp:     pcp,
 		version: vers,
-	}, nil
+	}}, nil
 }
 
-// Version returns the version of the TPM.
-func (t *TPM) Version() TPMVersion {
+func (t *platformTPM) tpmVersion() TPMVersion {
 	return t.version
 }
 
-// Close shuts down the connection to the TPM.
-func (t *TPM) Close() error {
+func (t *platformTPM) close() error {
 	return t.pcp.Close()
 }
 
@@ -115,8 +112,7 @@ func readTPM12VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 	return vendorID, vendorID.String(), nil
 }
 
-// Info returns information about the TPM.
-func (t *TPM) Info() (*TPMInfo, error) {
+func (t *platformTPM) info() (*TPMInfo, error) {
 	tInfo := TPMInfo{
 		Version:   t.version,
 		Interface: TPMInterfaceKernelManaged,
@@ -146,8 +142,7 @@ func (t *TPM) Info() (*TPMInfo, error) {
 	return &tInfo, nil
 }
 
-// EKs returns the Endorsement Keys burned-in to the platform.
-func (t *TPM) EKs() ([]EK, error) {
+func (t *platformTPM) eks() ([]EK, error) {
 	ekCerts, err := t.pcp.EKCerts()
 	if err != nil {
 		return nil, fmt.Errorf("could not read EKCerts: %v", err)
@@ -166,7 +161,7 @@ func (t *TPM) EKs() ([]EK, error) {
 	}
 	ek := EK{Public: pub}
 
-	i, err := t.Info()
+	i, err := t.info()
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +171,7 @@ func (t *TPM) EKs() ([]EK, error) {
 	return []EK{ek}, nil
 }
 
-func (t *TPM) ekPub() (*rsa.PublicKey, error) {
+func (t *platformTPM) ekPub() (*rsa.PublicKey, error) {
 	p, err := t.pcp.EKPub()
 	if err != nil {
 		return nil, fmt.Errorf("could not read ekpub: %v", err)
@@ -269,9 +264,7 @@ func decryptCredential(secretKey, blob []byte) ([]byte, error) {
 	return secret, nil
 }
 
-// NewAIK creates a persistent attestation key. The returned key must be
-// closed with a call to key.Close() when the caller has finished using it.
-func (t *TPM) NewAIK(opts *AIKConfig) (*AIK, error) {
+func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
 	nameHex := make([]byte, 5)
 	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
 		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
@@ -298,7 +291,7 @@ func (t *TPM) NewAIK(opts *AIKConfig) (*AIK, error) {
 	}
 }
 
-func (t *TPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
+func (t *platformTPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -341,9 +334,7 @@ func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
 	return out, nil
 }
 
-// PCRs returns the present value of Platform Configuration Registers with the
-// given digest algorithm.
-func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
+func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	var PCRs map[uint32][]byte
 
 	switch t.version {
@@ -386,8 +377,7 @@ func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	return out, nil
 }
 
-// MeasurementLog returns the present value of the System Measurement Log.
-func (t *TPM) MeasurementLog() ([]byte, error) {
+func (t *platformTPM) measurementLog() ([]byte, error) {
 	context, err := tpmtbs.CreateContext(tpmtbs.TPMVersion20, tpmtbs.IncludeTPM20|tpmtbs.IncludeTPM12)
 	if err != nil {
 		return nil, err
