@@ -62,7 +62,7 @@ func testParseEventLog(t *testing.T, testdata string) {
 	if err := json.Unmarshal(data, &dump); err != nil {
 		t.Fatalf("parsing test data: %v", err)
 	}
-	if _, err := parseEventLog(dump.Log.Raw); err != nil {
+	if _, err := ParseEventLog(dump.Log.Raw); err != nil {
 		t.Fatalf("parsing event log: %v", err)
 	}
 }
@@ -72,7 +72,7 @@ func TestParseCryptoAgileEventLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
-	if _, err := parseEventLog(data); err != nil {
+	if _, err := ParseEventLog(data); err != nil {
 		t.Fatalf("parsing event log: %v", err)
 	}
 }

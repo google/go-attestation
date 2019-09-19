@@ -307,7 +307,12 @@ func (t *TPM) NewAIK(opts *AIKConfig) (*AIK, error) {
 	return t.tpm.newAIK(opts)
 }
 
-// PCRs returns the present value of Platform Configuration Registers with the given digest algorithm.
+// PCRs returns the present value of Platform Configuration Registers with
+// the given digest algorithm.
+//
+// Use ParseEventLog to determine which algorithm to use to match the values
+// present in the event log. It's not always guarenteed that a system with TPM
+// 2.0 will extend PCRs with SHA256 digests.
 func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	return t.tpm.pcrs(alg)
 }
