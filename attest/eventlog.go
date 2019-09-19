@@ -62,18 +62,12 @@ type Event struct {
 	// match their data to their digest.
 }
 
-// ParseEventLog parses an unverified measurement log.
-func ParseEventLog(measurementLog []byte) (*EventLog, error) {
-	rawEvents, err := parseEventLog(measurementLog)
-	if err != nil {
-		return nil, fmt.Errorf("parsing measurement log: %v", err)
-	}
-	return &EventLog{rawEvents}, nil
-}
-
 // EventLog is a parsed measurement log. This contains unverified data representing
 // boot events that must be replayed against PCR values to determine authenticity.
 type EventLog struct {
+	// Algs holds the set of algorithms that the event log uses.
+	Algs []HashAlg
+
 	rawEvents []rawEvent
 }
 
@@ -281,36 +275,122 @@ func replayEvents(rawEvents []rawEvent, pcrs []PCR) ([]Event, error) {
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClientSpecPlat_TPM_2p0_1p04_pub.pdf#page=110
 const eventTypeNoAction = 0x03
 
-func parseEventLog(b []byte) ([]rawEvent, error) {
-	r := bytes.NewBuffer(b)
+// ParseEventLog parses an unverified measurement log.
+func ParseEventLog(measurementLog []byte) (*EventLog, error) {
+	r := bytes.NewBuffer(measurementLog)
 	parseFn := parseRawEvent
+	var el EventLog
 	e, err := parseFn(r)
 	if err != nil {
 		return nil, fmt.Errorf("parse first event: %v", err)
 	}
-	var events []rawEvent
 	if e.typ == eventTypeNoAction {
+		specID, err := parseSpecIDEvent(e.data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse spec ID event: %v", err)
+		}
+		for _, alg := range specID.algs {
+			switch tpm2.Algorithm(alg) {
+			case tpm2.AlgSHA1:
+				el.Algs = append(el.Algs, HashSHA1)
+			case tpm2.AlgSHA256:
+				el.Algs = append(el.Algs, HashSHA256)
+			}
+		}
+		if len(el.Algs) == 0 {
+			return nil, fmt.Errorf("measurement log didn't use sha1 or sha256 digests")
+		}
 		// Switch to parsing crypto agile events. Don't include this in the
-		// replayed events since it's intentionally switching from SHA1 to
-		// SHA256 and will fail to extend a SHA256 PCR value.
+		// replayed events since it intentionally doesn't extend the PCRs.
 		//
-		// NOTE(ericchiang): to be strict, we could parse the event data as a
-		// TCG_EfiSpecIDEventStruct and validate the algorithms. But for now,
-		// assume this indicates a switch from SHA1 format to SHA1/SHA256.
-		//
-		// https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=18
+		// Note that this doesn't actually guarentee that events have SHA256
+		// digests.
 		parseFn = parseRawEvent2
 	} else {
-		events = append(events, e)
+		el.Algs = []HashAlg{HashSHA1}
+		el.rawEvents = append(el.rawEvents, e)
 	}
 	for r.Len() != 0 {
 		e, err := parseFn(r)
 		if err != nil {
 			return nil, err
 		}
-		events = append(events, e)
+		el.rawEvents = append(el.rawEvents, e)
 	}
-	return events, nil
+	return &el, nil
+}
+
+type specIDEvent struct {
+	algs []uint16
+}
+
+type specAlgSize struct {
+	ID   uint16
+	Size uint16
+}
+
+var (
+	// Expected values for various Spec ID Event fields.
+	// https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=19
+	wantSignature = [16]byte{0x53, 0x70,
+		0x65, 0x63, 0x20, 0x49,
+		0x44, 0x20, 0x45, 0x76,
+		0x65, 0x6e, 0x74, 0x30,
+		0x33, 0x00} // "Spec ID Event03\0"
+	wantMajor  uint8 = 2
+	wantMinor  uint8 = 0
+	wantErrata       = 0
+)
+
+// parseSpecIDEvent parses a TCG_EfiSpecIDEventStruct structure from the reader.
+//
+// https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=18
+func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
+	r := bytes.NewReader(b)
+	var header struct {
+		Signature     [16]byte
+		PlatformClass uint32
+		VersionMinor  uint8
+		VersionMajor  uint8
+		Errata        uint8
+		UintnSize     uint8
+		NumAlgs       uint32
+	}
+	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
+		return nil, fmt.Errorf("reading event header: %v", err)
+	}
+	if header.Signature != wantSignature {
+		return nil, fmt.Errorf("invalid spec id signature: %x", header.Signature)
+	}
+	if header.VersionMajor != wantMajor {
+		return nil, fmt.Errorf("invalid spec major version, got %02x, wanted %02x",
+			header.VersionMajor, wantMajor)
+	}
+	if header.VersionMinor != wantMinor {
+		return nil, fmt.Errorf("invalid spec minor version, got %02x, wanted %02x",
+			header.VersionMajor, wantMinor)
+	}
+
+	// TODO(ericchiang): Check errata? Or do we expect that to change in ways
+	// we're okay with?
+
+	algs := make([]specAlgSize, header.NumAlgs)
+	if err := binary.Read(r, binary.LittleEndian, &algs); err != nil {
+		return nil, fmt.Errorf("reading algorithms: %v", err)
+	}
+
+	var vendorInfoSize uint8
+	if err := binary.Read(r, binary.LittleEndian, &vendorInfoSize); err != nil {
+		return nil, fmt.Errorf("reading vender info size: %v", err)
+	}
+	if r.Len() != int(vendorInfoSize) {
+		return nil, fmt.Errorf("reading vendor info, expected %d remaining bytes, got %d", vendorInfoSize, r.Len())
+	}
+	var e specIDEvent
+	for _, alg := range algs {
+		e.algs = append(e.algs, alg.ID)
+	}
+	return &e, nil
 }
 
 type rawEvent struct {
