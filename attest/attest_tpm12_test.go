@@ -91,12 +91,9 @@ func TestNewAIK(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	aik, err := tpm.NewAIK(nil)
-	if err != nil {
+	if _, err := tpm.NewAIK(nil); err != nil {
 		t.Fatalf("NewAIK failed: %v", err)
 	}
-	k := aik.aik.(*key12)
-	t.Logf("aik blob: %x\naik pubkey: %x\n", k.blob, k.public)
 }
 
 func TestTPMQuote(t *testing.T) {

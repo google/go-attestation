@@ -85,11 +85,11 @@ const (
 )
 
 type aik interface {
-	Close(*TPM) error
-	Marshal() ([]byte, error)
-	ActivateCredential(tpm *TPM, in EncryptedCredential) ([]byte, error)
-	Quote(t *TPM, nonce []byte, alg HashAlg) (*Quote, error)
-	AttestationParameters() AttestationParameters
+	close(*platformTPM) error
+	marshal() ([]byte, error)
+	activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error)
+	quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error)
+	attestationParameters() AttestationParameters
 }
 
 // AIK represents a key which can be used for attestation.
@@ -99,7 +99,7 @@ type AIK struct {
 
 // Close unloads the AIK from the system.
 func (k *AIK) Close(t *TPM) error {
-	return k.aik.Close(t)
+	return k.aik.close(t.tpm)
 }
 
 // Marshal encodes the AIK in a format that can be reloaded with tpm.LoadAIK().
@@ -107,7 +107,7 @@ func (k *AIK) Close(t *TPM) error {
 // it as a later time. Users SHOULD NOT attempt to interpret or extract values
 // from this blob.
 func (k *AIK) Marshal() ([]byte, error) {
-	return k.aik.Marshal()
+	return k.aik.marshal()
 }
 
 // ActivateCredential decrypts the secret using the key to prove that the AIK
@@ -115,18 +115,18 @@ func (k *AIK) Marshal() ([]byte, error) {
 //
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
-	return k.aik.ActivateCredential(tpm, in)
+	return k.aik.activateCredential(tpm.tpm, in)
 }
 
 // Quote returns a quote over the platform state, signed by the AIK.
 func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
-	return k.aik.Quote(tpm, nonce, alg)
+	return k.aik.quote(tpm.tpm, nonce, alg)
 }
 
 // Parameters returns information about the AIK, typically used to generate
 // a credential activation challenge.
 func (k *AIK) AttestationParameters() AttestationParameters {
-	return k.aik.AttestationParameters()
+	return k.aik.attestationParameters()
 }
 
 // AIKConfig encapsulates parameters for minting keys. This type is defined
