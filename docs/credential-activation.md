@@ -146,4 +146,4 @@ revision 2 part 1.
 
    Overall, the entire construction looks like this:
 
-   ![packet diagram](credential_activation_pkt.svg)
+   ![packet diagram](credential_activation_pkt.png)
