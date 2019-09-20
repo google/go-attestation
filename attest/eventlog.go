@@ -195,9 +195,6 @@ func (a *AIKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error
 		if !ok {
 			return fmt.Errorf("quote was over PCR %d which wasn't provided", index)
 		}
-		if len(digest) != hash.Size() {
-			return fmt.Errorf("mismatch pcr and quote hash, pcr hash length=%d, quote hash length=%d", len(digest), hash.Size())
-		}
 		h.Write(digest)
 	}
 
