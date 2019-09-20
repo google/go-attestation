@@ -123,8 +123,8 @@ func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	return k.aik.quote(tpm.tpm, nonce, alg)
 }
 
-// Parameters returns information about the AIK, typically used to generate
-// a credential activation challenge.
+// AttestationParameters returns information about the AIK, typically used to
+// generate a credential activation challenge.
 func (k *AIK) AttestationParameters() AttestationParameters {
 	return k.aik.attestationParameters()
 }

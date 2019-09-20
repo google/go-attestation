@@ -17,14 +17,14 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/rsa"
+	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"sort"
 
 	// Ensure hashes are available.
-	"crypto/rsa"
-	"crypto/sha1"
 	_ "crypto/sha256"
 
 	"github.com/google/go-tpm/tpm2"
@@ -326,17 +326,18 @@ type specAlgSize struct {
 	Size uint16
 }
 
-var (
-	// Expected values for various Spec ID Event fields.
-	// https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=19
-	wantSignature = [16]byte{0x53, 0x70,
-		0x65, 0x63, 0x20, 0x49,
-		0x44, 0x20, 0x45, 0x76,
-		0x65, 0x6e, 0x74, 0x30,
-		0x33, 0x00} // "Spec ID Event03\0"
-	wantMajor  uint8 = 2
-	wantMinor  uint8 = 0
-	wantErrata       = 0
+// Expected values for various Spec ID Event fields.
+// https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=19
+var wantSignature = [16]byte{0x53, 0x70,
+	0x65, 0x63, 0x20, 0x49,
+	0x44, 0x20, 0x45, 0x76,
+	0x65, 0x6e, 0x74, 0x30,
+	0x33, 0x00} // "Spec ID Event03\0"
+
+const (
+	wantMajor  = 2
+	wantMinor  = 0
+	wantErrata = 0
 )
 
 // parseSpecIDEvent parses a TCG_EfiSpecIDEventStruct structure from the reader.
