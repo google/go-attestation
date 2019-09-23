@@ -301,6 +301,17 @@ func (a HashAlg) goTPMAlg() tpm2.Algorithm {
 	return 0
 }
 
+// String returns a human-friendly representation of the hash algorithm.
+func (a HashAlg) String() string {
+	switch a {
+	case HashSHA1:
+		return "SHA1"
+	case HashSHA256:
+		return "SHA256"
+	}
+	return fmt.Sprintf("HashAlg<%d>", int(a))
+}
+
 var (
 	defaultOpenConfig = &OpenConfig{}
 
