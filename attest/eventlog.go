@@ -31,6 +31,18 @@ import (
 	"github.com/google/go-tpm/tpmutil"
 )
 
+// ReplayError describes the parsed events that failed to verify against
+// a particular PCR.
+type ReplayError struct {
+	Events      []Event
+	invalidPCRs []int
+}
+
+// Error returns a human-friendly description of replay failures.
+func (e ReplayError) Error() string {
+	return fmt.Sprintf("event log failed to verify: the following registers failed to replay: %v", e.invalidPCRs)
+}
+
 // TPM algorithms. See the TPM 2.0 specification section 6.3.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TPM-Rev-2.0-Part-2-Structures-01.38.pdf#page=42
@@ -77,6 +89,9 @@ type EventLog struct {
 func (e *EventLog) Verify(pcrs []PCR) ([]Event, error) {
 	events, err := replayEvents(e.rawEvents, pcrs)
 	if err != nil {
+		if _, isReplayErr := err.(ReplayError); isReplayErr {
+			return nil, err
+		}
 		return nil, fmt.Errorf("pcrs failed to replay: %v", err)
 	}
 	return events, nil
@@ -260,7 +275,10 @@ func replayEvents(rawEvents []rawEvent, pcrs []PCR) ([]Event, error) {
 		}
 	}
 	if len(invalidReplays) > 0 {
-		return nil, fmt.Errorf("the following registers failed to replay: %d", invalidReplays)
+		return nil, ReplayError{
+			Events:      events,
+			invalidPCRs: invalidReplays,
+		}
 	}
 	return events, nil
 }
