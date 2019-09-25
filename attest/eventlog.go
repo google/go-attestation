@@ -57,6 +57,9 @@ type EventType uint32
 // Event is a single event from a TCG event log. This reports descrete items such
 // as BIOs measurements or EFI states.
 type Event struct {
+	// order of the event in the event log.
+	sequence int
+
 	// PCR index of the event.
 	Index int
 	// Type of the event.
@@ -83,9 +86,10 @@ type EventLog struct {
 	rawEvents []rawEvent
 }
 
-// Verify replays the event log against a TPM's PCR values, returning events
-// from the event log, or an error if the replayed PCR values did not match the
-// provided PCR values.
+// Verify replays the event log against a TPM's PCR values, returning the
+// events which could be matched to a provided PCR value.
+// An error is returned if the replayed digest for events with a given PCR
+// index do not match any provided value for that PCR index.
 func (e *EventLog) Verify(pcrs []PCR) ([]Event, error) {
 	events, err := replayEvents(e.rawEvents, pcrs)
 	if err != nil {
@@ -224,10 +228,10 @@ var hashBySize = map[int]crypto.Hash{
 	crypto.SHA256.Size(): crypto.SHA256,
 }
 
-func extend(pcr, replay []byte, e rawEvent) ([]byte, Event, error) {
+func extend(pcr, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest []byte, err error) {
 	h, ok := hashBySize[len(pcr)]
 	if !ok {
-		return nil, Event{}, fmt.Errorf("pcr %d was not a known hash size: %d", e.index, len(pcr))
+		return nil, nil, fmt.Errorf("pcr %d was not a known hash size: %d", e.index, len(pcr))
 	}
 	for _, digest := range e.digests {
 		if len(digest) != len(pcr) {
@@ -241,46 +245,89 @@ func extend(pcr, replay []byte, e rawEvent) ([]byte, Event, error) {
 			hash.Write(b)
 		}
 		hash.Write(digest)
-		return hash.Sum(nil), Event{e.index, e.typ, e.data, digest}, nil
+		return hash.Sum(nil), digest, nil
 	}
-	return nil, Event{}, fmt.Errorf("no event digest matches pcr length: %d", len(pcr))
+	return nil, nil, fmt.Errorf("no event digest matches pcr length: %d", len(pcr))
+}
+
+// replayPCR replays the event log for a specific PCR, using pcr and
+// event digests with the algorithm in pcr. An error is returned if the
+// replayed values do not match the final PCR digest, or any event tagged
+// with that PCR does not posess an event digest with the specified algorithm.
+func replayPCR(rawEvents []rawEvent, pcr PCR) ([]Event, bool) {
+	var (
+		replay    []byte
+		outEvents []Event
+	)
+
+	for _, e := range rawEvents {
+		if e.index != pcr.Index {
+			continue
+		}
+
+		replayValue, digest, err := extend(pcr.Digest, replay, e)
+		if err != nil {
+			return nil, false
+		}
+		replay = replayValue
+		outEvents = append(outEvents, Event{sequence: e.sequence, Data: e.data, Digest: digest, Index: pcr.Index, Type: e.typ})
+	}
+
+	if len(outEvents) > 0 && !bytes.Equal(replay, pcr.Digest) {
+		return nil, false
+	}
+	return outEvents, true
+}
+
+type pcrReplayResult struct {
+	events     []Event
+	successful bool
 }
 
 func replayEvents(rawEvents []rawEvent, pcrs []PCR) ([]Event, error) {
-	events := []Event{}
-	replay := map[int][]byte{}
-	pcrByIndex := map[int][]byte{}
+	var (
+		invalidReplays []int
+		verifiedEvents []Event
+		allPCRReplays  = map[int][]pcrReplayResult{}
+	)
+
+	// Replay the event log for every PCR and digest algorithm combination.
 	for _, pcr := range pcrs {
-		pcrByIndex[pcr.Index] = pcr.Digest
+		events, ok := replayPCR(rawEvents, pcr)
+		allPCRReplays[pcr.Index] = append(allPCRReplays[pcr.Index], pcrReplayResult{events, ok})
 	}
 
-	for i, e := range rawEvents {
-		pcrValue, ok := pcrByIndex[e.index]
-		if !ok {
-			// Ignore events for PCRs that weren't included in the quote.
-			continue
+	// Record PCR indices which do not have any successful replay. Record the
+	// events for a successful replay.
+pcrLoop:
+	for i, replaysForPCR := range allPCRReplays {
+		for _, replay := range replaysForPCR {
+			if replay.successful {
+				// We consider the PCR verified at this stage: The replay of values with
+				// one digest algorithm matched a provided value.
+				// As such, we save the PCR's events, and proceed to the next PCR.
+				verifiedEvents = append(verifiedEvents, replay.events...)
+				continue pcrLoop
+			}
 		}
-		replayValue, event, err := extend(pcrValue, replay[e.index], e)
-		if err != nil {
-			return nil, fmt.Errorf("replaying event %d: %v", i, err)
-		}
-		replay[e.index] = replayValue
-		events = append(events, event)
+		invalidReplays = append(invalidReplays, i)
 	}
 
-	var invalidReplays []int
-	for i, value := range replay {
-		if !bytes.Equal(value, pcrByIndex[i]) {
-			invalidReplays = append(invalidReplays, i)
-		}
-	}
 	if len(invalidReplays) > 0 {
+		events := make([]Event, 0, len(rawEvents))
+		for _, e := range rawEvents {
+			events = append(events, Event{e.sequence, e.index, e.typ, e.data, nil})
+		}
 		return nil, ReplayError{
 			Events:      events,
 			invalidPCRs: invalidReplays,
 		}
 	}
-	return events, nil
+
+	sort.Slice(verifiedEvents, func(i int, j int) bool {
+		return verifiedEvents[i].sequence < verifiedEvents[j].sequence
+	})
+	return verifiedEvents, nil
 }
 
 // EV_NO_ACTION is a special event type that indicates information to the parser
@@ -325,11 +372,14 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 		el.Algs = []HashAlg{HashSHA1}
 		el.rawEvents = append(el.rawEvents, e)
 	}
+	sequence := 1
 	for r.Len() != 0 {
 		e, err := parseFn(r)
 		if err != nil {
 			return nil, err
 		}
+		e.sequence = sequence
+		sequence++
 		el.rawEvents = append(el.rawEvents, e)
 	}
 	return &el, nil
@@ -410,10 +460,11 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 }
 
 type rawEvent struct {
-	index   int
-	typ     EventType
-	data    []byte
-	digests [][]byte
+	sequence int
+	index    int
+	typ      EventType
+	data     []byte
+	digests  [][]byte
 }
 
 // TPM 1.2 event log format. See "5.1 SHA1 Event Log Entry Format"

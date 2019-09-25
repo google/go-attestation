@@ -111,7 +111,14 @@ func testEventLog(t *testing.T, testdata string) {
 	if err != nil {
 		t.Fatalf("parsing event log: %v", err)
 	}
-	if _, err := el.Verify(dump.Log.PCRs); err != nil {
+	events, err := el.Verify(dump.Log.PCRs)
+	if err != nil {
 		t.Fatalf("validating event log: %v", err)
+	}
+
+	for i, e := range events {
+		if e.sequence != i {
+			t.Errorf("event out of order: events[%d].sequence = %d, want %d", i, e.sequence, i)
+		}
 	}
 }
