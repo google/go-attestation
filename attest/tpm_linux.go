@@ -122,7 +122,7 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		}
 	}
 
-	return &TPM{&platformTPM{
+	return &TPM{tpm: &platformTPM{
 		version: tpm.Version,
 		interf:  interf,
 		sysPath: tpm.Path,

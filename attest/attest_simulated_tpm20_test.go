@@ -33,7 +33,7 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return tpm, &TPM{&platformTPM{
+	return tpm, &TPM{tpm: &platformTPM{
 		version: TPMVersion20,
 		interf:  TPMInterfaceKernelManaged,
 		sysPath: "/dev/tpmrm0",
@@ -148,7 +148,7 @@ func TestParseAIKPublic20(t *testing.T) {
 	}
 }
 
-func TestSimTPM20Quote(t *testing.T) {
+func TestSimTPM20QuoteAndVerify(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -163,9 +163,51 @@ func TestSimTPM20Quote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("aik.Quote() failed: %v", err)
 	}
-	// TODO(jsonp): Parse quote structure once gotpm/tpm2 supports it.
-	if quote == nil {
-		t.Error("quote was nil, want *Quote")
+
+	// Providing both PCR banks to AIKPublic.Verify() ensures we can handle
+	// the case where extra PCRs of a different digest algorithm are provided.
+	var pcrs []PCR
+	for _, alg := range []HashAlg{HashSHA256, HashSHA1} {
+		p, err := tpm.PCRs(alg)
+		if err != nil {
+			t.Fatalf("tpm.PCRs(%v) failed: %v", alg, err)
+		}
+		pcrs = append(pcrs, p...)
+	}
+
+	pub, err := ParseAIKPublic(tpm.Version(), aik.AttestationParameters().Public)
+	if err != nil {
+		t.Fatalf("ParseAIKPublic() failed: %v", err)
+	}
+	if err := pub.Verify(*quote, pcrs, nonce); err != nil {
+		t.Errorf("quote verification failed: %v", err)
+	}
+}
+
+func TestSimTPM20AttestPlatform(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	aik, err := tpm.NewAIK(nil)
+	if err != nil {
+		t.Fatalf("NewAIK() failed: %v", err)
+	}
+	defer aik.Close(tpm)
+
+	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	attestation, err := tpm.attestPlatform(aik, nonce, nil)
+	if err != nil {
+		t.Fatalf("AttestPlatform() failed: %v", err)
+	}
+
+	pub, err := ParseAIKPublic(attestation.TPMVersion, attestation.Public)
+	if err != nil {
+		t.Fatalf("ParseAIKPublic() failed: %v", err)
+	}
+	for i, q := range attestation.Quotes {
+		if err := pub.Verify(q, attestation.PCRs, nonce); err != nil {
+			t.Errorf("quote[%d] verification failed: %v", i, err)
+		}
 	}
 }
 

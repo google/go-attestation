@@ -89,7 +89,7 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		return nil, fmt.Errorf("tbsConvertVersion(%v) failed: %v", info.TBSInfo.TPMVersion, err)
 	}
 
-	return &TPM{&platformTPM{
+	return &TPM{tpm: &platformTPM{
 		pcp:     pcp,
 		version: vers,
 	}}, nil

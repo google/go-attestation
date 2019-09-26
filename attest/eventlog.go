@@ -198,8 +198,12 @@ func (a *AIKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error
 	}
 
 	pcrByIndex := map[int][]byte{}
+	pcrDigestLength := HashAlg(att.AttestedQuoteInfo.PCRSelection.Hash).cryptoHash().Size()
 	for _, pcr := range pcrs {
-		pcrByIndex[pcr.Index] = pcr.Digest
+		// TODO(jsonp): Use pcr.DigestAlg once #116 is fixed.
+		if len(pcr.Digest) == pcrDigestLength {
+			pcrByIndex[pcr.Index] = pcr.Digest
+		}
 	}
 
 	n := len(att.AttestedQuoteInfo.PCRDigest)
