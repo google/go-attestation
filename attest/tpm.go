@@ -329,20 +329,11 @@ func (t *TPM) attestPCRs(aik *AIK, nonce []byte, alg HashAlg) (*Quote, []PCR, er
 	return quote, pcrs, nil
 }
 
-// AttestPlatform computes the set of information necessary to attest the
-// state of the platform. For TPM 2.0 devices, AttestPlatform will attempt
-// to read both SHA1 & SHA256 PCR banks and quote both of them, so bugs in
-// platform firmware which break replay for one PCR bank can be mitigated
-// using the other.
-func (t *TPM) AttestPlatform(aik *AIK, nonce []byte) (*PlatformParameters, error) {
+func (t *TPM) attestPlatform(aik *AIK, nonce []byte, eventLog []byte) (*PlatformParameters, error) {
 	out := PlatformParameters{
 		TPMVersion: t.Version(),
 		Public:     aik.AttestationParameters().Public,
-	}
-
-	var err error
-	if out.EventLog, err = t.MeasurementLog(); err != nil {
-		return nil, fmt.Errorf("failed to read event log: %v", err)
+		EventLog:   eventLog,
 	}
 
 	algs := []HashAlg{HashSHA1}
@@ -365,6 +356,19 @@ func (t *TPM) AttestPlatform(aik *AIK, nonce []byte) (*PlatformParameters, error
 		return nil, lastErr
 	}
 	return &out, nil
+}
+
+// AttestPlatform computes the set of information necessary to attest the
+// state of the platform. For TPM 2.0 devices, AttestPlatform will attempt
+// to read both SHA1 & SHA256 PCR banks and quote both of them, so bugs in
+// platform firmware which break replay for one PCR bank can be mitigated
+// using the other.
+func (t *TPM) AttestPlatform(aik *AIK, nonce []byte) (*PlatformParameters, error) {
+	el, err := t.MeasurementLog()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read event log: %v", err)
+	}
+	return t.attestPlatform(aik, nonce, el)
 }
 
 // Version returns the version of the TPM.
