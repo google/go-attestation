@@ -312,6 +312,30 @@ func (a HashAlg) String() string {
 	return fmt.Sprintf("HashAlg<%d>", int(a))
 }
 
+// PlatformParameters encapsulates the set of information necessary to attest
+// the booted state of the machine the TPM is attached to.
+//
+// The digests contained in the event log can be considered authentic if:
+//  - The AIK public corresponds to the known AIK for that platform.
+//  - All quotes are verified with AIKPublic.Verify(), and return no errors.
+//  - The event log parsed successfully using ParseEventLog(), and a call
+//    to EventLog.Verify() with the full set of PCRs returned no error.
+type PlatformParameters struct {
+	// The version of the TPM which generated this attestation.
+	TPMVersion TPMVersion
+	// The public blob of the AIK which endorsed the platform state. This can
+	// be decoded to verify the adjacent quotes using ParseAIKPublic().
+	Public []byte
+	// The set of quotes which endorse the state of the PCRs.
+	Quotes []Quote
+	// The set of expected PCR values, which are used in replaying the event log
+	// to verify digests were not tampered with.
+	PCRs []PCR
+	// The raw event log provided by the platform. This can be processed with
+	// ParseEventLog().
+	EventLog []byte
+}
+
 var (
 	defaultOpenConfig = &OpenConfig{}
 
