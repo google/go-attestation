@@ -3,7 +3,6 @@ module github.com/google/go-attestation
 go 1.12
 
 require (
-	github.com/golang/protobuf v1.3.2
 	github.com/google/certificate-transparency-go v1.0.22-0.20190605205155-41fc2ef3a2a8
 	github.com/google/go-tpm v0.2.1-0.20190919221813-f772099985c3
 	github.com/google/go-tpm-tools v0.1.1
