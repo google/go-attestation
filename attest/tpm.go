@@ -317,6 +317,56 @@ func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	return t.tpm.pcrs(alg)
 }
 
+func (t *TPM) attestPCRs(aik *AIK, nonce []byte, alg HashAlg) (*Quote, []PCR, error) {
+	pcrs, err := t.PCRs(alg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read %v PCRs: %v", alg, err)
+	}
+	quote, err := aik.Quote(t, nonce, alg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to quote using %v: %v", alg, err)
+	}
+	return quote, pcrs, nil
+}
+
+// AttestPlatform computes the set of information necessary to attest the
+// state of the platform. For TPM 2.0 devices, AttestPlatform will attempt
+// to read both SHA1 & SHA256 PCR banks and quote both of them, so bugs in
+// platform firmware which break replay for one PCR bank can be mitigated
+// using the other.
+func (t *TPM) AttestPlatform(aik *AIK, nonce []byte) (*PlatformParameters, error) {
+	out := PlatformParameters{
+		TPMVersion: t.Version(),
+		Public:     aik.AttestationParameters().Public,
+	}
+
+	var err error
+	if out.EventLog, err = t.MeasurementLog(); err != nil {
+		return nil, fmt.Errorf("failed to read event log: %v", err)
+	}
+
+	algs := []HashAlg{HashSHA1}
+	if t.Version() == TPMVersion20 {
+		algs = []HashAlg{HashSHA1, HashSHA256}
+	}
+
+	var lastErr error
+	for _, alg := range algs {
+		quote, pcrs, err := t.attestPCRs(aik, nonce, alg)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		out.Quotes = append(out.Quotes, *quote)
+		out.PCRs = append(out.PCRs, pcrs...)
+	}
+
+	if len(out.Quotes) == 0 {
+		return nil, lastErr
+	}
+	return &out, nil
+}
+
 // Version returns the version of the TPM.
 func (t *TPM) Version() TPMVersion {
 	return t.tpm.tpmVersion()
