@@ -1,0 +1,713 @@
+// Copyright 2009 The Go Authors. All rights reserved.
+// Copyright 2019 Google, LLC.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package attributecert parses X.509-encoded attribute certificates.
+package attributecert
+
+import (
+	"bytes"
+	"crypto"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"errors"
+	"fmt"
+	"math/big"
+	"time"
+)
+
+var (
+	oidExtensionSubjectDirectoryAttributes = []int{2, 5, 29, 9}
+	oidExtensionSubjectAltName             = []int{2, 5, 29, 17}
+	oidExtensionCertificatePolicies        = []int{2, 5, 29, 32}
+	oidExtensionAuthorityKeyIdentifier     = []int{2, 5, 29, 35}
+	oidAuthorityInfoAccess                 = []int{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	oidCpsCertificatePolicy                = []int{1, 3, 6, 1, 5, 5, 7, 2, 1}
+	oidAttributeUserNotice                 = []int{1, 3, 6, 1, 5, 5, 7, 2, 2}
+	oidAuthorityInfoAccessOcsp             = []int{1, 3, 6, 1, 5, 5, 7, 48, 1}
+	oidAuthorityInfoAccessIssuers          = []int{1, 3, 6, 1, 5, 5, 7, 48, 2}
+	oidTcgCertificatePolicy                = []int{1, 2, 840, 113741, 1, 5, 2, 4}
+	oidTcgAttribute                        = []int{2, 23, 133, 2}
+	oidTpmManufacturer                     = []int{2, 23, 133, 2, 1}
+	oidTpmModel                            = []int{2, 23, 133, 2, 2}
+	oidTpmVersion                          = []int{2, 23, 133, 2, 3}
+	oidTcgPlatformManufacturerStrV1        = []int{2, 23, 133, 2, 4}
+	oidTcgPlatformModelV1                  = []int{2, 23, 133, 2, 5}
+	oidTcgPlatformVersionV1                = []int{2, 23, 133, 2, 6}
+	oidSecurityQualities                   = []int{2, 23, 133, 2, 10}
+	oidTpmProtectionProfile                = []int{2, 23, 133, 2, 11}
+	oidTpmSecurityTarget                   = []int{2, 23, 133, 2, 12}
+	oidTbbProtectionProfile                = []int{2, 23, 133, 2, 13}
+	oidTbbSecurityTarget                   = []int{2, 23, 133, 2, 14}
+	oidTpmIdLabel                          = []int{2, 23, 133, 2, 15}
+	oidTpmSpecification                    = []int{2, 23, 133, 2, 16}
+	oidTcgPlatformSpecification            = []int{2, 23, 133, 2, 17}
+	oidTpmSecurityAssertions               = []int{2, 23, 133, 2, 18}
+	oidTbbSecurityAssertions               = []int{2, 23, 133, 2, 19}
+	oidTcgCredentialSpecification          = []int{2, 23, 133, 2, 23}
+	oidTcgCredentialType                   = []int{2, 23, 133, 2, 25}
+	oidTcgPlatformClass                    = []int{2, 23, 133, 5}
+	oidTcgCommon                           = []int{2, 23, 133, 5, 1}
+	oidTcgPlatformManufacturerStrV2        = []int{2, 23, 133, 5, 1, 1}
+	oidTcgPlatformManufacturerIdV2         = []int{2, 23, 133, 5, 1, 2}
+	oidTcgPlatformConfigUri                = []int{2, 23, 133, 5, 1, 3}
+	oidTcgPlatformModelV2                  = []int{2, 23, 133, 5, 1, 4}
+	oidTcgPlatformVersionV2                = []int{2, 23, 133, 5, 1, 5}
+	oidTcgPlatformSerialV2                 = []int{2, 23, 133, 5, 1, 6}
+	oidTcgPlatformConfiguration            = []int{2, 23, 133, 5, 1, 7}
+	oidTcgPlatformConfigurationV1          = []int{2, 23, 133, 5, 1, 7, 1}
+	oidTcgPlatformConfigurationV2          = []int{2, 23, 133, 5, 1, 7, 2}
+)
+
+var (
+	oidSignatureRSAPSS  = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+	oidSignatureEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
+
+	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
+	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
+	oidSHA512 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
+
+	oidMGF1 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
+)
+
+var signatureAlgorithmDetails = []struct {
+	algo       x509.SignatureAlgorithm
+	name       string
+	oid        asn1.ObjectIdentifier
+	pubKeyAlgo x509.PublicKeyAlgorithm
+	hash       crypto.Hash
+}{
+	{x509.SHA256WithRSAPSS, "SHA256-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA256},
+	{x509.SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA384},
+	{x509.SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA512},
+	{x509.PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
+}
+
+// pssParameters reflects the parameters in an AlgorithmIdentifier that
+// specifies RSA PSS. See RFC 3447, Appendix A.2.3.
+type pssParameters struct {
+	// The following three fields are not marked as
+	// optional because the default values specify SHA-1,
+	// which is no longer suitable for use in signatures.
+	Hash         pkix.AlgorithmIdentifier `asn1:"explicit,tag:0"`
+	MGF          pkix.AlgorithmIdentifier `asn1:"explicit,tag:1"`
+	SaltLength   int                      `asn1:"explicit,tag:2"`
+	TrailerField int                      `asn1:"optional,explicit,tag:3,default:1"`
+}
+
+func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgorithm {
+	if ai.Algorithm.Equal(oidSignatureEd25519) {
+		// RFC 8410, Section 3
+		// > For all of the OIDs, the parameters MUST be absent.
+		if len(ai.Parameters.FullBytes) != 0 {
+			return x509.UnknownSignatureAlgorithm
+		}
+	}
+
+	if !ai.Algorithm.Equal(oidSignatureRSAPSS) {
+		for _, details := range signatureAlgorithmDetails {
+			if ai.Algorithm.Equal(details.oid) {
+				return details.algo
+			}
+		}
+		return x509.UnknownSignatureAlgorithm
+	}
+
+	// RSA PSS is special because it encodes important parameters
+	// in the Parameters.
+
+	var params pssParameters
+	if _, err := asn1.Unmarshal(ai.Parameters.FullBytes, &params); err != nil {
+		return x509.UnknownSignatureAlgorithm
+	}
+
+	var mgf1HashFunc pkix.AlgorithmIdentifier
+	if _, err := asn1.Unmarshal(params.MGF.Parameters.FullBytes, &mgf1HashFunc); err != nil {
+		return x509.UnknownSignatureAlgorithm
+	}
+
+	// PSS is greatly overburdened with options. This code forces them into
+	// three buckets by requiring that the MGF1 hash function always match the
+	// message hash function (as recommended in RFC 3447, Section 8.1), that the
+	// salt length matches the hash length, and that the trailer field has the
+	// default value.
+	if (len(params.Hash.Parameters.FullBytes) != 0 && !bytes.Equal(params.Hash.Parameters.FullBytes, asn1.NullBytes)) ||
+		!params.MGF.Algorithm.Equal(oidMGF1) ||
+		!mgf1HashFunc.Algorithm.Equal(params.Hash.Algorithm) ||
+		(len(mgf1HashFunc.Parameters.FullBytes) != 0 && !bytes.Equal(mgf1HashFunc.Parameters.FullBytes, asn1.NullBytes)) ||
+		params.TrailerField != 1 {
+		return x509.UnknownSignatureAlgorithm
+	}
+
+	switch {
+	case params.Hash.Algorithm.Equal(oidSHA256) && params.SaltLength == 32:
+		return x509.SHA256WithRSAPSS
+	case params.Hash.Algorithm.Equal(oidSHA384) && params.SaltLength == 48:
+		return x509.SHA384WithRSAPSS
+	case params.Hash.Algorithm.Equal(oidSHA512) && params.SaltLength == 64:
+		return x509.SHA512WithRSAPSS
+	}
+
+	return x509.UnknownSignatureAlgorithm
+}
+
+type authorityInfoAccess struct {
+	Method   asn1.ObjectIdentifier
+	Location asn1.RawValue
+}
+
+type authKeyId struct {
+	Id           []byte        `asn1:"optional,tag:0"`
+	IssuerName   asn1.RawValue `asn1:"set,optional,tag:1"`
+	SerialNumber *big.Int      `asn1:"optional,tag:2"`
+}
+
+type cpsPolicy struct {
+	Id    asn1.ObjectIdentifier
+	Value string
+}
+
+type policyInformation struct {
+	Raw    asn1.RawContent
+	Id     asn1.ObjectIdentifier
+	Policy asn1.RawValue
+}
+
+type validity struct {
+	NotBefore, NotAfter time.Time
+}
+
+type NoticeReference struct {
+	Organization  string
+	NoticeNumbers []int
+}
+
+type userNotice struct {
+	NoticeRef    NoticeReference `asn1:"optional"`
+	ExplicitText string          `asn1:"optional"`
+}
+
+type objectDigestInfo struct {
+	DigestedObjectType asn1.Enumerated
+	OtherObjectTypeID  asn1.ObjectIdentifier
+	DigestAlgorithm    pkix.AlgorithmIdentifier
+	ObjectDigest       asn1.BitString
+}
+
+type attCertIssuer struct {
+	IssuerName        asn1.RawValue    `asn1:"set,optional"`
+	BaseCertificateId issuerSerial     `asn1:"optional,tag:0"`
+	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:1"`
+}
+
+type issuerSerial struct {
+	Raw       asn1.RawContent
+	Issuer    asn1.RawValue
+	Serial    *big.Int
+	IssuerUID asn1.BitString `asn1:"optional"`
+}
+
+type holder struct {
+	Raw               asn1.RawContent
+	BaseCertificateID issuerSerial     `asn1:"optional,tag:0"`
+	EntityName        pkix.Extension   `asn1:"optional,tag:1"`
+	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:2"`
+}
+
+type attribute struct {
+	Id        asn1.ObjectIdentifier
+	RawValues []asn1.RawValue `asn1:"set"`
+}
+
+type tbsAttributeCertificate struct {
+	Raw                asn1.RawContent
+	Version            int
+	Holder             holder
+	Issuer             attCertIssuer `asn1:"tag:0"`
+	SignatureAlgorithm pkix.AlgorithmIdentifier
+	SerialNumber       *big.Int
+	Validity           validity
+	RawAttributes      []asn1.RawValue
+	IssuerUniqueID     asn1.BitString   `asn1:"optional"`
+	Extensions         []pkix.Extension `asn1:"optional"`
+}
+
+type attributeCertificate struct {
+	Raw                     asn1.RawContent
+	TBSAttributeCertificate tbsAttributeCertificate
+	SignatureAlgorithm      pkix.AlgorithmIdentifier
+	SignatureValue          asn1.BitString
+}
+
+type Certholder struct {
+	Issuer pkix.Name
+	Serial *big.Int
+}
+
+type AttributeCertificate struct {
+	Raw                        []byte // Complete ASN.1 DER content (certificate, signature algorithm and signature).
+	RawTBSAttributeCertificate []byte // Certificate part of raw ASN.1 DER content.
+
+	Signature          []byte
+	SignatureAlgorithm x509.SignatureAlgorithm
+
+	Version                  int
+	SerialNumber             *big.Int
+	Holder                   Certholder
+	Issuer                   pkix.Name
+	Subject                  pkix.Name
+	NotBefore, NotAfter      time.Time // Validity bounds.
+	TCGPlatformSpecification TCGPlatformSpecification
+	TBBSecurityAssertions    TBBSecurityAssertions
+	PlatformManufacturer     string
+	PlatformModel            string
+	PlatformVersion          string
+	PlatformSerial           string
+	CredentialSpecification  string
+	UserNotice               userNotice
+}
+
+// ParseAttributeCertificate parses a single attribute certificate from the
+// given ASN.1 DER data.
+func ParseAttributeCertificate(asn1Data []byte) (*AttributeCertificate, error) {
+	var cert attributeCertificate
+
+	rest, err := asn1.Unmarshal(asn1Data, &cert)
+	if err != nil {
+		return nil, err
+	} else if len(rest) != 0 {
+		return nil, asn1.SyntaxError{Msg: "trailing data"}
+	}
+
+	return parseAttributeCertificate(&cert)
+}
+
+type PlatformDataSequence []PlatformDataSET
+type PlatformDataSET []pkix.AttributeTypeAndValue
+
+type TCGData struct {
+	Id   asn1.ObjectIdentifier
+	Data string
+}
+
+type TCGDirectoryEntry struct {
+	Id   asn1.ObjectIdentifier
+	Data asn1.RawValue
+}
+
+type TCGSpecificationVersion struct {
+	MajorVersion int
+	MinorVersion int
+	Revision     int
+}
+
+type TCGPlatformSpecification struct {
+	Version TCGSpecificationVersion
+}
+
+type TCGCredentialSpecification struct {
+	Version TCGSpecificationVersion
+}
+
+type TCGCredentialType struct {
+	CertificateType asn1.ObjectIdentifier
+}
+
+type FipsLevel struct {
+	Version string
+	Level   asn1.Enumerated
+	Plus    bool
+}
+
+type CommonCriteriaMeasures struct {
+	Version            string
+	AssuranceLevel     asn1.Enumerated
+	EvaluationStatus   asn1.Enumerated
+	Plus               bool
+	StrengthOfFunction asn1.Enumerated       `asn1:"optional,tag=0"`
+	ProfileOid         asn1.ObjectIdentifier `asn1:"optional,tag=1"`
+	ProfileUri         string                `asn1:"optional,tag=2"`
+	TargetOid          asn1.ObjectIdentifier `asn1:"optional,tag=3"`
+	TargetUri          asn1.ObjectIdentifier `asn1:"optional,tag=4"`
+}
+
+type TBBSecurityAssertions struct {
+	Version          int
+	CcInfo           CommonCriteriaMeasures `asn1:"optional,tag=0"`
+	FipsLevel        FipsLevel              `asn1:"optional,tag=1"`
+	RtmType          asn1.Enumerated        `asn1:"optional,tag=2"`
+	Iso9000Certified bool                   `asn1:"optional"`
+	Iso9000Uri       string                 `asn1:"optional"`
+}
+
+type Property struct {
+	PropertyName  string
+	PropertyValue string
+	Status        asn1.Enumerated `asn1:"optional,tag=0"`
+}
+
+type AttributeCertificateIdentifier struct {
+	HashAlgorithm          pkix.AlgorithmIdentifier
+	HashOverSignatureValue string
+}
+
+type CertificateIdentifier struct {
+	AttributeCertIdentifier AttributeCertificateIdentifier `asn1:"optional,tag=0"`
+	GenericCertIdientifier  issuerSerial                   `asn1:"optional,tag=1"`
+}
+
+type ComponentAddress struct {
+	AddressType  asn1.ObjectIdentifier
+	AddressValue string
+}
+
+type ComponentClass struct {
+	ComponentClassRegistry asn1.ObjectIdentifier
+	ComponentClassValue    string
+}
+
+type ComponentIdentifierV2 struct {
+	ComponentClass           ComponentClass
+	ComponentManufacturer    string
+	ComponentModel           string
+	ComponentSerial          string                `asn1:"optional,tag=0"`
+	ComponentRevision        string                `asn1:"optional,tag=1"`
+	ComponentManufacturerId  int                   `asn1:"optional,tag=2"`
+	FieldReplaceable         bool                  `asn1:"optional,tag=3"`
+	ComponentAddresses       []ComponentAddress    `asn1:"optional,tag=4"`
+	ComponentPlatformCert    CertificateIdentifier `asn1:"optional,tag=5"`
+	ComponentPlatformCertUri string                `asn1:"optional,tag=6"`
+	Status                   asn1.Enumerated       `asn1:"optional,tag=7"`
+}
+
+type UriReference struct {
+	UniformResourceIdentifier string
+	HashAlgorithm             pkix.AlgorithmIdentifier `asn1:"optional"`
+	HashValue                 string                   `asn1:"optional"`
+}
+
+type PlatformConfigurationV2 struct {
+	ComponentIdentifiers    []ComponentIdentifierV2 `asn1:"optional,tag=0"`
+	ComponentIdentifiersUri UriReference            `asn1:"optional,tag=1"`
+	PlatformProperties      []Property              `asn1:"optional,tag=2"`
+	PlatformPropertiesUri   UriReference            `asn1:"optional,tag=3"`
+}
+
+type ComponentIdentifierV1 struct {
+	ComponentManufacturer   string
+	ComponentModel          string
+	ComponentSerial         string             `asn1:"optional,tag=0"`
+	ComponentRevision       string             `asn1:"optional,tag=1"`
+	ComponentManufacturerId int                `asn1:"optional,tag=2"`
+	FieldReplaceable        bool               `asn1:"optional,tag=3"`
+	ComponentAddresses      []ComponentAddress `asn1:"optional,tag=4"`
+}
+
+type PlatformConfigurationV1 struct {
+	ComponentIdentifiers  []ComponentIdentifierV1 `asn1:"optional,tag=0"`
+	PlatformProperties    []Property              `asn1:"optional,tag=1"`
+	PlatformPropertiesUri []UriReference          `asn1:"optional,tag=2"`
+}
+
+func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate, error) {
+	out := new(AttributeCertificate)
+	out.Raw = in.Raw
+	out.RawTBSAttributeCertificate = in.TBSAttributeCertificate.Raw
+
+	out.Signature = in.SignatureValue.RightAlign()
+	out.SignatureAlgorithm = getSignatureAlgorithmFromAI(in.TBSAttributeCertificate.SignatureAlgorithm)
+	out.Version = in.TBSAttributeCertificate.Version + 1
+	out.SerialNumber = in.TBSAttributeCertificate.SerialNumber
+
+	var v asn1.RawValue
+	_, err := asn1.Unmarshal(in.TBSAttributeCertificate.Issuer.IssuerName.Bytes, &v)
+	if err != nil {
+		return nil, err
+	}
+
+	var issuer pkix.RDNSequence
+	if rest, err := asn1.Unmarshal(v.Bytes, &issuer); err != nil {
+		return nil, err
+	} else if len(rest) != 0 {
+		return nil, errors.New("x509: trailing data after X.509 subject")
+	}
+
+	out.Issuer.FillFromRDNSequence(&issuer)
+
+	_, err = asn1.Unmarshal(in.TBSAttributeCertificate.Holder.BaseCertificateID.Issuer.Bytes, &v)
+	if err != nil {
+		return nil, err
+	}
+
+	var holder pkix.RDNSequence
+	if rest, err := asn1.Unmarshal(v.Bytes, &holder); err != nil {
+		return nil, err
+	} else if len(rest) != 0 {
+		return nil, errors.New("x509: trailing data after X.509 subject")
+	}
+
+	out.Holder.Issuer.FillFromRDNSequence(&holder)
+	out.Holder.Serial = in.TBSAttributeCertificate.Holder.BaseCertificateID.Serial
+
+	out.NotBefore = in.TBSAttributeCertificate.Validity.NotBefore
+	out.NotAfter = in.TBSAttributeCertificate.Validity.NotAfter
+
+	var attributes []attribute
+	for _, rawAttr := range in.TBSAttributeCertificate.RawAttributes {
+		var parsedAttribute attribute
+		rest, err := asn1.Unmarshal(rawAttr.FullBytes, &parsedAttribute)
+		if err == nil && len(rest) == 0 {
+			attributes = append(attributes, parsedAttribute)
+		} else {
+			return nil, err
+		}
+	}
+
+	for _, attribute := range attributes {
+		if attribute.Id.Equal(oidAttributeUserNotice) {
+			for _, value := range attribute.RawValues {
+				var userNotice userNotice
+				_, err := asn1.Unmarshal(value.FullBytes, &userNotice)
+				if err != nil {
+					return nil, err
+				}
+				out.UserNotice = userNotice
+			}
+		} else if attribute.Id.Equal(oidTcgPlatformSpecification) {
+			var platformSpecification TCGPlatformSpecification
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformSpecification)
+			if err != nil {
+				return nil, err
+			}
+			out.TCGPlatformSpecification = platformSpecification
+		} else if attribute.Id.Equal(oidTbbSecurityAssertions) {
+			var securityAssertions TBBSecurityAssertions
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &securityAssertions)
+			if err != nil {
+				return nil, err
+			}
+			out.TBBSecurityAssertions = securityAssertions
+		} else if attribute.Id.Equal(oidTcgCredentialSpecification) {
+			var credentialSpecification TCGCredentialSpecification
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification)
+			if err != nil {
+				return nil, err
+			}
+		} else if attribute.Id.Equal(oidTcgCredentialType) {
+			var credentialType TCGCredentialType
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialType)
+			if err != nil {
+				return nil, err
+			}
+		} else if attribute.Id.Equal(oidTcgPlatformConfigurationV1) {
+			var platformConfiguration PlatformConfigurationV1
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration)
+			if err != nil {
+				return nil, err
+			}
+		} else if attribute.Id.Equal(oidTcgPlatformConfigurationV2) {
+			var platformConfiguration PlatformConfigurationV2
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration)
+			if err != nil {
+				return nil, err
+			}
+		} else if attribute.Id.Equal(oidTcgPlatformConfigUri) {
+			var platformConfigurationUri UriReference
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationUri)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("unknown attribute %v", attribute.Id)
+		}
+	}
+
+	for _, extension := range in.TBSAttributeCertificate.Extensions {
+		if extension.Id.Equal(oidExtensionSubjectAltName) {
+			var seq asn1.RawValue
+			rest, err := asn1.Unmarshal(extension.Value, &seq)
+			if err != nil {
+				return nil, err
+			} else if len(rest) != 0 {
+				return nil, errors.New("x509: trailing data after X.509 extension")
+			}
+			rest = seq.Bytes
+			for len(rest) > 0 {
+				var v asn1.RawValue
+				rest, err = asn1.Unmarshal(rest, &v)
+				if err != nil {
+					return nil, err
+				}
+				if v.Tag == asn1.TagSet {
+					var e TCGData
+					_, err := asn1.Unmarshal(v.Bytes, &e)
+					if err != nil {
+						return nil, err
+					}
+					if e.Id.Equal(oidTcgPlatformManufacturerStrV1) {
+						out.PlatformManufacturer = e.Data
+					} else if e.Id.Equal(oidTcgPlatformModelV1) {
+						out.PlatformModel = e.Data
+					} else if e.Id.Equal(oidTcgPlatformVersionV1) {
+						out.PlatformVersion = e.Data
+					} else if e.Id.Equal(oidTcgCredentialSpecification) {
+						// This OID appears to be misused in this context
+						out.PlatformSerial = e.Data
+					} else {
+						return nil, fmt.Errorf("unhandled attribute: %v", e.Id)
+					}
+				} else if v.Tag == asn1.TagOctetString {
+					var platformData PlatformDataSequence
+					rest, err := asn1.Unmarshal(v.Bytes, &platformData)
+					if err != nil {
+						return nil, err
+					} else if len(rest) != 0 {
+						return nil, errors.New("x509: trailing data after X.509 subject")
+					}
+					for _, e := range platformData {
+						for _, e2 := range e {
+							if e2.Type.Equal(oidTcgPlatformManufacturerStrV1) {
+								out.PlatformManufacturer = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgPlatformModelV1) {
+								out.PlatformModel = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgPlatformVersionV1) {
+								out.PlatformVersion = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgCredentialSpecification) {
+								// This OID appears to be misused in this context
+								out.PlatformSerial = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgPlatformManufacturerStrV2) {
+								out.PlatformManufacturer = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgPlatformModelV2) {
+								out.PlatformModel = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgPlatformVersionV2) {
+								out.PlatformVersion = e2.Value.(string)
+							} else if e2.Type.Equal(oidTcgPlatformSerialV2) {
+								out.PlatformSerial = e2.Value.(string)
+							} else {
+								return nil, fmt.Errorf("unhandled attribute2: %v", e2.Type)
+							}
+						}
+					}
+				}
+			}
+		} else if extension.Id.Equal(oidExtensionSubjectDirectoryAttributes) {
+			var seq asn1.RawValue
+			rest, err := asn1.Unmarshal(extension.Value, &seq)
+			if err != nil {
+				return nil, err
+			} else if len(rest) != 0 {
+				return nil, errors.New("x509: trailing data after X.509 extension")
+			}
+			rest = seq.Bytes
+			for len(rest) > 0 {
+				var e TCGDirectoryEntry
+				rest, err = asn1.Unmarshal(rest, &e)
+				if err != nil {
+					return nil, err
+				}
+				if e.Id.Equal(oidTcgPlatformSpecification) {
+					var platformSpecification TCGPlatformSpecification
+					_, err := asn1.Unmarshal(e.Data.Bytes, &platformSpecification)
+					if err != nil {
+						return nil, err
+					}
+					out.TCGPlatformSpecification = platformSpecification
+				} else if e.Id.Equal(oidTbbSecurityAssertions) {
+					var securityAssertions TBBSecurityAssertions
+					_, err := asn1.Unmarshal(e.Data.Bytes, &securityAssertions)
+					if err != nil {
+						return nil, err
+					}
+					out.TBBSecurityAssertions = securityAssertions
+				} else {
+					return nil, fmt.Errorf("unhandled TCG directory attribute: %v", e.Id)
+				}
+			}
+		} else if extension.Id.Equal(oidExtensionCertificatePolicies) {
+			var policies []policyInformation
+			_, err := asn1.Unmarshal(extension.Value, &policies)
+			if err != nil {
+				return nil, err
+			}
+			for _, policy := range policies {
+				if policy.Id.Equal(oidTcgCertificatePolicy) {
+					var subpolicies []policyInformation
+					_, err := asn1.Unmarshal(policy.Policy.FullBytes, &subpolicies)
+					if err != nil {
+						return nil, err
+					}
+					for _, subpolicy := range subpolicies {
+						if subpolicy.Id.Equal(oidCpsCertificatePolicy) {
+							var cpsPolicy cpsPolicy
+							_, err := asn1.Unmarshal(subpolicy.Raw, &cpsPolicy)
+							if err != nil {
+								return nil, err
+							}
+						} else if subpolicy.Id.Equal(oidAttributeUserNotice) {
+							var userNotice string
+							_, err := asn1.Unmarshal(subpolicy.Policy.Bytes, &userNotice)
+							if err != nil {
+								return nil, err
+							}
+						} else {
+							return nil, fmt.Errorf("unhandled certificate policy: %v", subpolicy.Id)
+						}
+					}
+				}
+			}
+		} else if extension.Id.Equal(oidExtensionAuthorityKeyIdentifier) {
+			var a authKeyId
+			_, err := asn1.Unmarshal(extension.Value, &a)
+			if err != nil {
+				return nil, err
+			}
+		} else if extension.Id.Equal(oidAuthorityInfoAccess) {
+			var aia []authorityInfoAccess
+			_, err := asn1.Unmarshal(extension.Value, &aia)
+			if err != nil {
+				return nil, err
+			}
+			for _, v := range aia {
+				if v.Method.Equal(oidAuthorityInfoAccessOcsp) {
+					//TODO
+				} else if v.Method.Equal(oidAuthorityInfoAccessIssuers) {
+					//TODO
+				} else {
+					return nil, fmt.Errorf("unhandled Authority Info Access type %v", v.Method)
+				}
+			}
+		} else {
+			return nil, fmt.Errorf("unknown extension ID %v", extension.Id)
+		}
+	}
+
+	return out, nil
+}
+
+// CheckSignatureFrom verifies that the signature on c is a valid signature
+// from parent.
+func (c *AttributeCertificate) CheckSignatureFrom(parent *x509.Certificate) error {
+	// RFC 5280, 4.2.1.9:
+	// "If the basic constraints extension is not present in a version 3
+	// certificate, or the extension is present but the cA boolean is not
+	// asserted, then the certified public key MUST NOT be used to verify
+	// certificate signatures."
+	if parent.Version == 3 && !parent.BasicConstraintsValid ||
+		parent.BasicConstraintsValid && !parent.IsCA {
+		return x509.ConstraintViolationError{}
+	}
+
+	if parent.KeyUsage != 0 && parent.KeyUsage&x509.KeyUsageCertSign == 0 {
+		return x509.ConstraintViolationError{}
+	}
+
+	if parent.PublicKeyAlgorithm == x509.UnknownPublicKeyAlgorithm {
+		return x509.ErrUnsupportedAlgorithm
+	}
+
+	// TODO(agl): don't ignore the path length constraint.
+
+	return parent.CheckSignature(c.SignatureAlgorithm, c.RawTBSAttributeCertificate, c.Signature)
+}
