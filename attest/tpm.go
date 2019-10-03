@@ -298,6 +298,9 @@ func (t *TPM) LoadAIK(opaqueBlob []byte) (*AIK, error) {
 }
 
 // MeasurementLog returns the present value of the System Measurement Log.
+//
+// This is a low-level API. Consumers seeking to attest the state of the
+// platform should use tpm.AttestPlatform() instead.
 func (t *TPM) MeasurementLog() ([]byte, error) {
 	return t.tpm.measurementLog()
 }
@@ -310,9 +313,8 @@ func (t *TPM) NewAIK(opts *AIKConfig) (*AIK, error) {
 // PCRs returns the present value of Platform Configuration Registers with
 // the given digest algorithm.
 //
-// Use ParseEventLog to determine which algorithm to use to match the values
-// present in the event log. It's not always guarenteed that a system with TPM
-// 2.0 will extend PCRs with SHA256 digests.
+// This is a low-level API. Consumers seeking to attest the state of the
+// platform should use tpm.AttestPlatform() instead.
 func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	return t.tpm.pcrs(alg)
 }
@@ -358,16 +360,36 @@ func (t *TPM) attestPlatform(aik *AIK, nonce []byte, eventLog []byte) (*Platform
 	return &out, nil
 }
 
+// PlatformAttestConfig configures how attestations are generated through
+// tpm.AttestPlatform().
+type PlatformAttestConfig struct {
+	// If non-nil, the raw event log will be read from EventLog
+	// instead of being obtained from the running system.
+	EventLog []byte
+}
+
 // AttestPlatform computes the set of information necessary to attest the
 // state of the platform. For TPM 2.0 devices, AttestPlatform will attempt
 // to read both SHA1 & SHA256 PCR banks and quote both of them, so bugs in
 // platform firmware which break replay for one PCR bank can be mitigated
 // using the other.
-func (t *TPM) AttestPlatform(aik *AIK, nonce []byte) (*PlatformParameters, error) {
-	el, err := t.MeasurementLog()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read event log: %v", err)
+// The provided config, if not nil, can be used to configure aspects of the
+// platform attestation.
+func (t *TPM) AttestPlatform(aik *AIK, nonce []byte, config *PlatformAttestConfig) (*PlatformParameters, error) {
+	if config == nil {
+		config = &PlatformAttestConfig{}
 	}
+
+	var el []byte
+	if config.EventLog != nil {
+		el = config.EventLog
+	} else {
+		var err error
+		if el, err = t.MeasurementLog(); err != nil {
+			return nil, fmt.Errorf("failed to read event log: %v", err)
+		}
+	}
+
 	return t.attestPlatform(aik, nonce, el)
 }
 

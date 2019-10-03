@@ -91,46 +91,22 @@ func ExampleAIK_credentialActivation() {
 	}
 }
 
-func ExampleAIK_quote() {
-	tpm, err := attest.OpenTPM(nil)
-	if err != nil {
-		log.Fatalf("Failed to open TPM: %v", err)
-	}
-	defer tpm.Close()
-
-	// Create a new AIK.
-	aik, err := tpm.NewAIK(nil)
-	if err != nil {
-		log.Fatalf("Failed to create AIK: %v", err)
-	}
-	defer aik.Close(tpm)
-
-	// The nonce would typically be provided by the server.
-	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-
-	// Perform the quote & gather information necessary to verify it.
-	quote, err := aik.Quote(tpm, nonce, attest.HashSHA1)
-	if err != nil {
-		log.Fatalf("Failed to generate quote: %v", err)
-	}
-	pcrs, err := tpm.PCRs(attest.HashSHA1)
-	if err != nil {
-		log.Fatalf("Failed to collect PCR values: %v", err)
-	}
-	log.Printf("quote = %+v", quote)
-	log.Printf("PCRs = %+v", pcrs)
-}
-
 func TestExampleAIK(t *testing.T) {
 	if !*testExamples {
 		t.SkipNow()
 	}
 	ExampleAIK()
 	ExampleAIK_credentialActivation()
-	ExampleAIK_quote()
 }
 
-func ExampleAIKPublic_Verify() {
+func TestExampleTPM(t *testing.T) {
+	if !*testExamples {
+		t.SkipNow()
+	}
+	ExampleTPM_AttestPlatform()
+}
+
+func ExampleTPM_AttestPlatform() {
 	tpm, err := attest.OpenTPM(nil)
 	if err != nil {
 		log.Fatalf("Failed to open TPM: %v", err)
@@ -147,30 +123,27 @@ func ExampleAIKPublic_Verify() {
 	// The nonce would typically be provided by the server.
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
 
-	// Perform the quote & gather information necessary to verify it.
-	quote, err := aik.Quote(tpm, nonce, attest.HashSHA256)
+	// Perform an attestation against the state of the plaform. Usually, you
+	// would pass a nil config, and the event log would be read from the
+	// platform. To ensure this example runs on platforms without event logs,
+	// we pass a fake EventLog value.
+	att, err := tpm.AttestPlatform(aik, nonce, &attest.PlatformAttestConfig{
+		EventLog: []byte{0},
+	})
 	if err != nil {
-		log.Fatalf("Failed to generate quote: %v", err)
-	}
-	pcrs, err := tpm.PCRs(attest.HashSHA256)
-	if err != nil {
-		log.Fatalf("Failed to collect PCR values: %v", err)
+		log.Fatalf("Failed to attest the platform state: %v", err)
 	}
 
-	// Construct an AIKPublic struct from the parameters of the key.
+	// Construct an AIKPublic struct from the parameters of the key. This
+	// will be used to  verify the quote signatures.
 	pub, err := attest.ParseAIKPublic(tpm.Version(), aik.AttestationParameters().Public)
 	if err != nil {
 		log.Fatalf("Failed to parse AIK public: %v", err)
 	}
 
-	if err := pub.Verify(*quote, pcrs, nonce); err != nil {
-		log.Fatalf("Verification failed: %v", err)
+	for i, q := range att.Quotes {
+		if err := pub.Verify(q, att.PCRs, nonce); err != nil {
+			log.Fatalf("quote[%d] verification failed: %v", i, err)
+		}
 	}
-}
-
-func TestExampleAIKPublic(t *testing.T) {
-	if !*testExamples {
-		t.SkipNow()
-	}
-	ExampleAIKPublic_Verify()
 }
