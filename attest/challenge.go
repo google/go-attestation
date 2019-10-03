@@ -41,8 +41,8 @@ func makeEmptyPCRInfo() []byte {
 	return b.Bytes()
 }
 
-func makeActivationBlob(symKey, aikpub []byte) (blob []byte, err error) {
-	aikHash := sha1.Sum(aikpub)
+func makeActivationBlob(symKey, akpub []byte) (blob []byte, err error) {
+	akHash := sha1.Sum(akpub)
 
 	var out bytes.Buffer
 	if err := binary.Write(&out, binary.BigEndian, activationBlobHeader{
@@ -57,7 +57,7 @@ func makeActivationBlob(symKey, aikpub []byte) (blob []byte, err error) {
 	}
 
 	out.Write(symKey)
-	out.Write(aikHash[:])
+	out.Write(akHash[:])
 	out.Write(makeEmptyPCRInfo())
 	return out.Bytes(), nil
 }
@@ -102,7 +102,7 @@ func pad(plaintext []byte, bsize int) []byte {
 // the secret encrypted with the session key credential contained in asymenc.
 // To use this, pass asymenc as the input to the TPM_ActivateIdentity command.
 // Use the returned credential as the aes key to decode the secret in symenc.
-func generateChallenge12(rand io.Reader, pubkey *rsa.PublicKey, aikpub, secret []byte) (asymenc []byte, symenc []byte, err error) {
+func generateChallenge12(rand io.Reader, pubkey *rsa.PublicKey, akpub, secret []byte) (asymenc []byte, symenc []byte, err error) {
 	aeskey := make([]byte, 16)
 	iv := make([]byte, 16)
 	if _, err = io.ReadFull(rand, aeskey); err != nil {
@@ -112,7 +112,7 @@ func generateChallenge12(rand io.Reader, pubkey *rsa.PublicKey, aikpub, secret [
 		return nil, nil, err
 	}
 
-	activationBlob, err := makeActivationBlob(aeskey, aikpub)
+	activationBlob, err := makeActivationBlob(aeskey, akpub)
 	if err != nil {
 		return nil, nil, err
 	}

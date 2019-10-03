@@ -30,7 +30,7 @@ func TestMakeActivationBlob(t *testing.T) {
 		t.Errorf("symKey = %v, want %v", got, want)
 	}
 	if got, want := blob[15:35], []byte{133, 217, 101, 29, 154, 57, 154, 103, 224, 21, 208, 71, 253, 158, 106, 148, 30, 107, 32, 187}; !bytes.Equal(got, want) {
-		t.Errorf("aik digest = %v, want %v", got, want)
+		t.Errorf("ak digest = %v, want %v", got, want)
 	}
 	if got, want := blob[35:37], []byte{0, 3}; !bytes.Equal(got, want) {
 		t.Errorf("size of select = %v, want %v", got, want)

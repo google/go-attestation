@@ -87,12 +87,12 @@ func TestTPM12EKs(t *testing.T) {
 	}
 }
 
-func TestNewAIK(t *testing.T) {
+func TestNewAK(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	if _, err := tpm.NewAIK(nil); err != nil {
-		t.Fatalf("NewAIK failed: %v", err)
+	if _, err := tpm.NewAK(nil); err != nil {
+		t.Fatalf("NewAK failed: %v", err)
 	}
 }
 
@@ -105,12 +105,12 @@ func TestTPMQuote(t *testing.T) {
 		t.Fatalf("reading nonce: %v", err)
 	}
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK failed: %v", err)
+		t.Fatalf("NewAK failed: %v", err)
 	}
 
-	quote, err := aik.Quote(tpm, nonce, HashSHA1)
+	quote, err := ak.Quote(tpm, nonce, HashSHA1)
 	if err != nil {
 		t.Fatalf("Quote failed: %v", err)
 	}
@@ -118,18 +118,18 @@ func TestTPMQuote(t *testing.T) {
 	t.Logf("Quote{version: %v, quote: %x, signature: %x}\n", quote.Version, quote.Quote, quote.Signature)
 }
 
-func TestParseAIKPublic12(t *testing.T) {
+func TestParseAKPublic12(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
-	defer aik.Close(tpm)
-	params := aik.AttestationParameters()
-	if _, err := ParseAIKPublic(TPMVersion12, params.Public); err != nil {
-		t.Errorf("parsing AIK public blob: %v", err)
+	defer ak.Close(tpm)
+	params := ak.AttestationParameters()
+	if _, err := ParseAKPublic(TPMVersion12, params.Public); err != nil {
+		t.Errorf("parsing AK public blob: %v", err)
 	}
 }
 
@@ -137,9 +137,9 @@ func TestTPMActivateCredential(t *testing.T) {
 	tpm := openTPM12(t)
 	defer tpm.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK failed: %v", err)
+		t.Fatalf("NewAK failed: %v", err)
 	}
 
 	EKs, err := tpm.EKs()
@@ -150,7 +150,7 @@ func TestTPMActivateCredential(t *testing.T) {
 
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion12,
-		AIK:        aik.AttestationParameters(),
+		AK:        ak.AttestationParameters(),
 		EK:         ek,
 	}
 	secret, challenge, err := ap.Generate()
@@ -158,7 +158,7 @@ func TestTPMActivateCredential(t *testing.T) {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	validation, err := aik.ActivateCredential(tpm, *challenge)
+	validation, err := ak.ActivateCredential(tpm, *challenge)
 	if err != nil {
 		t.Fatalf("ActivateCredential failed: %v", err)
 	}

@@ -43,10 +43,10 @@ func TestActivationTPM20(t *testing.T) {
 	priv := ekCertSigner(t)
 	rand := rand.New(rand.NewSource(123456))
 
-	// These parameters represent an AIK generated on a real-world, infineon TPM.
+	// These parameters represent an AK generated on a real-world, infineon TPM.
 	params := ActivationParameters{
 		TPMVersion: TPMVersion20,
-		AIK: AttestationParameters{
+		AK: AttestationParameters{
 			Public:            decodeBase64("AAEACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAFAAECAAAAAAAAQC/08gj/04z4xGMIVTmr02lzhI5epufXgU831xEpf2qpXfvtNGUfqTcgWF2EUux2HDPqgcj59dtXRobQdlr4uCGNzfZIGAej4JusLa4MjpG6W2DtJPot6F1Mry63talzJ36U47niy9Iesd34CO2p9Xk3+86ZmBnQ6PQ2roUNK3l7bKz6cFLM9drOLwCqU0AUl6pHvzYPPz+xXsPl3iaA2cM97oneUiJNmJM7wtR9OcaKyIA4wVlX5TndB9NwWq5Iuj8q2Sp40Dg0noXXGSPliAtVD8flkXtAcuI9UHkQbzu9cGPRdSJPMn743GONg3bYalFtcgh2VpACXkPbXB32J7B", t),
 			CreateData:        decodeBase64("AAAAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUBAAsAIgALWI9hwDRB3zYSkannqM5z0J1coQNA1Jz/oCRxJQwTaNwAIgALmyFYBhHeIU3FUKIAPgXFD3NXyasP3siQviDEyH7avu4AAA==", t),
 			CreateAttestation: decodeBase64("/1RDR4AaACIAC41+jhmEOue1MZhJjIk79ENar6i15rBvamXLpQnGTBCOAAAAAAAAD3GRNfU4syzJ1jQGATDCDteFC5C4ACIAC3ToMYGy9GXxcf8A0HvOuLOHbU7HPEppM47C7CMcU8TtACBDmJFUFO1f5+BYevaYdd3VtfMCsxIuHhoTZJczzLP2BA==", t),

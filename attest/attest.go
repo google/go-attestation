@@ -84,7 +84,7 @@ const (
 	keyEncodingParameterized
 )
 
-type aik interface {
+type ak interface {
 	close(*platformTPM) error
 	marshal() ([]byte, error)
 	activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error)
@@ -92,49 +92,49 @@ type aik interface {
 	attestationParameters() AttestationParameters
 }
 
-// AIK represents a key which can be used for attestation.
-type AIK struct {
-	aik aik
+// AK represents a key which can be used for attestation.
+type AK struct {
+	ak ak
 }
 
-// Close unloads the AIK from the system.
-func (k *AIK) Close(t *TPM) error {
-	return k.aik.close(t.tpm)
+// Close unloads the AK from the system.
+func (k *AK) Close(t *TPM) error {
+	return k.ak.close(t.tpm)
 }
 
-// Marshal encodes the AIK in a format that can be reloaded with tpm.LoadAIK().
+// Marshal encodes the AK in a format that can be reloaded with tpm.LoadAK().
 // This method exists to allow consumers to store the key persistently and load
 // it as a later time. Users SHOULD NOT attempt to interpret or extract values
 // from this blob.
-func (k *AIK) Marshal() ([]byte, error) {
-	return k.aik.marshal()
+func (k *AK) Marshal() ([]byte, error) {
+	return k.ak.marshal()
 }
 
-// ActivateCredential decrypts the secret using the key to prove that the AIK
+// ActivateCredential decrypts the secret using the key to prove that the AK
 // was generated on the same TPM as the EK.
 //
 // This operation is synonymous with TPM2_ActivateCredential.
-func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
-	return k.aik.activateCredential(tpm.tpm, in)
+func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
+	return k.ak.activateCredential(tpm.tpm, in)
 }
 
-// Quote returns a quote over the platform state, signed by the AIK.
+// Quote returns a quote over the platform state, signed by the AK.
 //
 // This is a low-level API. Consumers seeking to attest the state of the
 // platform should use tpm.AttestPlatform() instead.
-func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
-	return k.aik.quote(tpm.tpm, nonce, alg)
+func (k *AK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
+	return k.ak.quote(tpm.tpm, nonce, alg)
 }
 
-// AttestationParameters returns information about the AIK, typically used to
+// AttestationParameters returns information about the AK, typically used to
 // generate a credential activation challenge.
-func (k *AIK) AttestationParameters() AttestationParameters {
-	return k.aik.attestationParameters()
+func (k *AK) AttestationParameters() AttestationParameters {
+	return k.ak.attestationParameters()
 }
 
-// AIKConfig encapsulates parameters for minting keys. This type is defined
+// AKConfig encapsulates parameters for minting keys. This type is defined
 // now (despite being empty) for future interface compatibility.
-type AIKConfig struct {
+type AKConfig struct {
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
@@ -177,11 +177,11 @@ type EK struct {
 // AttestationParameters describes information about a key which is necessary
 // for verifying its properties remotely.
 type AttestationParameters struct {
-	// Public represents the AIK's canonical encoding. This blob includes the
+	// Public represents the AK's canonical encoding. This blob includes the
 	// public key, as well as signing parameters such as the hash algorithm
 	// used to generate quotes.
 	//
-	// Use ParseAIKPublic to access the key's data.
+	// Use ParseAKPublic to access the key's data.
 	Public []byte
 	// For TPM 2.0 devices, Public is encoded as a TPMT_PUBLIC structure.
 	// For TPM 1.2 devices, Public is a TPM_PUBKEY structure, as defined in
@@ -193,7 +193,7 @@ type AttestationParameters struct {
 	// indicates that activation challenges should use the TCSD-specific format.
 	UseTCSDActivationFormat bool
 
-	// Subsequent fields are only populated for AIKs generated on a TPM
+	// Subsequent fields are only populated for AKs generated on a TPM
 	// implementing version 2.0 of the specification. The specific structures
 	// referenced for each field are defined in the TPM Revision 2, Part 2 -
 	// Structures specification, available here:
@@ -210,25 +210,25 @@ type AttestationParameters struct {
 	CreateSignature []byte
 }
 
-// AIKPublic holds structured information about an AIK's public key.
-type AIKPublic struct {
-	// Public is the public part of the AIK. This can either be an *rsa.PublicKey or
+// AKPublic holds structured information about an AK's public key.
+type AKPublic struct {
+	// Public is the public part of the AK. This can either be an *rsa.PublicKey or
 	// and *ecdsa.PublicKey.
 	Public crypto.PublicKey
-	// Hash is the hashing algorithm the AIK will use when signing quotes.
+	// Hash is the hashing algorithm the AK will use when signing quotes.
 	Hash crypto.Hash
 }
 
-// ParseAIKPublic parses the Public blob from the AttestationParameters,
+// ParseAKPublic parses the Public blob from the AttestationParameters,
 // returning the public key and signing parameters for the key.
-func ParseAIKPublic(version TPMVersion, public []byte) (*AIKPublic, error) {
+func ParseAKPublic(version TPMVersion, public []byte) (*AKPublic, error) {
 	switch version {
 	case TPMVersion12:
 		rsaPub, err := tpm.UnmarshalPubRSAPublicKey(public)
 		if err != nil {
 			return nil, fmt.Errorf("parsing public key: %v", err)
 		}
-		return &AIKPublic{Public: rsaPub, Hash: crypto.SHA1}, nil
+		return &AKPublic{Public: rsaPub, Hash: crypto.SHA1}, nil
 	case TPMVersion20:
 		pub, err := tpm2.DecodePublic(public)
 		if err != nil {
@@ -250,21 +250,21 @@ func ParseAIKPublic(version TPMVersion, public []byte) (*AIKPublic, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid public key hash: %v", err)
 		}
-		return &AIKPublic{Public: pubKey, Hash: h}, nil
+		return &AKPublic{Public: pubKey, Hash: h}, nil
 	default:
 		return nil, fmt.Errorf("unknown tpm version 0x%x", version)
 	}
 }
 
 // Verify is used to prove authenticity of the PCR measurements. It ensures that
-// the quote was signed by the AIK, and that its contents matches the PCR and
+// the quote was signed by the AK, and that its contents matches the PCR and
 // nonce combination.
 //
 // The nonce is used to prevent replays of Quote and PCRs and is signed by the
 // quote. Some TPMs don't support nonces longer than 20 bytes, and if the
 // nonce is used to tie additional data to the quote, the additional data should be
 // hashed to construct the nonce.
-func (a *AIKPublic) Verify(quote Quote, pcrs []PCR, nonce []byte) error {
+func (a *AKPublic) Verify(quote Quote, pcrs []PCR, nonce []byte) error {
 	switch quote.Version {
 	case TPMVersion12:
 		return a.validate12Quote(quote, pcrs, nonce)
@@ -319,15 +319,15 @@ func (a HashAlg) String() string {
 // the booted state of the machine the TPM is attached to.
 //
 // The digests contained in the event log can be considered authentic if:
-//  - The AIK public corresponds to the known AIK for that platform.
-//  - All quotes are verified with AIKPublic.Verify(), and return no errors.
+//  - The AK public corresponds to the known AK for that platform.
+//  - All quotes are verified with AKPublic.Verify(), and return no errors.
 //  - The event log parsed successfully using ParseEventLog(), and a call
 //    to EventLog.Verify() with the full set of PCRs returned no error.
 type PlatformParameters struct {
 	// The version of the TPM which generated this attestation.
 	TPMVersion TPMVersion
-	// The public blob of the AIK which endorsed the platform state. This can
-	// be decoded to verify the adjacent quotes using ParseAIKPublic().
+	// The public blob of the AK which endorsed the platform state. This can
+	// be decoded to verify the adjacent quotes using ParseAKPublic().
 	Public []byte
 	// The set of quotes which endorse the state of the PCRs.
 	Quotes []Quote

@@ -78,7 +78,7 @@ func TestEKs(t *testing.T) {
 	}
 }
 
-func TestAIKCreateAndLoad(t *testing.T) {
+func TestAKCreateAndLoad(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -88,30 +88,30 @@ func TestAIKCreateAndLoad(t *testing.T) {
 	}
 	defer tpm.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
 
-	enc, err := aik.Marshal()
+	enc, err := ak.Marshal()
 	if err != nil {
-		aik.Close(tpm)
-		t.Fatalf("aik.Marshal() failed: %v", err)
+		ak.Close(tpm)
+		t.Fatalf("ak.Marshal() failed: %v", err)
 	}
-	if err := aik.Close(tpm); err != nil {
-		t.Fatalf("aik.Close() failed: %v", err)
+	if err := ak.Close(tpm); err != nil {
+		t.Fatalf("ak.Close() failed: %v", err)
 	}
 
-	loaded, err := tpm.LoadAIK(enc)
+	loaded, err := tpm.LoadAK(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close(tpm)
 
-	k1, k2 := aik.aik.(*key20), loaded.aik.(*key20)
+	k1, k2 := ak.ak.(*key20), loaded.ak.(*key20)
 
 	if !bytes.Equal(k1.public, k2.public) {
-		t.Error("Original & loaded AIK public blobs did not match.")
+		t.Error("Original & loaded AK public blobs did not match.")
 		t.Logf("Original = %v", k1.public)
 		t.Logf("Loaded   = %v", k2.public)
 	}

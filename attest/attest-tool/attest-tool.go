@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	keyPath     = flag.String("key", "aik.json", "Path to the key file")
+	keyPath     = flag.String("key", "ak.json", "Path to the key file")
 	nonceHex    = flag.String("nonce", "", "Hex string to use as nonce when quoting")
 	randomNonce = flag.Bool("random-nonce", false, "Generate a random nonce instead of using one provided")
 	useSHA256   = flag.Bool("sha256", false, "Use SHA256 for quote operatons")
@@ -63,10 +63,10 @@ func runCommand(tpm *attest.TPM) error {
 		fmt.Printf("VendorInfo: %x\n", info.VendorInfo)
 		fmt.Printf("Manufactorer: %v\n", info.Manufacturer)
 
-	case "make-aik":
-		k, err := tpm.NewAIK(nil)
+	case "make-ak", "make-aik":
+		k, err := tpm.NewAK(nil)
 		if err != nil {
-			return fmt.Errorf("failed to mint an AIK: %v", err)
+			return fmt.Errorf("failed to mint an AK: %v", err)
 		}
 		defer k.Close(tpm)
 		b, err := k.Marshal()
@@ -80,9 +80,9 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			return err
 		}
-		k, err := tpm.LoadAIK(b)
+		k, err := tpm.LoadAK(b)
 		if err != nil {
-			return fmt.Errorf("failed to load AIK: %v", err)
+			return fmt.Errorf("failed to load AK: %v", err)
 		}
 		defer k.Close(tpm)
 
@@ -186,12 +186,12 @@ func runDump(tpm *attest.TPM) (*internal.Dump, error) {
 		return nil, err
 	}
 
-	k, err := tpm.NewAIK(nil)
+	k, err := tpm.NewAK(nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to mint an AIK: %v", err)
+		return nil, fmt.Errorf("failed to mint an AK: %v", err)
 	}
 	defer k.Close(tpm)
-	out.AIK = k.AttestationParameters()
+	out.AK = k.AttestationParameters()
 
 	// Get a quote.
 	if out.Quote.Nonce, err = hex.DecodeString(*nonceHex); err != nil {
