@@ -30,7 +30,7 @@ type key12 struct {
 	public []byte
 }
 
-func newKey12(blob, public []byte) aik {
+func newKey12(blob, public []byte) ak {
 	return &key12{
 		blob:   blob,
 		public: public,
@@ -56,7 +56,7 @@ func (k *key12) close(tpm *platformTPM) error {
 func (k *key12) activateCredential(t *platformTPM, in EncryptedCredential) ([]byte, error) {
 	cred, err := attestation.AIKChallengeResponse(t.ctx, k.blob, in.Credential, in.Secret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to activate aik: %v", err)
+		return nil, fmt.Errorf("failed to activate ak: %v", err)
 	}
 	return cred, nil
 }
@@ -96,7 +96,7 @@ type key20 struct {
 	createSignature   []byte
 }
 
-func newKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) aik {
+func newKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) ak {
 	return &key20{
 		hnd:               hnd,
 		blob:              blob,

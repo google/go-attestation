@@ -13,7 +13,7 @@ type Dump struct {
 		EKPem      []byte
 	}
 
-	AIK attest.AttestationParameters
+	AK attest.AttestationParameters
 
 	Quote struct {
 		Nonce     []byte

@@ -46,7 +46,7 @@ func cryptoHash(h tpm2.Algorithm) (crypto.Hash, error) {
 	}
 }
 
-// ActivationParameters encapsulates the inputs for activating an AIK.
+// ActivationParameters encapsulates the inputs for activating an AK.
 type ActivationParameters struct {
 	// TPMVersion holds the version of the TPM, either 1.2 or 2.0.
 	TPMVersion TPMVersion
@@ -55,17 +55,17 @@ type ActivationParameters struct {
 	// private key is permenantly bound to the TPM.
 	//
 	// Activation will verify that the provided EK is held on the same
-	// TPM as the AIK. However, it is the callers responsibility to
+	// TPM as the AK. However, it is the callers responsibility to
 	// ensure the EK they provide corresponds to the the device which
-	// they are trying to associate the AIK with.
+	// they are trying to associate the AK with.
 	EK crypto.PublicKey
 
-	// AIK, the Attestation Identity Key, describes the properties of
+	// AK, the Attestation Key, describes the properties of
 	// an asymmetric key (managed by the TPM) which signs attestation
 	// structures.
 	// The values from this structure can be obtained by calling
-	// Parameters() on an attest.AIK.
-	AIK AttestationParameters
+	// Parameters() on an attest.AK.
+	AK AttestationParameters
 
 	// Rand is a source of randomness to generate a seed and secret for the
 	// challenge.
@@ -74,26 +74,26 @@ type ActivationParameters struct {
 	Rand io.Reader
 }
 
-// checkAIKParameters examines properties of an AIK and a creation
+// checkAKParameters examines properties of an AK and a creation
 // attestation, to determine if it is suitable for use as an attestation key.
-func (p *ActivationParameters) checkAIKParameters() error {
+func (p *ActivationParameters) checkAKParameters() error {
 	switch p.TPMVersion {
 	case TPMVersion12:
-		return p.checkTPM12AIKParameters()
+		return p.checkTPM12AKParameters()
 
 	case TPMVersion20:
-		return p.checkTPM20AIKParameters()
+		return p.checkTPM20AKParameters()
 
 	default:
 		return fmt.Errorf("TPM version %d not supported", p.TPMVersion)
 	}
 }
 
-func (p *ActivationParameters) checkTPM12AIKParameters() error {
+func (p *ActivationParameters) checkTPM12AKParameters() error {
 	// TODO(jsonp): Implement helper to parse public blobs, ie:
 	//   func ParsePublic(publicBlob []byte) (crypto.Public, error)
 
-	pub, err := tpm1.UnmarshalPubRSAPublicKey(p.AIK.Public)
+	pub, err := tpm1.UnmarshalPubRSAPublicKey(p.AK.Public)
 	if err != nil {
 		return fmt.Errorf("unmarshalling public key: %v", err)
 	}
@@ -103,20 +103,20 @@ func (p *ActivationParameters) checkTPM12AIKParameters() error {
 	return nil
 }
 
-func (p *ActivationParameters) checkTPM20AIKParameters() error {
-	if len(p.AIK.CreateSignature) < 8 {
-		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.AIK.CreateSignature))
+func (p *ActivationParameters) checkTPM20AKParameters() error {
+	if len(p.AK.CreateSignature) < 8 {
+		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.AK.CreateSignature))
 	}
 
-	pub, err := tpm2.DecodePublic(p.AIK.Public)
+	pub, err := tpm2.DecodePublic(p.AK.Public)
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	_, err = tpm2.DecodeCreationData(p.AIK.CreateData)
+	_, err = tpm2.DecodeCreationData(p.AK.CreateData)
 	if err != nil {
 		return fmt.Errorf("DecodeCreationData() failed: %v", err)
 	}
-	att, err := tpm2.DecodeAttestationData(p.AIK.CreateAttestation)
+	att, err := tpm2.DecodeAttestationData(p.AK.CreateAttestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
@@ -124,7 +124,7 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
 	}
 
-	// TODO: Support ECC AIKs.
+	// TODO: Support ECC AKs.
 	switch pub.Type {
 	case tpm2.AlgRSA:
 		if pub.RSAParameters.KeyBits < minRSABits {
@@ -141,12 +141,12 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 		return fmt.Errorf("HashConstructor() failed: %v", err)
 	}
 	h := nameHashConstructor()
-	h.Write(p.AIK.CreateData)
+	h.Write(p.AK.CreateData)
 	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
 		return errors.New("attestation refers to different public key")
 	}
 
-	// Make sure the AIK has sane key parameters (Attestation can be faked if an AIK
+	// Make sure the AK has sane key parameters (Attestation can be faked if an AK
 	// can be used for arbitrary signatures).
 	// We verify the following:
 	// - Key is TPM backed.
@@ -158,7 +158,7 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 		return errors.New("creation attestation was not produced by a TPM")
 	}
 	if (pub.Attributes & tpm2.FlagFixedTPM) == 0 {
-		return errors.New("AIK is exportable")
+		return errors.New("AK is exportable")
 	}
 	if ((pub.Attributes & tpm2.FlagRestricted) == 0) || ((pub.Attributes & tpm2.FlagFixedParent) == 0) || ((pub.Attributes & tpm2.FlagSensitiveDataOrigin) == 0) {
 		return errors.New("provided key is not limited to attestation")
@@ -181,17 +181,17 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 		return err
 	}
 	hsh := signHashConstructor()
-	hsh.Write(p.AIK.CreateAttestation)
+	hsh.Write(p.AK.CreateAttestation)
 	verifyHash, err := cryptoHash(pub.RSAParameters.Sign.Hash)
 	if err != nil {
 		return err
 	}
 
-	if len(p.AIK.CreateSignature) < 8 {
-		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.AIK.CreateSignature))
+	if len(p.AK.CreateSignature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.AK.CreateSignature))
 	}
 
-	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AIK.CreateSignature))
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AK.CreateSignature))
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
@@ -204,7 +204,7 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 }
 
 // Generate returns a credential activation challenge, which can be provided
-// to the TPM to verify the AIK parameters given are authentic & the AIK
+// to the TPM to verify the AK parameters given are authentic & the AK
 // is present on the same TPM as the EK.
 //
 // The caller is expected to verify the secret returned from the TPM as
@@ -212,7 +212,7 @@ func (p *ActivationParameters) checkTPM20AIKParameters() error {
 // The caller should use subtle.ConstantTimeCompare to avoid potential
 // timing attack vectors.
 func (p *ActivationParameters) Generate() (secret []byte, ec *EncryptedCredential, err error) {
-	if err := p.checkAIKParameters(); err != nil {
+	if err := p.checkAKParameters(); err != nil {
 		return nil, nil, err
 	}
 
@@ -244,7 +244,7 @@ func (p *ActivationParameters) Generate() (secret []byte, ec *EncryptedCredentia
 }
 
 func (p *ActivationParameters) generateChallengeTPM20(secret []byte) (*EncryptedCredential, error) {
-	att, err := tpm2.DecodeAttestationData(p.AIK.CreateAttestation)
+	att, err := tpm2.DecodeAttestationData(p.AK.CreateAttestation)
 	if err != nil {
 		return nil, fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
@@ -269,10 +269,10 @@ func (p *ActivationParameters) generateChallengeTPM12(rand io.Reader, secret []b
 		cred, encSecret []byte
 		err             error
 	)
-	if p.AIK.UseTCSDActivationFormat {
-		cred, encSecret, err = verification.GenerateChallengeEx(pk, p.AIK.Public, secret)
+	if p.AK.UseTCSDActivationFormat {
+		cred, encSecret, err = verification.GenerateChallengeEx(pk, p.AK.Public, secret)
 	} else {
-		cred, encSecret, err = generateChallenge12(rand, pk, p.AIK.Public, secret)
+		cred, encSecret, err = generateChallenge12(rand, pk, p.AK.Public, secret)
 	}
 
 	if err != nil {

@@ -29,7 +29,7 @@ type Dump struct {
 		EKPem      []byte
 	}
 
-	AIK AttestationParameters
+	AK AttestationParameters
 
 	Quote struct {
 		Nonce     []byte
@@ -95,11 +95,11 @@ func testEventLog(t *testing.T, testdata string) {
 		t.Fatalf("parsing test data: %v", err)
 	}
 
-	aik, err := ParseAIKPublic(dump.Static.TPMVersion, dump.AIK.Public)
+	ak, err := ParseAKPublic(dump.Static.TPMVersion, dump.AK.Public)
 	if err != nil {
-		t.Fatalf("parsing AIK: %v", err)
+		t.Fatalf("parsing AK: %v", err)
 	}
-	if err := aik.Verify(Quote{
+	if err := ak.Verify(Quote{
 		Version:   dump.Static.TPMVersion,
 		Quote:     dump.Quote.Quote,
 		Signature: dump.Quote.Signature,

@@ -118,7 +118,7 @@ type rawPCRComposite struct {
 	Values  tpmutil.U32Bytes
 }
 
-func (a *AIKPublic) validate12Quote(quote Quote, pcrs []PCR, nonce []byte) error {
+func (a *AKPublic) validate12Quote(quote Quote, pcrs []PCR, nonce []byte) error {
 	pub, ok := a.Public.(*rsa.PublicKey)
 	if !ok {
 		return fmt.Errorf("unsupported public key type: %T", a.Public)
@@ -163,7 +163,7 @@ func (a *AIKPublic) validate12Quote(quote Quote, pcrs []PCR, nonce []byte) error
 	return nil
 }
 
-func (a *AIKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error {
+func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error {
 	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(quote.Signature))
 	if err != nil {
 		return fmt.Errorf("parse quote signature: %v", err)

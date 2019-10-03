@@ -29,7 +29,7 @@ type key12 struct {
 	public     []byte
 }
 
-func newKey12(hnd uintptr, pcpKeyName string, public []byte) aik {
+func newKey12(hnd uintptr, pcpKeyName string, public []byte) ak {
 	return &key12{
 		hnd:        hnd,
 		pcpKeyName: pcpKeyName,
@@ -114,7 +114,7 @@ type key20 struct {
 	createSignature   []byte
 }
 
-func newKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) aik {
+func newKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) ak {
 	return &key20{
 		hnd:               hnd,
 		pcpKeyName:        pcpKeyName,

@@ -264,18 +264,18 @@ func decryptCredential(secretKey, blob []byte) ([]byte, error) {
 	return secret, nil
 }
 
-func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
+func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 	nameHex := make([]byte, 5)
 	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
 		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
 	}
-	name := fmt.Sprintf("aik-%x", nameHex)
+	name := fmt.Sprintf("ak-%x", nameHex)
 
-	kh, err := t.pcp.NewAIK(name)
+	kh, err := t.pcp.NewAK(name)
 	if err != nil {
 		return nil, fmt.Errorf("pcp failed to mint attestation key: %v", err)
 	}
-	props, err := t.pcp.AIKProperties(kh)
+	props, err := t.pcp.AKProperties(kh)
 	if err != nil {
 		closeNCryptObject(kh)
 		return nil, fmt.Errorf("pcp failed to read attestation key properties: %v", err)
@@ -283,15 +283,15 @@ func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		return &AIK{aik: newKey12(kh, name, props.RawPublic)}, nil
+		return &AK{ak: newKey12(kh, name, props.RawPublic)}, nil
 	case TPMVersion20:
-		return &AIK{aik: newKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
+		return &AK{ak: newKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
 }
 
-func (t *platformTPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
+func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -307,9 +307,9 @@ func (t *platformTPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		return &AIK{aik: newKey12(hnd, sKey.Name, sKey.Public)}, nil
+		return &AK{ak: newKey12(hnd, sKey.Name, sKey.Public)}, nil
 	case TPMVersion20:
-		return &AIK{aik: newKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+		return &AK{ak: newKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}

@@ -267,14 +267,14 @@ func (t *platformTPM) eks() ([]EK, error) {
 	}
 }
 
-func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
+func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 	switch t.version {
 	case TPMVersion12:
 		pub, blob, err := attestation.CreateAIK(t.ctx)
 		if err != nil {
 			return nil, fmt.Errorf("CreateAIK failed: %v", err)
 		}
-		return &AIK{aik: newKey12(blob, pub)}, nil
+		return &AK{ak: newKey12(blob, pub)}, nil
 	case TPMVersion20:
 		// TODO(jsonp): Abstract choice of hierarchy & parent.
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
@@ -282,7 +282,7 @@ func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
 			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 		}
 
-		blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", aikTemplate)
+		blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", akTemplate)
 		if err != nil {
 			return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
 		}
@@ -290,7 +290,7 @@ func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
-		// If any errors occur, free the AIK's handle.
+		// If any errors occur, free the AK's handle.
 		defer func() {
 			if err != nil {
 				tpm2.FlushContext(t.rwc, keyHandle)
@@ -307,13 +307,13 @@ func (t *platformTPM) newAIK(opts *AIKConfig) (*AIK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 		}
-		return &AIK{aik: newKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
+		return &AK{ak: newKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
 }
 
-func (t *platformTPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
+func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -324,7 +324,7 @@ func (t *platformTPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 
 	switch sKey.TPMVersion {
 	case TPMVersion12:
-		return &AIK{aik: newKey12(sKey.Blob, sKey.Public)}, nil
+		return &AK{ak: newKey12(sKey.Blob, sKey.Public)}, nil
 	case TPMVersion20:
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
@@ -334,9 +334,9 @@ func (t *platformTPM) loadAIK(opaqueBlob []byte) (*AIK, error) {
 		if hnd, _, err = tpm2.Load(t.rwc, srk, "", sKey.Public, sKey.Blob); err != nil {
 			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
-		return &AIK{aik: newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+		return &AK{ak: newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 	default:
-		return nil, fmt.Errorf("cannot load AIK with TPM version: %v", sKey.TPMVersion)
+		return nil, fmt.Errorf("cannot load AK with TPM version: %v", sKey.TPMVersion)
 	}
 }
 

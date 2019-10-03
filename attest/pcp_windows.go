@@ -38,7 +38,7 @@ const (
 	// The below is documented in this Microsoft whitepaper:
 	// https://github.com/Microsoft/TSS.MSR/blob/master/PCPTool.v11/Using%20the%20Windows%208%20Platform%20Crypto%20Provider%20and%20Associated%20TPM%20Functionality.pdf
 	ncryptOverwriteKeyFlag = 0x80
-	// Key usage value for AIKs.
+	// Key usage value for AKs.
 	nCryptPropertyPCPKeyUsagePolicyIdentity = 0x8
 )
 
@@ -452,8 +452,8 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 	return out, nil
 }
 
-// NewAIK creates a persistent attestation key of the specified name.
-func (h *winPCP) NewAIK(name string) (uintptr, error) {
+// NewAK creates a persistent attestation key of the specified name.
+func (h *winPCP) NewAK(name string) (uintptr, error) {
 	var kh uintptr
 	utf16Name, err := windows.UTF16FromString(name)
 	if err != nil {
@@ -516,17 +516,17 @@ func (h *winPCP) EKPub() ([]byte, error) {
 	return getNCryptBufferProperty(h.hProv, "PCP_EKPUB")
 }
 
-type aikProps struct {
+type akProps struct {
 	RawPublic       []byte
 	RawCreationData []byte
 	RawAttest       []byte
 	RawSignature    []byte
 }
 
-// AIKProperties returns the binding properties of the given attestation
+// AKProperties returns the binding properties of the given attestation
 // key. Note that it is only valid to call this function with the same
-// winPCP handle within which the AIK was created.
-func (h *winPCP) AIKProperties(kh uintptr) (*aikProps, error) {
+// winPCP handle within which the AK was created.
+func (h *winPCP) AKProperties(kh uintptr) (*akProps, error) {
 	idBlob, err := getNCryptBufferProperty(kh, "PCP_TPM12_IDBINDING")
 	if err != nil {
 		return nil, err
@@ -535,16 +535,16 @@ func (h *winPCP) AIKProperties(kh uintptr) (*aikProps, error) {
 	// Because the TPM 1.2 blob leads with a version tag,
 	// we can switch decoding logic based on it.
 	if bytes.Equal(idBlob[0:4], []byte{1, 1, 0, 0}) {
-		return decodeAIKProps12(r)
+		return decodeAKProps12(r)
 	}
-	return decodeAIKProps20(r)
+	return decodeAKProps20(r)
 }
 
-// decodeAIKProps12 separates the single TPM 1.2 blob from the PCP property
+// decodeAKProps12 separates the single TPM 1.2 blob from the PCP property
 // into its constituents, returning information about the public key
-// of the AIK.
-func decodeAIKProps12(r *bytes.Reader) (*aikProps, error) {
-	var out aikProps
+// of the AK.
+func decodeAKProps12(r *bytes.Reader) (*akProps, error) {
+	var out akProps
 	// Skip over fixed-size fields in TPM_IDENTITY_CONTENTS which
 	// we don't need to read.
 	// Specifically: ver, ordinal, & labelPrivCADigest.
@@ -592,12 +592,12 @@ func decodeAIKProps12(r *bytes.Reader) (*aikProps, error) {
 	return &out, nil
 }
 
-// decodeAIKProps20 separates the single TPM 2.0 blob from the PCP property
+// decodeAKProps20 separates the single TPM 2.0 blob from the PCP property
 // into its constituents. For TPM 2.0 devices, these are bytes representing
 // the following structures: TPM2B_PUBLIC, TPM2B_CREATION_DATA, TPM2B_ATTEST,
 // and TPMT_SIGNATURE.
-func decodeAIKProps20(r *bytes.Reader) (*aikProps, error) {
-	var out aikProps
+func decodeAKProps20(r *bytes.Reader) (*akProps, error) {
+	var out akProps
 
 	var publicSize uint16
 	if err := binary.Read(r, binary.BigEndian, &publicSize); err != nil {

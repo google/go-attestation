@@ -63,34 +63,34 @@ func TestSimTPM20Info(t *testing.T) {
 	}
 }
 
-func TestSimTPM20AIKCreateAndLoad(t *testing.T) {
+func TestSimTPM20AKCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
 
-	enc, err := aik.Marshal()
+	enc, err := ak.Marshal()
 	if err != nil {
-		aik.Close(tpm)
-		t.Fatalf("aik.Marshal() failed: %v", err)
+		ak.Close(tpm)
+		t.Fatalf("ak.Marshal() failed: %v", err)
 	}
-	if err := aik.Close(tpm); err != nil {
-		t.Fatalf("aik.Close() failed: %v", err)
+	if err := ak.Close(tpm); err != nil {
+		t.Fatalf("ak.Close() failed: %v", err)
 	}
 
-	loaded, err := tpm.LoadAIK(enc)
+	loaded, err := tpm.LoadAK(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close(tpm)
 
-	k1, k2 := aik.aik.(*key20), loaded.aik.(*key20)
+	k1, k2 := ak.ak.(*key20), loaded.ak.(*key20)
 
 	if !bytes.Equal(k1.public, k2.public) {
-		t.Error("Original & loaded AIK public blobs did not match.")
+		t.Error("Original & loaded AK public blobs did not match.")
 		t.Logf("Original = %v", k1.public)
 		t.Logf("Loaded   = %v", k2.public)
 	}
@@ -100,11 +100,11 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
-	defer aik.Close(tpm)
+	defer ak.Close(tpm)
 
 	EKs, err := tpm.EKs()
 	if err != nil {
@@ -114,7 +114,7 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion20,
-		AIK:        aik.AttestationParameters(),
+		AK:        ak.AttestationParameters(),
 		EK:         ek,
 	}
 	secret, challenge, err := ap.Generate()
@@ -122,9 +122,9 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	decryptedSecret, err := aik.ActivateCredential(tpm, *challenge)
+	decryptedSecret, err := ak.ActivateCredential(tpm, *challenge)
 	if err != nil {
-		t.Errorf("aik.ActivateCredential() failed: %v", err)
+		t.Errorf("ak.ActivateCredential() failed: %v", err)
 	}
 	if !bytes.Equal(secret, decryptedSecret) {
 		t.Error("secret does not match decrypted secret")
@@ -133,18 +133,18 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	}
 }
 
-func TestParseAIKPublic20(t *testing.T) {
+func TestParseAKPublic20(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
-	defer aik.Close(tpm)
-	params := aik.AttestationParameters()
-	if _, err := ParseAIKPublic(TPMVersion20, params.Public); err != nil {
-		t.Errorf("parsing AIK public blob: %v", err)
+	defer ak.Close(tpm)
+	params := ak.AttestationParameters()
+	if _, err := ParseAKPublic(TPMVersion20, params.Public); err != nil {
+		t.Errorf("parsing AK public blob: %v", err)
 	}
 }
 
@@ -152,19 +152,19 @@ func TestSimTPM20QuoteAndVerify(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
-	defer aik.Close(tpm)
+	defer ak.Close(tpm)
 
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	quote, err := aik.Quote(tpm, nonce, HashSHA256)
+	quote, err := ak.Quote(tpm, nonce, HashSHA256)
 	if err != nil {
-		t.Fatalf("aik.Quote() failed: %v", err)
+		t.Fatalf("ak.Quote() failed: %v", err)
 	}
 
-	// Providing both PCR banks to AIKPublic.Verify() ensures we can handle
+	// Providing both PCR banks to AKPublic.Verify() ensures we can handle
 	// the case where extra PCRs of a different digest algorithm are provided.
 	var pcrs []PCR
 	for _, alg := range []HashAlg{HashSHA256, HashSHA1} {
@@ -175,9 +175,9 @@ func TestSimTPM20QuoteAndVerify(t *testing.T) {
 		pcrs = append(pcrs, p...)
 	}
 
-	pub, err := ParseAIKPublic(tpm.Version(), aik.AttestationParameters().Public)
+	pub, err := ParseAKPublic(tpm.Version(), ak.AttestationParameters().Public)
 	if err != nil {
-		t.Fatalf("ParseAIKPublic() failed: %v", err)
+		t.Fatalf("ParseAKPublic() failed: %v", err)
 	}
 	if err := pub.Verify(*quote, pcrs, nonce); err != nil {
 		t.Errorf("quote verification failed: %v", err)
@@ -188,21 +188,21 @@ func TestSimTPM20AttestPlatform(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	aik, err := tpm.NewAIK(nil)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
-		t.Fatalf("NewAIK() failed: %v", err)
+		t.Fatalf("NewAK() failed: %v", err)
 	}
-	defer aik.Close(tpm)
+	defer ak.Close(tpm)
 
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	attestation, err := tpm.attestPlatform(aik, nonce, nil)
+	attestation, err := tpm.attestPlatform(ak, nonce, nil)
 	if err != nil {
 		t.Fatalf("AttestPlatform() failed: %v", err)
 	}
 
-	pub, err := ParseAIKPublic(attestation.TPMVersion, attestation.Public)
+	pub, err := ParseAKPublic(attestation.TPMVersion, attestation.Public)
 	if err != nil {
-		t.Fatalf("ParseAIKPublic() failed: %v", err)
+		t.Fatalf("ParseAKPublic() failed: %v", err)
 	}
 	for i, q := range attestation.Quotes {
 		if err := pub.Verify(q, attestation.PCRs, nonce); err != nil {
