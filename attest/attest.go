@@ -119,6 +119,9 @@ func (k *AIK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byt
 }
 
 // Quote returns a quote over the platform state, signed by the AIK.
+//
+// This is a low-level API. Consumers seeking to attest the state of the
+// platform should use tpm.AttestPlatform() instead.
 func (k *AIK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 	return k.aik.quote(tpm.tpm, nonce, alg)
 }
