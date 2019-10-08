@@ -13,7 +13,6 @@
 // the License.
 
 // +build linux
-// +build !gofuzz
 
 package attest
 
