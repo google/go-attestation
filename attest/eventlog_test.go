@@ -122,3 +122,29 @@ func testEventLog(t *testing.T, testdata string) {
 		}
 	}
 }
+
+func TestParseEventLogEventSizeTooLarge(t *testing.T) {
+	data := []byte{
+		// PCR index
+		0x30, 0x34, 0x39, 0x33,
+		// type
+		0x36, 0x30, 0x30, 0x32,
+
+		// Digest
+		0x31, 0x39, 0x36, 0x33, 0x39, 0x34, 0x34, 0x37, 0x39, 0x32,
+		0x31, 0x32, 0x32, 0x37, 0x39, 0x30, 0x34, 0x30, 0x31, 0x6d,
+
+		// Even size (3.183 GB)
+		0xbd, 0xbf, 0xef, 0x47,
+
+		// "event data"
+		0x00, 0x00, 0x00, 0x00,
+	}
+
+	// If this doesn't panic, the test passed
+	// TODO(ericchiang): use errors.As once go-attestation switches to Go 1.13.
+	_, err := ParseEventLog(data)
+	if err == nil {
+		t.Fatalf("expected parsing invalid event log to fail")
+	}
+}

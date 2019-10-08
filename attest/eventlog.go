@@ -480,10 +480,22 @@ type rawEventHeader struct {
 	EventSize uint32
 }
 
-func parseRawEvent(r io.Reader) (event rawEvent, err error) {
+type eventSizeErr struct {
+	eventSize uint32
+	logSize   int
+}
+
+func (e *eventSizeErr) Error() string {
+	return fmt.Sprintf("event data size (%d bytes) is greater than remaining measurement log (%d bytes)", e.eventSize, e.logSize)
+}
+
+func parseRawEvent(r *bytes.Buffer) (event rawEvent, err error) {
 	var h rawEventHeader
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
 		return event, err
+	}
+	if h.EventSize > uint32(r.Len()) {
+		return event, &eventSizeErr{h.EventSize, r.Len()}
 	}
 	data := make([]byte, int(h.EventSize))
 	if _, err := io.ReadFull(r, data); err != nil {
@@ -504,7 +516,7 @@ type rawEvent2Header struct {
 	Type     uint32
 }
 
-func parseRawEvent2(r io.Reader) (event rawEvent, err error) {
+func parseRawEvent2(r *bytes.Buffer) (event rawEvent, err error) {
 	var h rawEvent2Header
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
 		return event, err
@@ -542,6 +554,9 @@ func parseRawEvent2(r io.Reader) (event rawEvent, err error) {
 	var eventSize uint32
 	if err = binary.Read(r, binary.LittleEndian, &eventSize); err != nil {
 		return event, err
+	}
+	if eventSize > uint32(r.Len()) {
+		return event, &eventSizeErr{eventSize, r.Len()}
 	}
 	event.data = make([]byte, int(eventSize))
 	if _, err := io.ReadFull(r, event.data); err != nil {
