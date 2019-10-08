@@ -1,4 +1,4 @@
-// +build cgo
+// +build !gofuzz
 
 package attest
 

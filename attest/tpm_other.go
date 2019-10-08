@@ -12,12 +12,11 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-// +build !linux !windows
+// +build gofuzz
 
 package attest
 
 type platformTPM struct {
-	// interf TPMInterface
 }
 
 func probeSystemTPMs() ([]probedTPM, error) {
