@@ -148,3 +148,111 @@ func TestParseEventLogEventSizeTooLarge(t *testing.T) {
 		t.Fatalf("expected parsing invalid event log to fail")
 	}
 }
+
+func TestParseSpecIDEvent(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		want    []uint16
+		wantErr bool
+	}{
+		{
+			name: "sha1",
+			data: append(
+				[]byte("Spec ID Event03"), 0x0,
+				0x0, 0x0, 0x0, 0x0, // platform class
+				0x0,                // verison minor
+				0x2,                // version major
+				0x0,                // errata
+				0x8,                // uintn size
+				0x1, 0x0, 0x0, 0x0, // num algs
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x2, // vendor info size
+				0x0, 0x0,
+			),
+			want: []uint16{0x0004},
+		},
+		{
+			name: "sha1_and_sha256",
+			data: append(
+				[]byte("Spec ID Event03"), 0x0,
+				0x0, 0x0, 0x0, 0x0, // platform class
+				0x0,                // verison minor
+				0x2,                // version major
+				0x0,                // errata
+				0x8,                // uintn size
+				0x2, 0x0, 0x0, 0x0, // num algs
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x0B, 0x0, // SHA256
+				0x20, 0x0, // size
+				0x2, // vendor info size
+				0x0, 0x0,
+			),
+			want: []uint16{0x0004, 0x000B},
+		},
+		{
+			name: "invalid_version",
+			data: append(
+				[]byte("Spec ID Event03"), 0x0,
+				0x0, 0x0, 0x0, 0x0, // platform class
+				0x2,                // verison minor
+				0x1,                // version major
+				0x0,                // errata
+				0x8,                // uintn size
+				0x2, 0x0, 0x0, 0x0, // num algs
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x0B, 0x0, // SHA256
+				0x20, 0x0, // size
+				0x2, // vendor info size
+				0x0, 0x0,
+			),
+			wantErr: true,
+		},
+		{
+			name: "malicious_number_of_algs",
+			data: append(
+				[]byte("Spec ID Event03"), 0x0,
+				0x0, 0x0, 0x0, 0x0, // platform class
+				0x0,                    // verison minor
+				0x2,                    // version major
+				0x0,                    // errata
+				0x8,                    // uintn size
+				0xff, 0xff, 0xff, 0xff, // num algs
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x2, // vendor info size
+				0x0, 0x0,
+			),
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			spec, err := parseSpecIDEvent(test.data)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("parsing spec, wantErr=%t, got=%v", test.wantErr, err)
+			}
+			if err != nil {
+				return
+			}
+			algsEq := func(got, want []uint16) bool {
+				if len(got) != len(want) {
+					return false
+				}
+				for i, alg := range got {
+					if want[i] != alg {
+						return false
+					}
+				}
+				return true
+			}
+
+			if !algsEq(test.want, spec.algs) {
+				t.Errorf("algorithms, got=%x, want=%x", spec.algs, test.want)
+			}
+		})
+	}
+}
