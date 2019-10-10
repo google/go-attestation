@@ -150,7 +150,7 @@ func TestTPMActivateCredential(t *testing.T) {
 
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion12,
-		AK:        ak.AttestationParameters(),
+		AK:         ak.AttestationParameters(),
 		EK:         ek,
 	}
 	secret, challenge, err := ap.Generate()

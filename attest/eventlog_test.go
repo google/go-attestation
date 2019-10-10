@@ -161,7 +161,7 @@ func TestParseSpecIDEvent(t *testing.T) {
 			data: append(
 				[]byte("Spec ID Event03"), 0x0,
 				0x0, 0x0, 0x0, 0x0, // platform class
-				0x0,                // verison minor
+				0x0,                // version minor
 				0x2,                // version major
 				0x0,                // errata
 				0x8,                // uintn size
@@ -178,7 +178,7 @@ func TestParseSpecIDEvent(t *testing.T) {
 			data: append(
 				[]byte("Spec ID Event03"), 0x0,
 				0x0, 0x0, 0x0, 0x0, // platform class
-				0x0,                // verison minor
+				0x0,                // version minor
 				0x2,                // version major
 				0x0,                // errata
 				0x8,                // uintn size
@@ -197,7 +197,7 @@ func TestParseSpecIDEvent(t *testing.T) {
 			data: append(
 				[]byte("Spec ID Event03"), 0x0,
 				0x0, 0x0, 0x0, 0x0, // platform class
-				0x2,                // verison minor
+				0x2,                // version minor
 				0x1,                // version major
 				0x0,                // errata
 				0x8,                // uintn size
@@ -216,7 +216,7 @@ func TestParseSpecIDEvent(t *testing.T) {
 			data: append(
 				[]byte("Spec ID Event03"), 0x0,
 				0x0, 0x0, 0x0, 0x0, // platform class
-				0x0,                    // verison minor
+				0x0,                    // version minor
 				0x2,                    // version major
 				0x0,                    // errata
 				0x8,                    // uintn size

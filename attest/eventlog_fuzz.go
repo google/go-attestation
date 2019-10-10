@@ -16,6 +16,8 @@
 
 package attest
 
+// FuzzParseEventLog is an exported entrypoint for fuzzers to test the eventlog
+// parser. This method should not be used for any other purpose.
 func FuzzParseEventLog(data []byte) int {
 	_, err := ParseEventLog(data)
 	if err != nil {
