@@ -72,7 +72,7 @@ func ExampleAK_credentialActivation() {
 	activation := attest.ActivationParameters{
 		TPMVersion: tpm.Version(),
 		EK:         ek[0].Public,
-		AK:        ap,
+		AK:         ap,
 	}
 	secret, challenge, err := activation.Generate()
 	if err != nil {

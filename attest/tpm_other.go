@@ -20,17 +20,17 @@ import (
 	"errors"
 )
 
-var unsupportedError = errors.New("tpm operations not supported from given build parameters")
+var errUnsupported = errors.New("tpm operations not supported from given build parameters")
 
 type platformTPM struct {
 }
 
 func probeSystemTPMs() ([]probedTPM, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func openTPM(tpm probedTPM) (*TPM, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func (t *platformTPM) tpmVersion() TPMVersion {
@@ -39,29 +39,29 @@ func (t *platformTPM) tpmVersion() TPMVersion {
 
 func (t *platformTPM) close() error {
 
-	return unsupportedError
+	return errUnsupported
 }
 
 func (t *platformTPM) info() (*TPMInfo, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func (t *platformTPM) eks() ([]EK, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
 
 func (t *platformTPM) measurementLog() ([]byte, error) {
-	return nil, unsupportedError
+	return nil, errUnsupported
 }
