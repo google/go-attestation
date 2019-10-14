@@ -153,42 +153,50 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgo
 	return x509.UnknownSignatureAlgorithm
 }
 
+//RFC 5280 4.2.2.1
 type authorityInfoAccess struct {
 	Method   asn1.ObjectIdentifier
 	Location asn1.RawValue
 }
 
+//RFC 5280 4.2.1.1
 type authKeyId struct {
 	Id           []byte        `asn1:"optional,tag:0"`
 	IssuerName   asn1.RawValue `asn1:"set,optional,tag:1"`
 	SerialNumber *big.Int      `asn1:"optional,tag:2"`
 }
 
+//RFC 5280 4.2.1.4
 type cpsPolicy struct {
 	Id    asn1.ObjectIdentifier
 	Value string
 }
 
+//RFC 5280 4.2.1.4
 type policyInformation struct {
 	Raw    asn1.RawContent
 	Id     asn1.ObjectIdentifier
 	Policy asn1.RawValue
 }
 
+//RFC 5280 4.1.2.5
 type validity struct {
 	NotBefore, NotAfter time.Time
 }
 
+//RFC 5280 4.2.1.4
 type NoticeReference struct {
 	Organization  string
 	NoticeNumbers []int
 }
 
+//RFC 5280 4.2.1.4
 type userNotice struct {
 	NoticeRef    NoticeReference `asn1:"optional"`
 	ExplicitText string          `asn1:"optional"`
 }
 
+//RFC 5755 4.1
 type objectDigestInfo struct {
 	DigestedObjectType asn1.Enumerated
 	OtherObjectTypeID  asn1.ObjectIdentifier
@@ -196,12 +204,14 @@ type objectDigestInfo struct {
 	ObjectDigest       asn1.BitString
 }
 
+//RFC 5755 4.1
 type attCertIssuer struct {
 	IssuerName        asn1.RawValue    `asn1:"set,optional"`
 	BaseCertificateId issuerSerial     `asn1:"optional,tag:0"`
 	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:1"`
 }
 
+//RFC 5755 4.1
 type issuerSerial struct {
 	Raw       asn1.RawContent
 	Issuer    asn1.RawValue
@@ -209,6 +219,7 @@ type issuerSerial struct {
 	IssuerUID asn1.BitString `asn1:"optional"`
 }
 
+//RFC 5755 4.1
 type holder struct {
 	Raw               asn1.RawContent
 	BaseCertificateID issuerSerial     `asn1:"optional,tag:0"`
@@ -216,11 +227,13 @@ type holder struct {
 	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:2"`
 }
 
+//RFC 5755 4.1
 type attribute struct {
 	Id        asn1.ObjectIdentifier
 	RawValues []asn1.RawValue `asn1:"set"`
 }
 
+//RFC 5755 4.1
 type tbsAttributeCertificate struct {
 	Raw                asn1.RawContent
 	Version            int
@@ -229,7 +242,7 @@ type tbsAttributeCertificate struct {
 	SignatureAlgorithm pkix.AlgorithmIdentifier
 	SerialNumber       *big.Int
 	Validity           validity
-	RawAttributes      []asn1.RawValue
+	Attributes         []attribute
 	IssuerUniqueID     asn1.BitString   `asn1:"optional"`
 	Extensions         []pkix.Extension `asn1:"optional"`
 }
@@ -278,7 +291,7 @@ func ParseAttributeCertificate(asn1Data []byte) (*AttributeCertificate, error) {
 	if err != nil {
 		return nil, err
 	} else if len(rest) != 0 {
-		return nil, asn1.SyntaxError{Msg: "trailing data"}
+		return nil, asn1.SyntaxError{Msg: "attributecert: trailing data"}
 	}
 
 	return parseAttributeCertificate(&cert)
@@ -411,6 +424,33 @@ type PlatformConfigurationV1 struct {
 	PlatformPropertiesUri []UriReference          `asn1:"optional,tag=2"`
 }
 
+func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
+	var attributes []pkix.AttributeTypeAndValue
+	if v.Tag == asn1.TagSet {
+		var e pkix.AttributeTypeAndValue
+		_, err := asn1.Unmarshal(v.Bytes, &e)
+		if err != nil {
+			return nil, err
+		}
+		attributes = append(attributes, e)
+		return attributes, nil
+	} else if v.Tag == asn1.TagOctetString {
+		var platformData PlatformDataSequence
+		rest, err := asn1.Unmarshal(v.Bytes, &platformData)
+		if err != nil {
+			return nil, err
+		} else if len(rest) != 0 {
+			return nil, errors.New("attributecert: trailing data after X.509 subject")
+		}
+		for _, e := range platformData {
+			for _, e2 := range e {
+				attributes = append(attributes, e2)
+			}
+		}
+	}
+	return attributes, nil
+}
+
 func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate, error) {
 	out := new(AttributeCertificate)
 	out.Raw = in.Raw
@@ -431,13 +471,11 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 	if rest, err := asn1.Unmarshal(v.Bytes, &issuer); err != nil {
 		return nil, err
 	} else if len(rest) != 0 {
-		return nil, errors.New("x509: trailing data after X.509 subject")
+		return nil, errors.New("attributecert: trailing data after X.509 subject")
 	}
 
 	out.Issuer.FillFromRDNSequence(&issuer)
-
-	_, err = asn1.Unmarshal(in.TBSAttributeCertificate.Holder.BaseCertificateID.Issuer.Bytes, &v)
-	if err != nil {
+	if _, err := asn1.Unmarshal(in.TBSAttributeCertificate.Holder.BaseCertificateID.Issuer.Bytes, &v); err != nil {
 		return nil, err
 	}
 
@@ -445,7 +483,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 	if rest, err := asn1.Unmarshal(v.Bytes, &holder); err != nil {
 		return nil, err
 	} else if len(rest) != 0 {
-		return nil, errors.New("x509: trailing data after X.509 subject")
+		return nil, errors.New("attributecert: trailing data after X.509 subject")
 	}
 
 	out.Holder.Issuer.FillFromRDNSequence(&holder)
@@ -454,84 +492,67 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 	out.NotBefore = in.TBSAttributeCertificate.Validity.NotBefore
 	out.NotAfter = in.TBSAttributeCertificate.Validity.NotAfter
 
-	var attributes []attribute
-	for _, rawAttr := range in.TBSAttributeCertificate.RawAttributes {
-		var parsedAttribute attribute
-		rest, err := asn1.Unmarshal(rawAttr.FullBytes, &parsedAttribute)
-		if err == nil && len(rest) == 0 {
-			attributes = append(attributes, parsedAttribute)
-		} else {
-			return nil, err
-		}
-	}
-
-	for _, attribute := range attributes {
-		if attribute.Id.Equal(oidAttributeUserNotice) {
-			for _, value := range attribute.RawValues {
-				var userNotice userNotice
-				_, err := asn1.Unmarshal(value.FullBytes, &userNotice)
-				if err != nil {
-					return nil, err
-				}
-				out.UserNotice = userNotice
-			}
-		} else if attribute.Id.Equal(oidTcgPlatformSpecification) {
-			var platformSpecification TCGPlatformSpecification
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformSpecification)
+	for _, attribute := range in.TBSAttributeCertificate.Attributes {
+		switch {
+		case attribute.Id.Equal(oidAttributeUserNotice):
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.UserNotice)
 			if err != nil {
 				return nil, err
 			}
-			out.TCGPlatformSpecification = platformSpecification
-		} else if attribute.Id.Equal(oidTbbSecurityAssertions) {
-			var securityAssertions TBBSecurityAssertions
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &securityAssertions)
+		case attribute.Id.Equal(oidTcgPlatformSpecification):
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TCGPlatformSpecification)
 			if err != nil {
 				return nil, err
 			}
-			out.TBBSecurityAssertions = securityAssertions
-		} else if attribute.Id.Equal(oidTcgCredentialSpecification) {
+		case attribute.Id.Equal(oidTbbSecurityAssertions):
+			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TBBSecurityAssertions)
+			if err != nil {
+				return nil, err
+			}
+		case attribute.Id.Equal(oidTcgCredentialSpecification):
 			var credentialSpecification TCGCredentialSpecification
 			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification)
 			if err != nil {
 				return nil, err
 			}
-		} else if attribute.Id.Equal(oidTcgCredentialType) {
+		case attribute.Id.Equal(oidTcgCredentialType):
 			var credentialType TCGCredentialType
 			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialType)
 			if err != nil {
 				return nil, err
 			}
-		} else if attribute.Id.Equal(oidTcgPlatformConfigurationV1) {
+		case attribute.Id.Equal(oidTcgPlatformConfigurationV1):
 			var platformConfiguration PlatformConfigurationV1
 			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration)
 			if err != nil {
 				return nil, err
 			}
-		} else if attribute.Id.Equal(oidTcgPlatformConfigurationV2) {
+		case attribute.Id.Equal(oidTcgPlatformConfigurationV2):
 			var platformConfiguration PlatformConfigurationV2
 			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration)
 			if err != nil {
 				return nil, err
 			}
-		} else if attribute.Id.Equal(oidTcgPlatformConfigUri) {
+		case attribute.Id.Equal(oidTcgPlatformConfigUri):
 			var platformConfigurationUri UriReference
 			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationUri)
 			if err != nil {
 				return nil, err
 			}
-		} else {
-			return nil, fmt.Errorf("unknown attribute %v", attribute.Id)
+		default:
+			return nil, fmt.Errorf("attributecert: unknown attribute %v", attribute.Id)
 		}
 	}
 
 	for _, extension := range in.TBSAttributeCertificate.Extensions {
-		if extension.Id.Equal(oidExtensionSubjectAltName) {
+		switch {
+		case extension.Id.Equal(oidExtensionSubjectAltName):
 			var seq asn1.RawValue
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
 			if err != nil {
 				return nil, err
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after X.509 extension")
+				return nil, errors.New("attributecert: trailing data after X.509 extension")
 			}
 			rest = seq.Bytes
 			for len(rest) > 0 {
@@ -540,65 +561,41 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 				if err != nil {
 					return nil, err
 				}
-				if v.Tag == asn1.TagSet {
-					var e TCGData
-					_, err := asn1.Unmarshal(v.Bytes, &e)
-					if err != nil {
-						return nil, err
-					}
-					if e.Id.Equal(oidTcgPlatformManufacturerStrV1) {
-						out.PlatformManufacturer = e.Data
-					} else if e.Id.Equal(oidTcgPlatformModelV1) {
-						out.PlatformModel = e.Data
-					} else if e.Id.Equal(oidTcgPlatformVersionV1) {
-						out.PlatformVersion = e.Data
-					} else if e.Id.Equal(oidTcgCredentialSpecification) {
+				tcgdata, err := unmarshalSAN(v)
+				if err != nil {
+					return nil, fmt.Errorf("attributecert: failed to unmarshal SAN: %v", err)
+				}
+				for _, e := range tcgdata {
+					switch {
+					case e.Type.Equal(oidTcgPlatformManufacturerStrV1):
+						out.PlatformManufacturer = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformModelV1):
+						out.PlatformModel = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformVersionV1):
+						out.PlatformVersion = e.Value.(string)
+					case e.Type.Equal(oidTcgCredentialSpecification):
 						// This OID appears to be misused in this context
-						out.PlatformSerial = e.Data
-					} else {
-						return nil, fmt.Errorf("unhandled attribute: %v", e.Id)
-					}
-				} else if v.Tag == asn1.TagOctetString {
-					var platformData PlatformDataSequence
-					rest, err := asn1.Unmarshal(v.Bytes, &platformData)
-					if err != nil {
-						return nil, err
-					} else if len(rest) != 0 {
-						return nil, errors.New("x509: trailing data after X.509 subject")
-					}
-					for _, e := range platformData {
-						for _, e2 := range e {
-							if e2.Type.Equal(oidTcgPlatformManufacturerStrV1) {
-								out.PlatformManufacturer = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgPlatformModelV1) {
-								out.PlatformModel = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgPlatformVersionV1) {
-								out.PlatformVersion = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgCredentialSpecification) {
-								// This OID appears to be misused in this context
-								out.PlatformSerial = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgPlatformManufacturerStrV2) {
-								out.PlatformManufacturer = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgPlatformModelV2) {
-								out.PlatformModel = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgPlatformVersionV2) {
-								out.PlatformVersion = e2.Value.(string)
-							} else if e2.Type.Equal(oidTcgPlatformSerialV2) {
-								out.PlatformSerial = e2.Value.(string)
-							} else {
-								return nil, fmt.Errorf("unhandled attribute2: %v", e2.Type)
-							}
-						}
+						out.PlatformSerial = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformManufacturerStrV2):
+						out.PlatformManufacturer = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformModelV2):
+						out.PlatformModel = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformVersionV2):
+						out.PlatformVersion = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformSerialV2):
+						out.PlatformSerial = e.Value.(string)
+					default:
+						return nil, fmt.Errorf("attributecert: unhandled attribute: %v", e.Type)
 					}
 				}
 			}
-		} else if extension.Id.Equal(oidExtensionSubjectDirectoryAttributes) {
+		case extension.Id.Equal(oidExtensionSubjectDirectoryAttributes):
 			var seq asn1.RawValue
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
 			if err != nil {
 				return nil, err
 			} else if len(rest) != 0 {
-				return nil, errors.New("x509: trailing data after X.509 extension")
+				return nil, errors.New("attributecert: trailing data after X.509 extension")
 			}
 			rest = seq.Bytes
 			for len(rest) > 0 {
@@ -607,25 +604,26 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 				if err != nil {
 					return nil, err
 				}
-				if e.Id.Equal(oidTcgPlatformSpecification) {
+				switch {
+				case e.Id.Equal(oidTcgPlatformSpecification):
 					var platformSpecification TCGPlatformSpecification
 					_, err := asn1.Unmarshal(e.Data.Bytes, &platformSpecification)
 					if err != nil {
 						return nil, err
 					}
 					out.TCGPlatformSpecification = platformSpecification
-				} else if e.Id.Equal(oidTbbSecurityAssertions) {
+				case e.Id.Equal(oidTbbSecurityAssertions):
 					var securityAssertions TBBSecurityAssertions
 					_, err := asn1.Unmarshal(e.Data.Bytes, &securityAssertions)
 					if err != nil {
 						return nil, err
 					}
 					out.TBBSecurityAssertions = securityAssertions
-				} else {
-					return nil, fmt.Errorf("unhandled TCG directory attribute: %v", e.Id)
+				default:
+					return nil, fmt.Errorf("attributecert: unhandled TCG directory attribute: %v", e.Id)
 				}
 			}
-		} else if extension.Id.Equal(oidExtensionCertificatePolicies) {
+		case extension.Id.Equal(oidExtensionCertificatePolicies):
 			var policies []policyInformation
 			_, err := asn1.Unmarshal(extension.Value, &policies)
 			if err != nil {
@@ -639,31 +637,32 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 						return nil, err
 					}
 					for _, subpolicy := range subpolicies {
-						if subpolicy.Id.Equal(oidCpsCertificatePolicy) {
+						switch {
+						case subpolicy.Id.Equal(oidCpsCertificatePolicy):
 							var cpsPolicy cpsPolicy
 							_, err := asn1.Unmarshal(subpolicy.Raw, &cpsPolicy)
 							if err != nil {
 								return nil, err
 							}
-						} else if subpolicy.Id.Equal(oidAttributeUserNotice) {
+						case subpolicy.Id.Equal(oidAttributeUserNotice):
 							var userNotice string
 							_, err := asn1.Unmarshal(subpolicy.Policy.Bytes, &userNotice)
 							if err != nil {
 								return nil, err
 							}
-						} else {
-							return nil, fmt.Errorf("unhandled certificate policy: %v", subpolicy.Id)
+						default:
+							return nil, fmt.Errorf("attributecert: unhandled certificate policy: %v", subpolicy.Id)
 						}
 					}
 				}
 			}
-		} else if extension.Id.Equal(oidExtensionAuthorityKeyIdentifier) {
+		case extension.Id.Equal(oidExtensionAuthorityKeyIdentifier):
 			var a authKeyId
 			_, err := asn1.Unmarshal(extension.Value, &a)
 			if err != nil {
 				return nil, err
 			}
-		} else if extension.Id.Equal(oidAuthorityInfoAccess) {
+		case extension.Id.Equal(oidAuthorityInfoAccess):
 			var aia []authorityInfoAccess
 			_, err := asn1.Unmarshal(extension.Value, &aia)
 			if err != nil {
@@ -675,11 +674,11 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 				} else if v.Method.Equal(oidAuthorityInfoAccessIssuers) {
 					//TODO
 				} else {
-					return nil, fmt.Errorf("unhandled Authority Info Access type %v", v.Method)
+					return nil, fmt.Errorf("attributecert: unhandled Authority Info Access type %v", v.Method)
 				}
 			}
-		} else {
-			return nil, fmt.Errorf("unknown extension ID %v", extension.Id)
+		default:
+			return nil, fmt.Errorf("attributecert: unknown extension ID %v", extension.Id)
 		}
 	}
 
