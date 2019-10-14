@@ -1,0 +1,168 @@
+{
+    "Raw": "MIIDADCCAegCAQEwMKAuMBakFDASMRAwDgYDVQQDDAdTVE1pY3JvAhQrz0/5+zLfie1TVQpsz57kyGtq3aCBkDCBjaSBijCBhzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMRQwEgYDVQQHDAtTYW50YSBDbGFyYTEaMBgGA1UECgwRSW50ZWwgQ29ycG9yYXRpb24xITAfBgNVBAsMGFRyYW5zcGFyZW50IFN1cHBseSBDaGFpbjEWMBQGA1UEAwwNd3d3LmludGVsLmNvbTANBgkqhkiG9w0BAQUFAAIUQtCeCYR41o33Qv3So+KiQIZviFAwIhgPMjAxNzAzMTUyMTA4MzBaGA8yMDMwMTIzMTIzNTk1OVowMTAZBgVngQUCETEQMA4wCQIBAQIBAgIBAQwBMTAUBgVngQUCEzELMAkCAQCCAQMBAQAwgaEwTQYDVR0gAQH/BEMwQTA/BgoqhkiG+E0BBQIEMDEwLwYIKwYBBQUHAgIwIwwhVENQQSBUcnVzdGVkIFBsYXRmb3JtIEVuZG9yc2VtZW50MFAGA1UdEQEB/wRGMESkQjBAMRAwDgYFZ4EFAgQMBUludGVsMRUwEwYFZ4EFAgUMCkRFMzgxNVRZS0gxFTATBgVngQUCBgwKSDI2OTk4LTQwMjANBgkqhkiG9w0BAQUFAAOCAQEAXPD46MxZy0vQlSQ7EOMRgBSDWUS9561Gc2IKM0FqXcYWi6YT4NAk1rx/j/ycA87fNiJzOjSCD1qv5MAaI3IOuqE911Hk/lsZ9Xq25a5c6BeQjyCpwI/qNno0rnTINjOXYllurVzU6Dn109f1NQS/m9ZkJ1gicMWkna2mEO842kH5CfqaskRqUGOO5nViO6Y094pzwT/Zp+W2CRqAo1BwDIV8OM6u4AZnEagFlbpPqnU8IfFO2n4zeILADiJ9TkXJovvfemJnoZlzcUPO6+8wjjsbtojEiu4bQF9QwIc/VtDSYUYstwwuACuSxE6jvhROuZHiTBE85623uE0eMQl5vA==",
+    "RawTBSAttributeCertificate": "MIIB6AIBATAwoC4wFqQUMBIxEDAOBgNVBAMMB1NUTWljcm8CFCvPT/n7Mt+J7VNVCmzPnuTIa2rdoIGQMIGNpIGKMIGHMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExFDASBgNVBAcMC1NhbnRhIENsYXJhMRowGAYDVQQKDBFJbnRlbCBDb3Jwb3JhdGlvbjEhMB8GA1UECwwYVHJhbnNwYXJlbnQgU3VwcGx5IENoYWluMRYwFAYDVQQDDA13d3cuaW50ZWwuY29tMA0GCSqGSIb3DQEBBQUAAhRC0J4JhHjWjfdC/dKj4qJAhm+IUDAiGA8yMDE3MDMxNTIxMDgzMFoYDzIwMzAxMjMxMjM1OTU5WjAxMBkGBWeBBQIRMRAwDjAJAgEBAgECAgEBDAExMBQGBWeBBQITMQswCQIBAIIBAwEBADCBoTBNBgNVHSABAf8EQzBBMD8GCiqGSIb4TQEFAgQwMTAvBggrBgEFBQcCAjAjDCFUQ1BBIFRydXN0ZWQgUGxhdGZvcm0gRW5kb3JzZW1lbnQwUAYDVR0RAQH/BEYwRKRCMEAxEDAOBgVngQUCBAwFSW50ZWwxFTATBgVngQUCBQwKREUzODE1VFlLSDEVMBMGBWeBBQIGDApIMjY5OTgtNDAy",
+    "Signature": "XPD46MxZy0vQlSQ7EOMRgBSDWUS9561Gc2IKM0FqXcYWi6YT4NAk1rx/j/ycA87fNiJzOjSCD1qv5MAaI3IOuqE911Hk/lsZ9Xq25a5c6BeQjyCpwI/qNno0rnTINjOXYllurVzU6Dn109f1NQS/m9ZkJ1gicMWkna2mEO842kH5CfqaskRqUGOO5nViO6Y094pzwT/Zp+W2CRqAo1BwDIV8OM6u4AZnEagFlbpPqnU8IfFO2n4zeILADiJ9TkXJovvfemJnoZlzcUPO6+8wjjsbtojEiu4bQF9QwIc/VtDSYUYstwwuACuSxE6jvhROuZHiTBE85623uE0eMQl5vA==",
+    "SignatureAlgorithm": 0,
+    "Version": 2,
+    "SerialNumber": 381445712855471821370226218763651357733536368720,
+    "Holder": {
+        "Issuer": {
+            "Country": null,
+            "Organization": null,
+            "OrganizationalUnit": null,
+            "Locality": null,
+            "Province": null,
+            "StreetAddress": null,
+            "PostalCode": null,
+            "SerialNumber": "",
+            "CommonName": "STMicro",
+            "Names": [
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        3
+                    ],
+                    "Value": "STMicro"
+                }
+            ],
+            "ExtraNames": null
+        },
+        "Serial": 250109824336319286595474760117236152727488916189
+    },
+    "Issuer": {
+        "Country": [
+            "US"
+        ],
+        "Organization": [
+            "Intel Corporation"
+        ],
+        "OrganizationalUnit": [
+            "Transparent Supply Chain"
+        ],
+        "Locality": [
+            "Santa Clara"
+        ],
+        "Province": [
+            "CA"
+        ],
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "www.intel.com",
+        "Names": [
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    6
+                ],
+                "Value": "US"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    8
+                ],
+                "Value": "CA"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    7
+                ],
+                "Value": "Santa Clara"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    10
+                ],
+                "Value": "Intel Corporation"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    11
+                ],
+                "Value": "Transparent Supply Chain"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    3
+                ],
+                "Value": "www.intel.com"
+            }
+        ],
+        "ExtraNames": null
+    },
+    "Subject": {
+        "Country": null,
+        "Organization": null,
+        "OrganizationalUnit": null,
+        "Locality": null,
+        "Province": null,
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "",
+        "Names": null,
+        "ExtraNames": null
+    },
+    "NotBefore": "2017-03-15T21:08:30Z",
+    "NotAfter": "2030-12-31T23:59:59Z",
+    "TCGPlatformSpecification": {
+        "Version": {
+            "MajorVersion": 1,
+            "MinorVersion": 2,
+            "Revision": 1
+        }
+    },
+    "TBBSecurityAssertions": {
+        "Version": 0,
+        "CcInfo": {
+            "Version": "",
+            "AssuranceLevel": 0,
+            "EvaluationStatus": 0,
+            "Plus": false,
+            "StrengthOfFunction": 0,
+            "ProfileOid": null,
+            "ProfileUri": "",
+            "TargetOid": null,
+            "TargetUri": null
+        },
+        "FipsLevel": {
+            "Version": "",
+            "Level": 0,
+            "Plus": false
+        },
+        "RtmType": 0,
+        "Iso9000Certified": false,
+        "Iso9000Uri": ""
+    },
+    "PlatformManufacturer": "Intel",
+    "PlatformModel": "DE3815TYKH",
+    "PlatformVersion": "H26998-402",
+    "PlatformSerial": "",
+    "CredentialSpecification": "",
+    "UserNotice": {
+        "NoticeRef": {
+            "Organization": "",
+            "NoticeNumbers": null
+        },
+        "ExplicitText": ""
+    }
+}

@@ -1,0 +1,201 @@
+{
+    "Raw": "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",
+    "RawTBSAttributeCertificate": "MIIFzwIBATCBlaCBkjCBiaSBhjCBgzELMAkGA1UEBhMCREUxITAfBgNVBAoMGEluZmluZW9uIFRlY2hub2xvZ2llcyBBRzEaMBgGA1UECwwRT1BUSUdBKFRNKSBUUE0yLjAxNTAzBgNVBAMMLEluZmluZW9uIE9QVElHQShUTSkgUlNBIE1hbnVmYWN0dXJpbmcgQ0EgMDIyAgR7B2vkoIGlMIGipIGfMIGcMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExFDASBgNVBAcMC1NhbnRhIENsYXJhMRowGAYDVQQKDBFJbnRlbCBDb3Jwb3JhdGlvbjE2MDQGA1UECwwtVHJhbnNwYXJlbnQgU3VwcGx5IENoYWluIElzc3VpbmcgQ0EgSUtHRl9URVNUMRYwFAYDVQQDDA13d3cuaW50ZWwuY29tMA0GCSqGSIb3DQEBCwUAAhRFYOBIwUovSfRL6S2/GbAJgLhJ/zAiGA8yMDE4MTAwNjIxMDkzM1oYDzIwMzIwNTMxMTAyMzAyWjCCAnkwHAYFZ4EFAhExEzARMAkCAQICAQACAQEEBAAAAAEwEgYFZ4EFAhkxCTAHBgVngQUIAjAWBgVngQUCFzENMAswCQIBAQIBAQIBCTAUBgVngQUCEzELMAkCAQCCAQMBAQAwggHNBgdngQUFAQcBMYIBwDCCAbygggE5MDwEBAEAAAAMFEludGVsKFIpIENvcnBvcmF0aW9uDAdDb3JlIGk1gAhYMjM5ODM5MoEDMi42ggMzNDODAf8wOAQEAwAAAAwHU2Ftc3VuZwwQTTQ3MUE1MTQzRUIwLUNQQoAIQUJDNDU5ODmBAzMuMYIDMTk2gwEAMEgEBAMAAAAMDU5vdCBTcGVjaWZpZWQMEEtJTkdTVE9OIFNBNDAwUzOAEDUwMDI2Qjc3NzgwNTI3MEKBBTYwOS4wggMxOTaDAQAwdQQEBAAAAAwRSW50ZWwgQ29ycG9yYXRpb24MG0V0aGVybmV0IENvbm5lY3Rpb24gSTIxOS1MTYAROGM6MGY6NmY6NzI6YzY6YzWBBDIxLjCCAzM0M4MB/6QcMBoGBWeBBREBDBE4YzowZjo2Zjo3MjpjNjpjNaE+MAsMA0FNVAwEdHJ1ZTAUDAx2UHJvIEVuYWJsZWQMBHRydWUwGQwQRHJvcFNoaXAgRW5hYmxlZAwFZmFsc2WiPRY7aHR0cHM6Ly93d3cucGxhdGZvcm1tZmcuY29tL3BsYXRmb3Jwcm9wZXJ0aWVzLzQ5Mzg5NDM4NC5odG0wRgYGZ4EFBQEDMTwwOhY4aHR0cHM6Ly93d3cucGxhdGZvcm1tZmcuY29tL3BsYXRmb3JtY29uZmlnLzQ3ODc0ODczOC54bWwwggHCMIGpBgNVHSAEgaEwgZ4wgZsGCiqGSIb4TQEFAgQwgYwwWgYIKwYBBQUHAgEWTmh0dHBzOi8vdHJ1c3RlZHNlcnZpY2VzLmludGVsLmNvbS9jb250ZW50L1RTQy9jZXJ0cy9UU0NjZXJ0UG9saWN5U3RhdGVtZW50LnBkZjAuBggrBgEFBQcCAjAiDCBUQ0cgVHJ1c3RlZCBQbGF0Zm9ybSBFbmRvcnNlbWVudDCBhgYDVR0RBH8wfaR7MHkxHTAbBgZngQUFAQEMEUludGVsIENvcnBvcmF0aW9uMRYwFAYGZ4EFBQEEDApOVUM3aTVETkhFMRYwFAYGZ4EFBQEFDApKNzE3MzktNDAxMSgwJgYGZ4EFBQEGDBxEVzE2MDA0MjAzMDAxMTBfQlRETjczMjAwMFFNMB8GA1UdIwQYMBaAFDwGuftjpTylfGuHQzM58dyoB/ukMGoGCCsGAQUFBwEBBF4wXDBaBggrBgEFBQcwAoZOaHR0cHM6Ly90cnVzdGVkc2VydmljZXMuaW50ZWwuY29tL2NvbnRlbnQvVFNDL2NlcnRzL1RTQ19Jc3N1aW5nQ0FJS0dGX1RFU1QuY2Vy",
+    "Signature": "fKB6Wvu7wOGQ7xTVZt1HIu8wOQIF1eOlndepo0VKrg6tlNZ3TNHMSgLaoWH7P42nu43Q5DbCK5IA5tMI4LcjCjgugOM6Gu2N1bwvsnjX9YDq3DLiFEXZGq/r47cYiZujInncQ4h0xkvNFml6Q2yNNbqjxnWXAeGoHO1s9Qtv0P+UPtUnsHzix8ZATPfIbJURZ0Oi6djojT4LlqSxptFO6UWoxdTl5WCgFbf+xKjGPmu5DEDekflGQvUU4nyqMSJOTGBWslatAOVkKCU1mtyz8935fdD7Z3zA/kP4ZRw6whWATUQa1mzHQ8fRI1eiXjOXYs6rpNfixftX7S4rbz+ZURLrvwxFY5CtTRl2eZjr7tgXm64ywz1/22JXAYDOe/BIt807dmPoyhamm000z6Ww0HSDU9TavTyakCVrRDjO+kdpfwZGZDaOvP525qhMVKPO9G1m9lO9e1khjJAxP57h2rOKhhSprUsfU9lZriYGygJBr6VseJOAvqiOgHrq0xd4",
+    "SignatureAlgorithm": 0,
+    "Version": 2,
+    "SerialNumber": 396080772635209191883026258511591308753565665791,
+    "Holder": {
+        "Issuer": {
+            "Country": [
+                "DE"
+            ],
+            "Organization": [
+                "Infineon Technologies AG"
+            ],
+            "OrganizationalUnit": [
+                "OPTIGA(TM) TPM2.0"
+            ],
+            "Locality": null,
+            "Province": null,
+            "StreetAddress": null,
+            "PostalCode": null,
+            "SerialNumber": "",
+            "CommonName": "Infineon OPTIGA(TM) RSA Manufacturing CA 022",
+            "Names": [
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        6
+                    ],
+                    "Value": "DE"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        10
+                    ],
+                    "Value": "Infineon Technologies AG"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        11
+                    ],
+                    "Value": "OPTIGA(TM) TPM2.0"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        3
+                    ],
+                    "Value": "Infineon OPTIGA(TM) RSA Manufacturing CA 022"
+                }
+            ],
+            "ExtraNames": null
+        },
+        "Serial": 2064083940
+    },
+    "Issuer": {
+        "Country": [
+            "US"
+        ],
+        "Organization": [
+            "Intel Corporation"
+        ],
+        "OrganizationalUnit": [
+            "Transparent Supply Chain Issuing CA IKGF_TEST"
+        ],
+        "Locality": [
+            "Santa Clara"
+        ],
+        "Province": [
+            "CA"
+        ],
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "www.intel.com",
+        "Names": [
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    6
+                ],
+                "Value": "US"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    8
+                ],
+                "Value": "CA"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    7
+                ],
+                "Value": "Santa Clara"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    10
+                ],
+                "Value": "Intel Corporation"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    11
+                ],
+                "Value": "Transparent Supply Chain Issuing CA IKGF_TEST"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    3
+                ],
+                "Value": "www.intel.com"
+            }
+        ],
+        "ExtraNames": null
+    },
+    "Subject": {
+        "Country": null,
+        "Organization": null,
+        "OrganizationalUnit": null,
+        "Locality": null,
+        "Province": null,
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "",
+        "Names": null,
+        "ExtraNames": null
+    },
+    "NotBefore": "2018-10-06T21:09:33Z",
+    "NotAfter": "2032-05-31T10:23:02Z",
+    "TCGPlatformSpecification": {
+        "Version": {
+            "MajorVersion": 2,
+            "MinorVersion": 0,
+            "Revision": 1
+        }
+    },
+    "TBBSecurityAssertions": {
+        "Version": 0,
+        "CcInfo": {
+            "Version": "",
+            "AssuranceLevel": 0,
+            "EvaluationStatus": 0,
+            "Plus": false,
+            "StrengthOfFunction": 0,
+            "ProfileOid": null,
+            "ProfileUri": "",
+            "TargetOid": null,
+            "TargetUri": null
+        },
+        "FipsLevel": {
+            "Version": "",
+            "Level": 0,
+            "Plus": false
+        },
+        "RtmType": 0,
+        "Iso9000Certified": false,
+        "Iso9000Uri": ""
+    },
+    "PlatformManufacturer": "Intel Corporation",
+    "PlatformModel": "NUC7i5DNHE",
+    "PlatformVersion": "J71739-401",
+    "PlatformSerial": "DW1600420300110_BTDN732000QM",
+    "CredentialSpecification": "",
+    "UserNotice": {
+        "NoticeRef": {
+            "Organization": "",
+            "NoticeNumbers": null
+        },
+        "ExplicitText": ""
+    }
+}

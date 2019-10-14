@@ -1,0 +1,168 @@
+{
+    "Raw": "MIIDjjCCAvcCAQEwMKAuMBakFDASMRAwDgYDVQQDDAdTVE1pY3JvAhRLmC6N5bmRi9h0wlmUhRPqzcXRzKCBkDCBjaSBijCBhzELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMRQwEgYDVQQHDAtTYW50YSBDbGFyYTEaMBgGA1UECgwRSW50ZWwgQ29ycG9yYXRpb24xITAfBgNVBAsMGFRyYW5zcGFyZW50IFN1cHBseSBDaGFpbjEWMBQGA1UEAwwNd3d3LmludGVsLmNvbTANBgkqhkiG9w0BAQUFAAIUQfeFZjlZccv6lSRgrTusMce4XS8wIhgPMjAxNzA0MjExNzA1MzBaGA8yMDMwMTIzMTIzNTk1OVowMTAZBgVngQUCETEQMA4wCQIBAQIBAgIBAQwBMTAUBgVngQUCEzELMAkCAQCCAQMBAQAwggGvMIGtBgNVHSABAf8EgaIwgZ8wgZwGCiqGSIb4TQEFAgQwgY0wLwYIKwYBBQUHAgIwIwwhVENQQSBUcnVzdGVkIFBsYXRmb3JtIEVuZG9yc2VtZW50MFoGCCsGAQUFBwIBFk5odHRwczovL3RydXN0ZWRzZXJ2aWNlcy5pbnRlbC5jb20vY29udGVudC9UU0MvY2VydHMvVFNDY2VydFBvbGljeVN0YXRlbWVudC5wZGYwdwYDVR0RAQH/BG0wa6RpMGcxEDAOBgVngQUCBAwFSW50ZWwxFTATBgVngQUCBQwKREUzODE1VFlLSDEVMBMGBWeBBQIGDApIMjY5OTgtNDAyMSUwIwYGZ4EFBQEGDBlHNllLNDIzMDBDQjYsR0VUWTQyMTAwMTYwMB8GA1UdIwQYMBaAFCjTsOj/JJ/2jAPii8UMYq4t+meCMGMGCCsGAQUFBwEBBFcwVTBTBggrBgEFBQcwAoZHaHR0cHM6Ly90cnVzdGVkc2VydmljZXMuaW50ZWwuY29tL2NvbnRlbnQvVFNDL2NlcnRzL0ludGVsU2lnbmluZ0tleS5jZXIwDQYJKoZIhvcNAQEFBQADgYEABe5pXrkWHLQMz4n42ZJJQwe7x6geLYuBuvdV0zrOQpJ3uhRT6QCvDAO/Hl8JyIb3uGEozNDN+Yj6RpvTl7qWegKPXh7YmbeZn6Q39Pt0i3XFCQF6EoStEJiw64x+dQ0W/Jna2wsy3ye3T3uhVg2lbDY1R+hBJOVgtx1Atykyb8U=",
+    "RawTBSAttributeCertificate": "MIIC9wIBATAwoC4wFqQUMBIxEDAOBgNVBAMMB1NUTWljcm8CFEuYLo3luZGL2HTCWZSFE+rNxdHMoIGQMIGNpIGKMIGHMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0ExFDASBgNVBAcMC1NhbnRhIENsYXJhMRowGAYDVQQKDBFJbnRlbCBDb3Jwb3JhdGlvbjEhMB8GA1UECwwYVHJhbnNwYXJlbnQgU3VwcGx5IENoYWluMRYwFAYDVQQDDA13d3cuaW50ZWwuY29tMA0GCSqGSIb3DQEBBQUAAhRB94VmOVlxy/qVJGCtO6wxx7hdLzAiGA8yMDE3MDQyMTE3MDUzMFoYDzIwMzAxMjMxMjM1OTU5WjAxMBkGBWeBBQIRMRAwDjAJAgEBAgECAgEBDAExMBQGBWeBBQITMQswCQIBAIIBAwEBADCCAa8wga0GA1UdIAEB/wSBojCBnzCBnAYKKoZIhvhNAQUCBDCBjTAvBggrBgEFBQcCAjAjDCFUQ1BBIFRydXN0ZWQgUGxhdGZvcm0gRW5kb3JzZW1lbnQwWgYIKwYBBQUHAgEWTmh0dHBzOi8vdHJ1c3RlZHNlcnZpY2VzLmludGVsLmNvbS9jb250ZW50L1RTQy9jZXJ0cy9UU0NjZXJ0UG9saWN5U3RhdGVtZW50LnBkZjB3BgNVHREBAf8EbTBrpGkwZzEQMA4GBWeBBQIEDAVJbnRlbDEVMBMGBWeBBQIFDApERTM4MTVUWUtIMRUwEwYFZ4EFAgYMCkgyNjk5OC00MDIxJTAjBgZngQUFAQYMGUc2WUs0MjMwMENCNixHRVRZNDIxMDAxNjAwHwYDVR0jBBgwFoAUKNOw6P8kn/aMA+KLxQxiri36Z4IwYwYIKwYBBQUHAQEEVzBVMFMGCCsGAQUFBzAChkdodHRwczovL3RydXN0ZWRzZXJ2aWNlcy5pbnRlbC5jb20vY29udGVudC9UU0MvY2VydHMvSW50ZWxTaWduaW5nS2V5LmNlcg==",
+    "Signature": "Be5pXrkWHLQMz4n42ZJJQwe7x6geLYuBuvdV0zrOQpJ3uhRT6QCvDAO/Hl8JyIb3uGEozNDN+Yj6RpvTl7qWegKPXh7YmbeZn6Q39Pt0i3XFCQF6EoStEJiw64x+dQ0W/Jna2wsy3ye3T3uhVg2lbDY1R+hBJOVgtx1Atykyb8U=",
+    "SignatureAlgorithm": 0,
+    "Version": 2,
+    "SerialNumber": 376604304886647401292944510352953751207572692271,
+    "Holder": {
+        "Issuer": {
+            "Country": null,
+            "Organization": null,
+            "OrganizationalUnit": null,
+            "Locality": null,
+            "Province": null,
+            "StreetAddress": null,
+            "PostalCode": null,
+            "SerialNumber": "",
+            "CommonName": "STMicro",
+            "Names": [
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        3
+                    ],
+                    "Value": "STMicro"
+                }
+            ],
+            "ExtraNames": null
+        },
+        "Serial": 431568076532287953841340025336737925813510721996
+    },
+    "Issuer": {
+        "Country": [
+            "US"
+        ],
+        "Organization": [
+            "Intel Corporation"
+        ],
+        "OrganizationalUnit": [
+            "Transparent Supply Chain"
+        ],
+        "Locality": [
+            "Santa Clara"
+        ],
+        "Province": [
+            "CA"
+        ],
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "www.intel.com",
+        "Names": [
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    6
+                ],
+                "Value": "US"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    8
+                ],
+                "Value": "CA"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    7
+                ],
+                "Value": "Santa Clara"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    10
+                ],
+                "Value": "Intel Corporation"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    11
+                ],
+                "Value": "Transparent Supply Chain"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    3
+                ],
+                "Value": "www.intel.com"
+            }
+        ],
+        "ExtraNames": null
+    },
+    "Subject": {
+        "Country": null,
+        "Organization": null,
+        "OrganizationalUnit": null,
+        "Locality": null,
+        "Province": null,
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "",
+        "Names": null,
+        "ExtraNames": null
+    },
+    "NotBefore": "2017-04-21T17:05:30Z",
+    "NotAfter": "2030-12-31T23:59:59Z",
+    "TCGPlatformSpecification": {
+        "Version": {
+            "MajorVersion": 1,
+            "MinorVersion": 2,
+            "Revision": 1
+        }
+    },
+    "TBBSecurityAssertions": {
+        "Version": 0,
+        "CcInfo": {
+            "Version": "",
+            "AssuranceLevel": 0,
+            "EvaluationStatus": 0,
+            "Plus": false,
+            "StrengthOfFunction": 0,
+            "ProfileOid": null,
+            "ProfileUri": "",
+            "TargetOid": null,
+            "TargetUri": null
+        },
+        "FipsLevel": {
+            "Version": "",
+            "Level": 0,
+            "Plus": false
+        },
+        "RtmType": 0,
+        "Iso9000Certified": false,
+        "Iso9000Uri": ""
+    },
+    "PlatformManufacturer": "Intel",
+    "PlatformModel": "DE3815TYKH",
+    "PlatformVersion": "H26998-402",
+    "PlatformSerial": "G6YK42300CB6,GETY42100160",
+    "CredentialSpecification": "",
+    "UserNotice": {
+        "NoticeRef": {
+            "Organization": "",
+            "NoticeNumbers": null
+        },
+        "ExplicitText": ""
+    }
+}
