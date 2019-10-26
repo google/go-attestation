@@ -121,11 +121,11 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 
 	// Compute & verify that the creation data matches the digest in the
 	// attestation structure.
-	nameHashConstructor, err := pub.NameAlg.HashConstructor()
+	nameHash, err := pub.NameAlg.Hash()
 	if err != nil {
 		return fmt.Errorf("HashConstructor() failed: %v", err)
 	}
-	h := nameHashConstructor()
+	h := nameHash.New()
 	h.Write(p.AK.CreateData)
 	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
 		return errors.New("attestation refers to different public key")
@@ -161,13 +161,13 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 
 	// Check the signature over the attestation data verifies correctly.
 	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
-	signHashConstructor, err := pub.RSAParameters.Sign.Hash.HashConstructor()
+	signHash, err := pub.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
 		return err
 	}
-	hsh := signHashConstructor()
+	hsh := signHash.New()
 	hsh.Write(p.AK.CreateAttestation)
-	verifyHash, err := cryptoHash(pub.RSAParameters.Sign.Hash)
+	verifyHash, err := pub.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
 		return err
 	}

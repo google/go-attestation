@@ -241,9 +241,9 @@ func ParseAKPublic(version TPMVersion, public []byte) (*AKPublic, error) {
 		var h crypto.Hash
 		switch pub.Type {
 		case tpm2.AlgRSA:
-			h, err = cryptoHash(pub.RSAParameters.Sign.Hash)
+			h, err = pub.RSAParameters.Sign.Hash.Hash()
 		case tpm2.AlgECC:
-			h, err = cryptoHash(pub.ECCParameters.Sign.Hash)
+			h, err = pub.ECCParameters.Sign.Hash.Hash()
 		default:
 			return nil, fmt.Errorf("unsupported public key type 0x%x", pub.Type)
 		}
