@@ -425,16 +425,14 @@ type PlatformConfigurationV1 struct {
 }
 
 func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
-	var attributes []pkix.AttributeTypeAndValue
 	if v.Tag == asn1.TagSet {
 		var e pkix.AttributeTypeAndValue
-		_, err := asn1.Unmarshal(v.Bytes, &e)
-		if err != nil {
+		if _, err := asn1.Unmarshal(v.Bytes, &e); err != nil {
 			return nil, err
 		}
-		attributes = append(attributes, e)
-		return attributes, nil
+		return []pkix.AttributeTypeAndValue{e}, nil
 	} else if v.Tag == asn1.TagOctetString {
+		var attributes []pkix.AttributeTypeAndValue
 		var platformData PlatformDataSequence
 		rest, err := asn1.Unmarshal(v.Bytes, &platformData)
 		if err != nil {
@@ -447,23 +445,23 @@ func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
 				attributes = append(attributes, e2)
 			}
 		}
+		return attributes, nil
 	}
-	return attributes, nil
+	return nil, fmt.Errorf("attributecert: unexpected SAN type %v", v.Tag)
 }
 
 func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate, error) {
-	out := new(AttributeCertificate)
-	out.Raw = in.Raw
-	out.RawTBSAttributeCertificate = in.TBSAttributeCertificate.Raw
-
-	out.Signature = in.SignatureValue.RightAlign()
-	out.SignatureAlgorithm = getSignatureAlgorithmFromAI(in.TBSAttributeCertificate.SignatureAlgorithm)
-	out.Version = in.TBSAttributeCertificate.Version + 1
-	out.SerialNumber = in.TBSAttributeCertificate.SerialNumber
+	out := &AttributeCertificate{
+		Raw:                        in.Raw,
+		RawTBSAttributeCertificate: in.TBSAttributeCertificate.Raw,
+		Signature:                  in.SignatureValue.RightAlign(),
+		SignatureAlgorithm:         getSignatureAlgorithmFromAI(in.TBSAttributeCertificate.SignatureAlgorithm),
+		Version:                    in.TBSAttributeCertificate.Version + 1,
+		SerialNumber:               in.TBSAttributeCertificate.SerialNumber,
+	}
 
 	var v asn1.RawValue
-	_, err := asn1.Unmarshal(in.TBSAttributeCertificate.Issuer.IssuerName.Bytes, &v)
-	if err != nil {
+	if _, err := asn1.Unmarshal(in.TBSAttributeCertificate.Issuer.IssuerName.Bytes, &v); err != nil {
 		return nil, err
 	}
 
@@ -495,48 +493,43 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 	for _, attribute := range in.TBSAttributeCertificate.Attributes {
 		switch {
 		case attribute.Id.Equal(oidAttributeUserNotice):
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.UserNotice)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.UserNotice); err != nil {
 				return nil, err
 			}
 		case attribute.Id.Equal(oidTcgPlatformSpecification):
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TCGPlatformSpecification)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TCGPlatformSpecification); err != nil {
 				return nil, err
 			}
 		case attribute.Id.Equal(oidTbbSecurityAssertions):
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TBBSecurityAssertions)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TBBSecurityAssertions); err != nil {
 				return nil, err
 			}
 		case attribute.Id.Equal(oidTcgCredentialSpecification):
 			var credentialSpecification TCGCredentialSpecification
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification)
-			if err != nil {
-				return nil, err
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification); err != nil {
+				var credentialSpecification TCGSpecificationVersion
+				if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification); err != nil {
+					return nil, err
+				}
 			}
 		case attribute.Id.Equal(oidTcgCredentialType):
 			var credentialType TCGCredentialType
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialType)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialType); err != nil {
 				return nil, err
 			}
 		case attribute.Id.Equal(oidTcgPlatformConfigurationV1):
 			var platformConfiguration PlatformConfigurationV1
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
 			}
 		case attribute.Id.Equal(oidTcgPlatformConfigurationV2):
 			var platformConfiguration PlatformConfigurationV2
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
 			}
 		case attribute.Id.Equal(oidTcgPlatformConfigUri):
 			var platformConfigurationUri UriReference
-			_, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationUri)
-			if err != nil {
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationUri); err != nil {
 				return nil, err
 			}
 		default:
@@ -578,6 +571,9 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 						out.PlatformSerial = e.Value.(string)
 					case e.Type.Equal(oidTcgPlatformManufacturerStrV2):
 						out.PlatformManufacturer = e.Value.(string)
+					case e.Type.Equal(oidTcgPlatformManufacturerIdV2):
+						// We can't parse these out at present
+						break
 					case e.Type.Equal(oidTcgPlatformModelV2):
 						out.PlatformModel = e.Value.(string)
 					case e.Type.Equal(oidTcgPlatformVersionV2):
@@ -589,6 +585,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					}
 				}
 			}
+
 		case extension.Id.Equal(oidExtensionSubjectDirectoryAttributes):
 			var seq asn1.RawValue
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
@@ -623,6 +620,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, fmt.Errorf("attributecert: unhandled TCG directory attribute: %v", e.Id)
 				}
 			}
+
 		case extension.Id.Equal(oidExtensionCertificatePolicies):
 			var policies []policyInformation
 			_, err := asn1.Unmarshal(extension.Value, &policies)
@@ -656,12 +654,14 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					}
 				}
 			}
+
 		case extension.Id.Equal(oidExtensionAuthorityKeyIdentifier):
 			var a authKeyId
 			_, err := asn1.Unmarshal(extension.Value, &a)
 			if err != nil {
 				return nil, err
 			}
+
 		case extension.Id.Equal(oidAuthorityInfoAccess):
 			var aia []authorityInfoAccess
 			_, err := asn1.Unmarshal(extension.Value, &aia)
@@ -677,6 +677,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, fmt.Errorf("attributecert: unhandled Authority Info Access type %v", v.Method)
 				}
 			}
+
 		default:
 			return nil, fmt.Errorf("attributecert: unknown extension ID %v", extension.Id)
 		}
