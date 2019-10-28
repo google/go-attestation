@@ -1,0 +1,168 @@
+{
+    "Raw": "MIIFHjCCBAYCAQEwd6B1MFmkVzBVMSYwJAYDVQQDDB1TVE0gVFBNIEVLIEludGVybWVkaWF0ZSBDQSAwMjEeMBwGA1UECgwVU1RNaWNyb2VsZWN0cm9uaWNzIE5WMQswCQYDVQQGEwJDSAIYUEYpmIE5STImCFSYGYVSORmEiCQiMCAooFgwVqRUMFIxCzAJBgNVBAYTAlVTMQ4wDAYDVQQKDAVJbnRlbDEeMBwGA1UEAwwVSW50ZWwgSW50ZXJtZWRpYXRlIENBMRMwEQYDVQQIDApTb21lLVN0YXRlMA0GCSqGSIb3DQEBCwUAAhRgKWfqeST97mzBULkeg3d9H0J5mTAiGA8yMDE3MDgyMDE1NTM0NFoYDzIwMjAwODIwMTU1MzQ0WjCCAYgwHAYFZ4EFAhExEzARMAkCAQICAQACASsEBAAAAAEwFAYFZ4EFAhcxCzAJAgEBAgEAAgELMIHHBgVngQUCEzGBvTCBugIBAKB0FgMzLjEKAQcKAQIBAQCAAQGBBSoDBAUGoi0WK2h0dHBzOi8vd3d3LmludGVsLmNvbS9wcm90ZWN0aW9ucHJvZmlsZS5wZGaDBSoDBAUHpCQWImh0dHBzOi8vd3d3LmludGVsLmNvbS9jY3RhcmdldC5wZGahDRYFMTQwLTIKAQQBAQCCAQMBAQAWKmh0dHBzOi8vd3d3LmludGVsLmNvbS9pc29jZXJ0aWZpY2F0aW9uLnBkZjAsBgZngQUFAQMxIjAgFh5odHRwczovL3d3dy5pbnRlbC5jb20vUENScy54bWwwWgYHZ4EFBQEHATFPME2hGzAMDAR2UHJvDAR0cnVlMAsMA0FNVAwEdHJ1ZaIuFixodHRwczovL3d3dy5pbnRlbC5jb20vcGxhdGZvcm1wcm9wZXJ0aWVzLnhtbDCCAVcwfAYDVR0gBHUwczBxBgoqhkiG+E0BBQIEMGMwMQYIKwYBBQUHAgEWJWh0dHBzOi8vd3d3LmludGVsLmNvbS9wbGF0Y2VydGNwcy5wZGYwLgYIKwYBBQUHAgIwIgwgVENHIFRydXN0ZWQgUGxhdGZvcm0gRW5kb3JzZW1lbnQwHwYDVR0jBBgwFoAUmZPUOcsy4quV9zejt3cpHNSkObYwNgYIKwYBBQUHAQEEKjAoMCYGCCsGAQUFBzABhhpodHRwczovL3d3dy5pbnRlbC5jb20vb2NzcDB+BgNVHREEdzB1pHMwcTERMA8GBmeBBQUBAQwFSW50ZWwxFTATBgZngQUFAQIwCQYHKwYBBAGCVzETMBEGBmeBBQUBBAwHUzI2MDBLUDEWMBQGBmeBBQUBBQwKSDc2OTYyLTM1MDEYMBYGBmeBBQUBBgwMQlFLUDUyODQwNjc4MA0GCSqGSIb3DQEBCwUAA4IBAQCZKjzwWca3acJIj24JH7iLc/z70QGngQeA5ef2xPYlZq2c2e5PBiVSZndTKeX7cCDIF1EGPeuu7avJ6OdJc/OoSGwfHindkvlYWdnpihbnQ1Vevwojd+VZqaJYv25X47GYZahCST1G/fkI+rRzJL8/A7vM5MOGSEO/AW85ZKi+ih4hbECh+9RPn5JB6l4JHU/lCR2OzTfQ8P+/G8BDJpZc0EymMtU6shrpVa1QY8OHHb7vzuzSrdQYutqCywV2WhLML0AkB4PuOVCHC7CMBShJ8bavbJ2ajA+bxWOWdQAX7iYKU3k+JUkJiAayxSh7FumhJCLiXGE6n6uV4td95a7e",
+    "RawTBSAttributeCertificate": "MIIEBgIBATB3oHUwWaRXMFUxJjAkBgNVBAMMHVNUTSBUUE0gRUsgSW50ZXJtZWRpYXRlIENBIDAyMR4wHAYDVQQKDBVTVE1pY3JvZWxlY3Ryb25pY3MgTlYxCzAJBgNVBAYTAkNIAhhQRimYgTlJMiYIVJgZhVI5GYSIJCIwICigWDBWpFQwUjELMAkGA1UEBhMCVVMxDjAMBgNVBAoMBUludGVsMR4wHAYDVQQDDBVJbnRlbCBJbnRlcm1lZGlhdGUgQ0ExEzARBgNVBAgMClNvbWUtU3RhdGUwDQYJKoZIhvcNAQELBQACFGApZ+p5JP3ubMFQuR6Dd30fQnmZMCIYDzIwMTcwODIwMTU1MzQ0WhgPMjAyMDA4MjAxNTUzNDRaMIIBiDAcBgVngQUCETETMBEwCQIBAgIBAAIBKwQEAAAAATAUBgVngQUCFzELMAkCAQECAQACAQswgccGBWeBBQITMYG9MIG6AgEAoHQWAzMuMQoBBwoBAgEBAIABAYEFKgMEBQaiLRYraHR0cHM6Ly93d3cuaW50ZWwuY29tL3Byb3RlY3Rpb25wcm9maWxlLnBkZoMFKgMEBQekJBYiaHR0cHM6Ly93d3cuaW50ZWwuY29tL2NjdGFyZ2V0LnBkZqENFgUxNDAtMgoBBAEBAIIBAwEBABYqaHR0cHM6Ly93d3cuaW50ZWwuY29tL2lzb2NlcnRpZmljYXRpb24ucGRmMCwGBmeBBQUBAzEiMCAWHmh0dHBzOi8vd3d3LmludGVsLmNvbS9QQ1JzLnhtbDBaBgdngQUFAQcBMU8wTaEbMAwMBHZQcm8MBHRydWUwCwwDQU1UDAR0cnVloi4WLGh0dHBzOi8vd3d3LmludGVsLmNvbS9wbGF0Zm9ybXByb3BlcnRpZXMueG1sMIIBVzB8BgNVHSAEdTBzMHEGCiqGSIb4TQEFAgQwYzAxBggrBgEFBQcCARYlaHR0cHM6Ly93d3cuaW50ZWwuY29tL3BsYXRjZXJ0Y3BzLnBkZjAuBggrBgEFBQcCAjAiDCBUQ0cgVHJ1c3RlZCBQbGF0Zm9ybSBFbmRvcnNlbWVudDAfBgNVHSMEGDAWgBSZk9Q5yzLiq5X3N6O3dykc1KQ5tjA2BggrBgEFBQcBAQQqMCgwJgYIKwYBBQUHMAGGGmh0dHBzOi8vd3d3LmludGVsLmNvbS9vY3NwMH4GA1UdEQR3MHWkczBxMREwDwYGZ4EFBQEBDAVJbnRlbDEVMBMGBmeBBQUBAjAJBgcrBgEEAYJXMRMwEQYGZ4EFBQEEDAdTMjYwMEtQMRYwFAYGZ4EFBQEFDApINzY5NjItMzUwMRgwFgYGZ4EFBQEGDAxCUUtQNTI4NDA2Nzg=",
+    "Signature": "mSo88FnGt2nCSI9uCR+4i3P8+9EBp4EHgOXn9sT2JWatnNnuTwYlUmZ3Uynl+3AgyBdRBj3rru2ryejnSXPzqEhsHx4p3ZL5WFnZ6YoW50NVXr8KI3flWamiWL9uV+OxmGWoQkk9Rv35CPq0cyS/PwO7zOTDhkhDvwFvOWSovooeIWxAofvUT5+SQepeCR1P5Qkdjs030PD/vxvAQyaWXNBMpjLVOrIa6VWtUGPDhx2+787s0q3UGLragssFdloSzC9AJAeD7jlQhwuwjAUoSfG2r2ydmowPm8VjlnUAF+4mClN5PiVJCYgGssUoexbpoSQi4lxhOp+rleLXfeWu3g==",
+    "SignatureAlgorithm": 0,
+    "Version": 2,
+    "SerialNumber": 548986496904781841196662391040664879653735004569,
+    "Holder": {
+        "Issuer": {
+            "Country": [
+                "CH"
+            ],
+            "Organization": [
+                "STMicroelectronics NV"
+            ],
+            "OrganizationalUnit": null,
+            "Locality": null,
+            "Province": null,
+            "StreetAddress": null,
+            "PostalCode": null,
+            "SerialNumber": "",
+            "CommonName": "STM TPM EK Intermediate CA 02",
+            "Names": [
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        3
+                    ],
+                    "Value": "STM TPM EK Intermediate CA 02"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        10
+                    ],
+                    "Value": "STMicroelectronics NV"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        6
+                    ],
+                    "Value": "CH"
+                }
+            ],
+            "ExtraNames": null
+        },
+        "Serial": 1968314523106797630082411822510029384949550822072796586024
+    },
+    "Issuer": {
+        "Country": [
+            "US"
+        ],
+        "Organization": [
+            "Intel"
+        ],
+        "OrganizationalUnit": null,
+        "Locality": null,
+        "Province": [
+            "Some-State"
+        ],
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "Intel Intermediate CA",
+        "Names": [
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    6
+                ],
+                "Value": "US"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    10
+                ],
+                "Value": "Intel"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    3
+                ],
+                "Value": "Intel Intermediate CA"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    8
+                ],
+                "Value": "Some-State"
+            }
+        ],
+        "ExtraNames": null
+    },
+    "Subject": {
+        "Country": null,
+        "Organization": null,
+        "OrganizationalUnit": null,
+        "Locality": null,
+        "Province": null,
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "",
+        "Names": null,
+        "ExtraNames": null
+    },
+    "NotBefore": "2017-08-20T15:53:44Z",
+    "NotAfter": "2020-08-20T15:53:44Z",
+    "TCGPlatformSpecification": {
+        "Version": {
+            "MajorVersion": 2,
+            "MinorVersion": 0,
+            "Revision": 43
+        }
+    },
+    "TBBSecurityAssertions": {
+        "Version": 0,
+        "CcInfo": {
+            "Version": "",
+            "AssuranceLevel": 0,
+            "EvaluationStatus": 0,
+            "Plus": false,
+            "StrengthOfFunction": 0,
+            "ProfileOid": null,
+            "ProfileUri": "",
+            "TargetOid": null,
+            "TargetUri": null
+        },
+        "FipsLevel": {
+            "Version": "",
+            "Level": 0,
+            "Plus": false
+        },
+        "RtmType": 0,
+        "Iso9000Certified": false,
+        "Iso9000Uri": ""
+    },
+    "PlatformManufacturer": "Intel",
+    "PlatformModel": "S2600KP",
+    "PlatformVersion": "H76962-350",
+    "PlatformSerial": "BQKP52840678",
+    "CredentialSpecification": "",
+    "UserNotice": {
+        "NoticeRef": {
+            "Organization": "",
+            "NoticeNumbers": null
+        },
+        "ExplicitText": ""
+    }
+}

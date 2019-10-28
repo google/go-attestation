@@ -1,0 +1,190 @@
+{
+    "Raw": "MIIFNzCCA58CAQEwc6BxMFmkVzBVMQswCQYDVQQGEwJDSDEeMBwGA1UECgwVU1RNaWNyb2VsZWN0cm9uaWNzIE5WMSYwJAYDVQQDDB1TVE0gVFBNIEVLIEludGVybWVkaWF0ZSBDQSAwNQIUHb4WpPwxCXEK0h8rNQ/9F7pgTAyggaUwgaKkgZ8wgZwxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJDQTEUMBIGA1UEBwwLU2FudGEgQ2xhcmExGjAYBgNVBAoMEUludGVsIENvcnBvcmF0aW9uMTYwNAYDVQQLDC1UcmFuc3BhcmVudCBTdXBwbHkgQ2hhaW4gSXNzdWluZyBDQSBJS0dGX1RFU1QxFjAUBgNVBAMMDXd3dy5pbnRlbC5jb20wDQYJKoZIhvcNAQELBQACFGHu9mGGIwgt8Qh/S/a9lCrtnO/pMCIYDzIwMTgwOTE1MDQ0NTA5WhgPMjAyNzA4MDEwNDAwMDBaMH4wHAYFZ4EFAhExEzARMAkCAQICAQACAQEEBAAAAAEwEgYFZ4EFAhkxCTAHBgVngQUIAjAWBgVngQUCFzENMAswCQIBAQIBAQIBCTAUBgVngQUCEzELMAkCAQCCAQMBAQAwHAYHZ4EFBQEHATERMA+hDTALDANBTVQMBHRydWUwggGyMIGpBgNVHSAEgaEwgZ4wgZsGCiqGSIb4TQEFAgQwgYwwWgYIKwYBBQUHAgEWTmh0dHBzOi8vdHJ1c3RlZHNlcnZpY2VzLmludGVsLmNvbS9jb250ZW50L1RTQy9jZXJ0cy9UU0NjZXJ0UG9saWN5U3RhdGVtZW50LnBkZjAuBggrBgEFBQcCAjAiDCBUQ0cgVHJ1c3RlZCBQbGF0Zm9ybSBFbmRvcnNlbWVudDB3BgNVHREEcDBupGwwajESMBAGBmeBBQUBAQwGTEVOT1ZPMRYwFAYGZ4EFBQEEDAoyMEw3MDAyQlVTMRowGAYGZ4EFBQEFDA5UaGlua1BhZCBUNDgwczEgMB4GBmeBBQUBBgwUUEYwWkFRU1dfTDFIRjdDUzAwMUEwHwYDVR0jBBgwFoAUPAa5+2OlPKV8a4dDMznx3KgH+6QwagYIKwYBBQUHAQEEXjBcMFoGCCsGAQUFBzAChk5odHRwczovL3RydXN0ZWRzZXJ2aWNlcy5pbnRlbC5jb20vY29udGVudC9UU0MvY2VydHMvVFNDX0lzc3VpbmdDQUlLR0ZfVEVTVC5jZXIwDQYJKoZIhvcNAQELBQADggGBAB3sTQJ6FoJSYvTsKF9BdKOH1XsCgl09XjnEOkBTXoSHd4faXbDwkc7crdoTftOsbNZrQ1v+b+N6SFBy/vp3fpjKyxQZrmA+JpEhGSlN2jcHDNTwYyfD8E2H0M12TbdeJbo21f+FHVn+Rumxxu1OVbDcOvt9f2U2dirx0gZaW80/K46K77/a1XMaLIVgvaiS8Z0Qh/ph79z4flcUPUO/sNytUhURdW03klXvleqESRYljKeBC6U7q8QhdbdMwkyuByIDmuGVpHsEwso36X3eF6fMRWzQsU/g26Px4jB/8yVbpoX4Zmjcoy16SIwelx0cDmy36wMQwE2F7gdgcH0bmHe/r70NOgs4lPu+zQf+g4VpPeW1w5rtHjQO4zaFrlOzVVAE3WbESjIKYe0k8zuuWNISAmIOG0S/FcbaaFffyV1KWIhc0exQqsfl7Vim9T0fll80VD7T5km1gsAMsY5fUwtSgdM5aYeZguINXtffYUiwJBR9l9s02cvrHV2SmVDNgQ==",
+    "RawTBSAttributeCertificate": "MIIDnwIBATBzoHEwWaRXMFUxCzAJBgNVBAYTAkNIMR4wHAYDVQQKDBVTVE1pY3JvZWxlY3Ryb25pY3MgTlYxJjAkBgNVBAMMHVNUTSBUUE0gRUsgSW50ZXJtZWRpYXRlIENBIDA1AhQdvhak/DEJcQrSHys1D/0XumBMDKCBpTCBoqSBnzCBnDELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAkNBMRQwEgYDVQQHDAtTYW50YSBDbGFyYTEaMBgGA1UECgwRSW50ZWwgQ29ycG9yYXRpb24xNjA0BgNVBAsMLVRyYW5zcGFyZW50IFN1cHBseSBDaGFpbiBJc3N1aW5nIENBIElLR0ZfVEVTVDEWMBQGA1UEAwwNd3d3LmludGVsLmNvbTANBgkqhkiG9w0BAQsFAAIUYe72YYYjCC3xCH9L9r2UKu2c7+kwIhgPMjAxODA5MTUwNDQ1MDlaGA8yMDI3MDgwMTA0MDAwMFowfjAcBgVngQUCETETMBEwCQIBAgIBAAIBAQQEAAAAATASBgVngQUCGTEJMAcGBWeBBQgCMBYGBWeBBQIXMQ0wCzAJAgEBAgEBAgEJMBQGBWeBBQITMQswCQIBAIIBAwEBADAcBgdngQUFAQcBMREwD6ENMAsMA0FNVAwEdHJ1ZTCCAbIwgakGA1UdIASBoTCBnjCBmwYKKoZIhvhNAQUCBDCBjDBaBggrBgEFBQcCARZOaHR0cHM6Ly90cnVzdGVkc2VydmljZXMuaW50ZWwuY29tL2NvbnRlbnQvVFNDL2NlcnRzL1RTQ2NlcnRQb2xpY3lTdGF0ZW1lbnQucGRmMC4GCCsGAQUFBwICMCIMIFRDRyBUcnVzdGVkIFBsYXRmb3JtIEVuZG9yc2VtZW50MHcGA1UdEQRwMG6kbDBqMRIwEAYGZ4EFBQEBDAZMRU5PVk8xFjAUBgZngQUFAQQMCjIwTDcwMDJCVVMxGjAYBgZngQUFAQUMDlRoaW5rUGFkIFQ0ODBzMSAwHgYGZ4EFBQEGDBRQRjBaQVFTV19MMUhGN0NTMDAxQTAfBgNVHSMEGDAWgBQ8Brn7Y6U8pXxrh0MzOfHcqAf7pDBqBggrBgEFBQcBAQReMFwwWgYIKwYBBQUHMAKGTmh0dHBzOi8vdHJ1c3RlZHNlcnZpY2VzLmludGVsLmNvbS9jb250ZW50L1RTQy9jZXJ0cy9UU0NfSXNzdWluZ0NBSUtHRl9URVNULmNlcg==",
+    "Signature": "HexNAnoWglJi9OwoX0F0o4fVewKCXT1eOcQ6QFNehId3h9pdsPCRztyt2hN+06xs1mtDW/5v43pIUHL++nd+mMrLFBmuYD4mkSEZKU3aNwcM1PBjJ8PwTYfQzXZNt14lujbV/4UdWf5G6bHG7U5VsNw6+31/ZTZ2KvHSBlpbzT8rjorvv9rVcxoshWC9qJLxnRCH+mHv3Ph+VxQ9Q7+w3K1SFRF1bTeSVe+V6oRJFiWMp4ELpTurxCF1t0zCTK4HIgOa4ZWkewTCyjfpfd4Xp8xFbNCxT+Dbo/HiMH/zJVumhfhmaNyjLXpIjB6XHRwObLfrAxDATYXuB2BwfRuYd7+vvQ06CziU+77NB/6DhWk95bXDmu0eNA7jNoWuU7NVUATdZsRKMgph7STzO65Y0hICYg4bRL8VxtpoV9/JXUpYiFzR7FCqx+XtWKb1PR+WXzRUPtPmSbWCwAyxjl9TC1KB0zlph5mC4g1e199hSLAkFH2X2zTZy+sdXZKZUM2B",
+    "SignatureAlgorithm": 0,
+    "Version": 2,
+    "SerialNumber": 559101144935189974234374230728606001993160126441,
+    "Holder": {
+        "Issuer": {
+            "Country": [
+                "CH"
+            ],
+            "Organization": [
+                "STMicroelectronics NV"
+            ],
+            "OrganizationalUnit": null,
+            "Locality": null,
+            "Province": null,
+            "StreetAddress": null,
+            "PostalCode": null,
+            "SerialNumber": "",
+            "CommonName": "STM TPM EK Intermediate CA 05",
+            "Names": [
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        6
+                    ],
+                    "Value": "CH"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        10
+                    ],
+                    "Value": "STMicroelectronics NV"
+                },
+                {
+                    "Type": [
+                        2,
+                        5,
+                        4,
+                        3
+                    ],
+                    "Value": "STM TPM EK Intermediate CA 05"
+                }
+            ],
+            "ExtraNames": null
+        },
+        "Serial": 169799846553430907340671867860357675971057306636
+    },
+    "Issuer": {
+        "Country": [
+            "US"
+        ],
+        "Organization": [
+            "Intel Corporation"
+        ],
+        "OrganizationalUnit": [
+            "Transparent Supply Chain Issuing CA IKGF_TEST"
+        ],
+        "Locality": [
+            "Santa Clara"
+        ],
+        "Province": [
+            "CA"
+        ],
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "www.intel.com",
+        "Names": [
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    6
+                ],
+                "Value": "US"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    8
+                ],
+                "Value": "CA"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    7
+                ],
+                "Value": "Santa Clara"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    10
+                ],
+                "Value": "Intel Corporation"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    11
+                ],
+                "Value": "Transparent Supply Chain Issuing CA IKGF_TEST"
+            },
+            {
+                "Type": [
+                    2,
+                    5,
+                    4,
+                    3
+                ],
+                "Value": "www.intel.com"
+            }
+        ],
+        "ExtraNames": null
+    },
+    "Subject": {
+        "Country": null,
+        "Organization": null,
+        "OrganizationalUnit": null,
+        "Locality": null,
+        "Province": null,
+        "StreetAddress": null,
+        "PostalCode": null,
+        "SerialNumber": "",
+        "CommonName": "",
+        "Names": null,
+        "ExtraNames": null
+    },
+    "NotBefore": "2018-09-15T04:45:09Z",
+    "NotAfter": "2027-08-01T04:00:00Z",
+    "TCGPlatformSpecification": {
+        "Version": {
+            "MajorVersion": 2,
+            "MinorVersion": 0,
+            "Revision": 1
+        }
+    },
+    "TBBSecurityAssertions": {
+        "Version": 0,
+        "CcInfo": {
+            "Version": "",
+            "AssuranceLevel": 0,
+            "EvaluationStatus": 0,
+            "Plus": false,
+            "StrengthOfFunction": 0,
+            "ProfileOid": null,
+            "ProfileUri": "",
+            "TargetOid": null,
+            "TargetUri": null
+        },
+        "FipsLevel": {
+            "Version": "",
+            "Level": 0,
+            "Plus": false
+        },
+        "RtmType": 0,
+        "Iso9000Certified": false,
+        "Iso9000Uri": ""
+    },
+    "PlatformManufacturer": "LENOVO",
+    "PlatformModel": "20L7002BUS",
+    "PlatformVersion": "ThinkPad T480s",
+    "PlatformSerial": "PF0ZAQSW_L1HF7CS001A",
+    "CredentialSpecification": "",
+    "UserNotice": {
+        "NoticeRef": {
+            "Organization": "",
+            "NoticeNumbers": null
+        },
+        "ExplicitText": ""
+    }
+}
