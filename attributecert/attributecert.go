@@ -41,7 +41,7 @@ var (
 	oidTpmSecurityTarget                   = []int{2, 23, 133, 2, 12}
 	oidTbbProtectionProfile                = []int{2, 23, 133, 2, 13}
 	oidTbbSecurityTarget                   = []int{2, 23, 133, 2, 14}
-	oidTpmIdLabel                          = []int{2, 23, 133, 2, 15}
+	oidTpmIDLabel                          = []int{2, 23, 133, 2, 15}
 	oidTpmSpecification                    = []int{2, 23, 133, 2, 16}
 	oidTcgPlatformSpecification            = []int{2, 23, 133, 2, 17}
 	oidTpmSecurityAssertions               = []int{2, 23, 133, 2, 18}
@@ -51,8 +51,8 @@ var (
 	oidTcgPlatformClass                    = []int{2, 23, 133, 5}
 	oidTcgCommon                           = []int{2, 23, 133, 5, 1}
 	oidTcgPlatformManufacturerStrV2        = []int{2, 23, 133, 5, 1, 1}
-	oidTcgPlatformManufacturerIdV2         = []int{2, 23, 133, 5, 1, 2}
-	oidTcgPlatformConfigUri                = []int{2, 23, 133, 5, 1, 3}
+	oidTcgPlatformManufacturerIDV2         = []int{2, 23, 133, 5, 1, 2}
+	oidTcgPlatformConfigURI                = []int{2, 23, 133, 5, 1, 3}
 	oidTcgPlatformModelV2                  = []int{2, 23, 133, 5, 1, 4}
 	oidTcgPlatformVersionV2                = []int{2, 23, 133, 5, 1, 5}
 	oidTcgPlatformSerialV2                 = []int{2, 23, 133, 5, 1, 6}
@@ -160,22 +160,22 @@ type authorityInfoAccess struct {
 }
 
 //RFC 5280 4.2.1.1
-type authKeyId struct {
-	Id           []byte        `asn1:"optional,tag:0"`
+type authKeyID struct {
+	ID           []byte        `asn1:"optional,tag:0"`
 	IssuerName   asn1.RawValue `asn1:"set,optional,tag:1"`
 	SerialNumber *big.Int      `asn1:"optional,tag:2"`
 }
 
 //RFC 5280 4.2.1.4
 type cpsPolicy struct {
-	Id    asn1.ObjectIdentifier
+	ID    asn1.ObjectIdentifier
 	Value string
 }
 
 //RFC 5280 4.2.1.4
 type policyInformation struct {
 	Raw    asn1.RawContent
-	Id     asn1.ObjectIdentifier
+	ID     asn1.ObjectIdentifier
 	Policy asn1.RawValue
 }
 
@@ -207,7 +207,7 @@ type objectDigestInfo struct {
 //RFC 5755 4.1
 type attCertIssuer struct {
 	IssuerName        asn1.RawValue    `asn1:"set,optional"`
-	BaseCertificateId issuerSerial     `asn1:"optional,tag:0"`
+	BaseCertificateID issuerSerial     `asn1:"optional,tag:0"`
 	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:1"`
 }
 
@@ -229,7 +229,7 @@ type holder struct {
 
 //RFC 5755 4.1
 type attribute struct {
-	Id        asn1.ObjectIdentifier
+	ID        asn1.ObjectIdentifier
 	RawValues []asn1.RawValue `asn1:"set"`
 }
 
@@ -301,12 +301,12 @@ type PlatformDataSequence []PlatformDataSET
 type PlatformDataSET []pkix.AttributeTypeAndValue
 
 type TCGData struct {
-	Id   asn1.ObjectIdentifier
+	ID   asn1.ObjectIdentifier
 	Data string
 }
 
 type TCGDirectoryEntry struct {
-	Id   asn1.ObjectIdentifier
+	ID   asn1.ObjectIdentifier
 	Data asn1.RawValue
 }
 
@@ -341,9 +341,9 @@ type CommonCriteriaMeasures struct {
 	Plus               bool
 	StrengthOfFunction asn1.Enumerated       `asn1:"optional,tag=0"`
 	ProfileOid         asn1.ObjectIdentifier `asn1:"optional,tag=1"`
-	ProfileUri         string                `asn1:"optional,tag=2"`
+	ProfileURI         string                `asn1:"optional,tag=2"`
 	TargetOid          asn1.ObjectIdentifier `asn1:"optional,tag=3"`
-	TargetUri          asn1.ObjectIdentifier `asn1:"optional,tag=4"`
+	TargetURI          asn1.ObjectIdentifier `asn1:"optional,tag=4"`
 }
 
 type TBBSecurityAssertions struct {
@@ -352,7 +352,7 @@ type TBBSecurityAssertions struct {
 	FipsLevel        FipsLevel              `asn1:"optional,tag=1"`
 	RtmType          asn1.Enumerated        `asn1:"optional,tag=2"`
 	Iso9000Certified bool                   `asn1:"optional"`
-	Iso9000Uri       string                 `asn1:"optional"`
+	Iso9000URI       string                 `asn1:"optional"`
 }
 
 type Property struct {
@@ -387,15 +387,15 @@ type ComponentIdentifierV2 struct {
 	ComponentModel           string
 	ComponentSerial          string                `asn1:"optional,tag=0"`
 	ComponentRevision        string                `asn1:"optional,tag=1"`
-	ComponentManufacturerId  int                   `asn1:"optional,tag=2"`
+	ComponentManufacturerID  int                   `asn1:"optional,tag=2"`
 	FieldReplaceable         bool                  `asn1:"optional,tag=3"`
 	ComponentAddresses       []ComponentAddress    `asn1:"optional,tag=4"`
 	ComponentPlatformCert    CertificateIdentifier `asn1:"optional,tag=5"`
-	ComponentPlatformCertUri string                `asn1:"optional,tag=6"`
+	ComponentPlatformCertURI string                `asn1:"optional,tag=6"`
 	Status                   asn1.Enumerated       `asn1:"optional,tag=7"`
 }
 
-type UriReference struct {
+type URIReference struct {
 	UniformResourceIdentifier string
 	HashAlgorithm             pkix.AlgorithmIdentifier `asn1:"optional"`
 	HashValue                 string                   `asn1:"optional"`
@@ -403,9 +403,9 @@ type UriReference struct {
 
 type PlatformConfigurationV2 struct {
 	ComponentIdentifiers    []ComponentIdentifierV2 `asn1:"optional,tag=0"`
-	ComponentIdentifiersUri UriReference            `asn1:"optional,tag=1"`
+	ComponentIdentifiersURI URIReference            `asn1:"optional,tag=1"`
 	PlatformProperties      []Property              `asn1:"optional,tag=2"`
-	PlatformPropertiesUri   UriReference            `asn1:"optional,tag=3"`
+	PlatformPropertiesURI   URIReference            `asn1:"optional,tag=3"`
 }
 
 type ComponentIdentifierV1 struct {
@@ -421,7 +421,7 @@ type ComponentIdentifierV1 struct {
 type PlatformConfigurationV1 struct {
 	ComponentIdentifiers  []ComponentIdentifierV1 `asn1:"optional,tag=0"`
 	PlatformProperties    []Property              `asn1:"optional,tag=1"`
-	PlatformPropertiesUri []UriReference          `asn1:"optional,tag=2"`
+	PlatformPropertiesURI []URIReference          `asn1:"optional,tag=2"`
 }
 
 func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
@@ -492,19 +492,19 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 
 	for _, attribute := range in.TBSAttributeCertificate.Attributes {
 		switch {
-		case attribute.Id.Equal(oidAttributeUserNotice):
+		case attribute.ID.Equal(oidAttributeUserNotice):
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.UserNotice); err != nil {
 				return nil, err
 			}
-		case attribute.Id.Equal(oidTcgPlatformSpecification):
+		case attribute.ID.Equal(oidTcgPlatformSpecification):
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TCGPlatformSpecification); err != nil {
 				return nil, err
 			}
-		case attribute.Id.Equal(oidTbbSecurityAssertions):
+		case attribute.ID.Equal(oidTbbSecurityAssertions):
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TBBSecurityAssertions); err != nil {
 				return nil, err
 			}
-		case attribute.Id.Equal(oidTcgCredentialSpecification):
+		case attribute.ID.Equal(oidTcgCredentialSpecification):
 			var credentialSpecification TCGCredentialSpecification
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification); err != nil {
 				var credentialSpecification TCGSpecificationVersion
@@ -512,28 +512,28 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, err
 				}
 			}
-		case attribute.Id.Equal(oidTcgCredentialType):
+		case attribute.ID.Equal(oidTcgCredentialType):
 			var credentialType TCGCredentialType
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialType); err != nil {
 				return nil, err
 			}
-		case attribute.Id.Equal(oidTcgPlatformConfigurationV1):
+		case attribute.ID.Equal(oidTcgPlatformConfigurationV1):
 			var platformConfiguration PlatformConfigurationV1
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
 			}
-		case attribute.Id.Equal(oidTcgPlatformConfigurationV2):
+		case attribute.ID.Equal(oidTcgPlatformConfigurationV2):
 			var platformConfiguration PlatformConfigurationV2
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
 			}
-		case attribute.Id.Equal(oidTcgPlatformConfigUri):
-			var platformConfigurationUri UriReference
-			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationUri); err != nil {
+		case attribute.ID.Equal(oidTcgPlatformConfigURI):
+			var platformConfigurationURI URIReference
+			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationURI); err != nil {
 				return nil, err
 			}
 		default:
-			return nil, fmt.Errorf("attributecert: unknown attribute %v", attribute.Id)
+			return nil, fmt.Errorf("attributecert: unknown attribute %v", attribute.ID)
 		}
 	}
 
@@ -571,7 +571,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 						out.PlatformSerial = e.Value.(string)
 					case e.Type.Equal(oidTcgPlatformManufacturerStrV2):
 						out.PlatformManufacturer = e.Value.(string)
-					case e.Type.Equal(oidTcgPlatformManufacturerIdV2):
+					case e.Type.Equal(oidTcgPlatformManufacturerIDV2):
 						// We can't parse these out at present
 						break
 					case e.Type.Equal(oidTcgPlatformModelV2):
@@ -602,14 +602,14 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, err
 				}
 				switch {
-				case e.Id.Equal(oidTcgPlatformSpecification):
+				case e.ID.Equal(oidTcgPlatformSpecification):
 					var platformSpecification TCGPlatformSpecification
 					_, err := asn1.Unmarshal(e.Data.Bytes, &platformSpecification)
 					if err != nil {
 						return nil, err
 					}
 					out.TCGPlatformSpecification = platformSpecification
-				case e.Id.Equal(oidTbbSecurityAssertions):
+				case e.ID.Equal(oidTbbSecurityAssertions):
 					var securityAssertions TBBSecurityAssertions
 					_, err := asn1.Unmarshal(e.Data.Bytes, &securityAssertions)
 					if err != nil {
@@ -617,7 +617,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					}
 					out.TBBSecurityAssertions = securityAssertions
 				default:
-					return nil, fmt.Errorf("attributecert: unhandled TCG directory attribute: %v", e.Id)
+					return nil, fmt.Errorf("attributecert: unhandled TCG directory attribute: %v", e.ID)
 				}
 			}
 
@@ -628,7 +628,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 				return nil, err
 			}
 			for _, policy := range policies {
-				if policy.Id.Equal(oidTcgCertificatePolicy) {
+				if policy.ID.Equal(oidTcgCertificatePolicy) {
 					var subpolicies []policyInformation
 					_, err := asn1.Unmarshal(policy.Policy.FullBytes, &subpolicies)
 					if err != nil {
@@ -636,27 +636,27 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					}
 					for _, subpolicy := range subpolicies {
 						switch {
-						case subpolicy.Id.Equal(oidCpsCertificatePolicy):
+						case subpolicy.ID.Equal(oidCpsCertificatePolicy):
 							var cpsPolicy cpsPolicy
 							_, err := asn1.Unmarshal(subpolicy.Raw, &cpsPolicy)
 							if err != nil {
 								return nil, err
 							}
-						case subpolicy.Id.Equal(oidAttributeUserNotice):
+						case subpolicy.ID.Equal(oidAttributeUserNotice):
 							var userNotice string
 							_, err := asn1.Unmarshal(subpolicy.Policy.Bytes, &userNotice)
 							if err != nil {
 								return nil, err
 							}
 						default:
-							return nil, fmt.Errorf("attributecert: unhandled certificate policy: %v", subpolicy.Id)
+							return nil, fmt.Errorf("attributecert: unhandled certificate policy: %v", subpolicy.ID)
 						}
 					}
 				}
 			}
 
 		case extension.Id.Equal(oidExtensionAuthorityKeyIdentifier):
-			var a authKeyId
+			var a authKeyID
 			_, err := asn1.Unmarshal(extension.Value, &a)
 			if err != nil {
 				return nil, err
