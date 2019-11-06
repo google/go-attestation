@@ -51,6 +51,86 @@ func main() {
 	}
 }
 
+func selftestCredentialActivation(tpm *attest.TPM, ak *attest.AK) error {
+	eks, err := tpm.EKs()
+	if err != nil {
+		return fmt.Errorf("EKs() failed: %v", err)
+	}
+	if len(eks) == 0 {
+		return errors.New("no EK present")
+	}
+	ek := eks[0].Public
+
+	// Test credential activation.
+	ap := attest.ActivationParameters{
+		TPMVersion: tpm.Version(),
+		EK:         ek,
+		AK:         ak.AttestationParameters(),
+	}
+	secret, ec, err := ap.Generate()
+	if err != nil {
+		return fmt.Errorf("failed to generate activation challenge: %v", err)
+	}
+	decryptedSecret, err := ak.ActivateCredential(tpm, *ec)
+	if err != nil {
+		return fmt.Errorf("failed to generate activate credential: %v", err)
+	}
+	if !bytes.Equal(secret, decryptedSecret) {
+		return errors.New("credential activation produced incorrect secret")
+	}
+	return nil
+}
+
+func selftestAttest(tpm *attest.TPM, ak *attest.AK) error {
+	// This nonce is used in generating the quote. As this is a selftest,
+	// its set to an arbitrary value.
+	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}
+
+	pub, err := attest.ParseAKPublic(tpm.Version(), ak.AttestationParameters().Public)
+	if err != nil {
+		return fmt.Errorf("failed to parse ak public: %v", err)
+	}
+
+	if _, err := tpm.MeasurementLog(); err != nil {
+		return fmt.Errorf("no event log available: %v", err)
+	}
+	attestation, err := tpm.AttestPlatform(ak, nonce, nil)
+	if err != nil {
+		return fmt.Errorf("failed to attest: %v", err)
+	}
+
+	for i, quote := range attestation.Quotes {
+		if err := pub.Verify(quote, attestation.PCRs, nonce); err != nil {
+			return fmt.Errorf("failed to verify quote[%d]: %v", i, err)
+		}
+	}
+
+	el, err := attest.ParseEventLog(attestation.EventLog)
+	if err != nil {
+		return fmt.Errorf("failed to parse event log: %v", err)
+	}
+
+	if _, err := el.Verify(attestation.PCRs); err != nil {
+		return fmt.Errorf("event log failed to verify: %v", err)
+	}
+	return nil
+}
+
+func selftest(tpm *attest.TPM) error {
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		return fmt.Errorf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+	if err := selftestCredentialActivation(tpm, ak); err != nil {
+		return fmt.Errorf("credential activation failed: %v", err)
+	}
+	if err := selftestAttest(tpm, ak); err != nil {
+		return fmt.Errorf("state attestation failed: %v", err)
+	}
+	return nil
+}
+
 func runCommand(tpm *attest.TPM) error {
 	switch flag.Arg(0) {
 	case "info":
@@ -141,6 +221,15 @@ func runCommand(tpm *attest.TPM) error {
 			return err
 		}
 		return json.NewEncoder(os.Stdout).Encode(dumpData)
+
+	case "self-test":
+		err := selftest(tpm)
+		if err != nil {
+			fmt.Println("FAIL")
+			return err
+		} else {
+			fmt.Println("PASS")
+		}
 
 	default:
 		return fmt.Errorf("no such command %q", flag.Arg(0))
