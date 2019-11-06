@@ -4,14 +4,14 @@ Go-Attestation
 [![GoDoc](https://godoc.org/github.com/google/go-attestation/attest?status.svg)](https://godoc.org/github.com/google/go-attestation/attest)
 
 Go-Attestation abstracts remote attestation operations across a variety of platforms
-and TPMs.
+and TPMs, enabling remote validation of machine identity and state. This project
+attempts to provide high level primitives for both client and server logic.
 
+Talks on this project:
 
-## Installation
-
-The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
-
-Linux users must install `libtspi` and its headers. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+* _"Making Device Identity Trustworthy"_ - Open Source Summit Europe - October 2019 - ([Slides](https://static.sched.com/hosted_files/osseu19/ec/Device%20Identity.pdf))
+* _"Using TPMs to Cryptographically Verify Devices at Scale"_ - Open Source Summit North America - September 2019 - ([Video](https://www.youtube.com/watch?v=EmEymlA5Q5Q) 39min)
+* _"Making Remote Attestation Useful on Linux"_ - Linux Security Summit - September 2019 - ([Video](https://www.youtube.com/watch?v=TKva_h66Ptc) 26min)
 
 ## Status
 
@@ -19,3 +19,109 @@ Go-Attestation is under active development and **is not** ready for production u
 API changes at any time.
 
 Please note that this is not an official Google product.
+
+## Installation
+
+The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
+
+Linux users must install `libtspi` and its headers. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+
+## Example: device identity
+
+TPMs can be used to identify a device remotely and provision unique per-device
+hardware-bound keys.
+
+TPMs are provisioned with a set of Endorsement Keys (EKs) by the manufacturer.
+These optionally include a certificate signed by the manufacturer and act as a
+TPM's identity. For privacy reasons the EK can't be used to sign or encrypt data
+directly, and is instead used to attest to the presence of a signing key, an
+Attestation Key (AK), on the same TPM. (Newer versions of the spec may allow the
+EK to sign directly.)
+
+During attestation, a TPM generates an AK and proves to a certificate authority
+that the AK is on the same TPM as a EK. If the certificate authority trusts the
+EK, it can transitively trust the AK, for example by issuing a certificate for
+the AK.
+
+To perform attestation, the client generates an AK and sends the EK and AK
+parameters to the server:
+
+```go
+// Client generates a AK and sends it to the server
+
+config := &attest.OpenConfig{}
+tpm, err := attest.OpenTPM(config)
+if err != nil {
+    // handle error
+}
+
+eks, err := tpm.EKs()
+if err != nil {
+    // handle error
+}
+ek := eks[0]
+
+akConfig := &attest.AKConfig{}
+ak, err := attest.NewAK(akConfig)
+if err != nil {
+    // handle error
+}
+attestParams := ak.AttestationParameters()
+
+akBytes, err := ak.Marshal()
+if err != nil {
+    // handle error
+}
+
+if err := ioutil.WriteFile("encrypted_aik.json", akBytes, 0600); err != nil {
+    // handle error
+}
+
+// send TPM version, EK, and attestParams to the server
+```
+
+The server uses the EK and AK parameters to generate a challenge encrypted to
+the EK, returning the challenge to the client. During this phase, the server
+determines if it trusts the EK, either by chaining its certificate to a known
+manufacturer and/or querying an inventory system.
+
+```go
+// Server validates EK and/or EK certificate
+
+params := attest.ActivationParameters{
+    TPMVersion: tpmVersion,
+    EK:         ek.Public,
+    AK:         attestParams,
+}
+secret, encryptedCredentials, err := params.Generate()
+if err != nil {
+    // handle error
+}
+
+// return encrypted credentials to client
+```
+
+The client proves possession of the AK by decrypting the challenge and
+returning the same secret to the server.
+
+```go
+// Client decrypts the credential
+
+akBytes, err := ioutil.ReadFile("encrypted_aik.json")
+if err != nil {
+    // handle error
+}
+ak, err := tpm.LoadAK(akBytes)
+if err != nil {
+    // handle error
+}
+secret, err := ak.ActivateCredential(tpm, encryptedCredentials)
+if err != nil {
+    // handle error
+}
+
+// return secret to server
+```
+
+At this point, the server records the AK and EK association and allows the client
+to use its AK as a credential (e.g. by issuing it a client certificate).
