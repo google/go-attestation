@@ -15,8 +15,6 @@ github.com/google/certificate-transparency-go v1.0.22-0.20190605205155-41fc2ef3a
 github.com/google/go-tpm v0.1.2-0.20190725015402-ae6dd98980d4 h1:GNNkIb6NSjYfw+KvgUFW590mcgsSFihocSrbXct1sEw=
 github.com/google/go-tpm v0.1.2-0.20190725015402-ae6dd98980d4/go.mod h1:H9HbmUG2YgV/PHITkO7p6wxEEj/v5nlsVWIwumwH2NI=
 github.com/google/go-tpm v0.2.1-0.20190910203116-33a9c3f38379/go.mod h1:gTv8GNuqS7CI+tQWrpt5BMMaD5W3G+dZULQLhhAKT5c=
-github.com/google/go-tpm v0.2.1-0.20190919221813-f772099985c3 h1:VJTqpj8yU29QGqBMAHEuGukOS4PfKAum5FKXoHsbUj0=
-github.com/google/go-tpm v0.2.1-0.20190919221813-f772099985c3/go.mod h1:gTv8GNuqS7CI+tQWrpt5BMMaD5W3G+dZULQLhhAKT5c=
 github.com/google/go-tpm v0.2.1-0.20191015210219-431489f43254 h1:ahwXCP5Ui0eYBO9nM71/BzWwVtnGjfZ4OsnDE0V2pMA=
 github.com/google/go-tpm v0.2.1-0.20191015210219-431489f43254/go.mod h1:gTv8GNuqS7CI+tQWrpt5BMMaD5W3G+dZULQLhhAKT5c=
 github.com/google/go-tpm-tools v0.0.0-20190906225433-1614c142f845/go.mod h1:AVfHadzbdzHo54inR2x1v640jdi1YSi3NauM2DUsxk0=
