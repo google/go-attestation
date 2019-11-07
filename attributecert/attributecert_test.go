@@ -17,6 +17,7 @@ package attributecert
 import (
 	"encoding/json"
 	"io/ioutil"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -36,7 +37,7 @@ func TestParseAttributeCerts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read test data %s: %v", filename, err)
 		}
-		cert, err := ParseAttributeCertificate(data)
+		got, err := ParseAttributeCertificate(data)
 		if err != nil {
 			t.Fatalf("failed to parse test data %s: %v", filename, err)
 		}
@@ -44,11 +45,11 @@ func TestParseAttributeCerts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read json test data %s: %v", jsonfile, err)
 		}
-		jsoncert, err := json.MarshalIndent(cert, "", "    ")
-		if err != nil {
-			t.Fatalf("failed to marshal %s to json: %v", filename, err)
+		var want AttributeCertificate
+		if err := json.Unmarshal(jsondata, &want); err != nil {
+			t.Fatalf("failed to unmarshal file %s: %v", filename, err)
 		}
-		if string(jsondata) != string(jsoncert) {
+		if !reflect.DeepEqual(&want, got) {
 			t.Fatalf("%s fails to match test data", filename)
 		}
 	}
