@@ -90,6 +90,7 @@ type ak interface {
 	activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error)
 	quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
+	privateKey() crypto.PrivateKey
 }
 
 // AK represents a key which can be used for attestation.
@@ -130,6 +131,12 @@ func (k *AK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 // generate a credential activation challenge.
 func (k *AK) AttestationParameters() AttestationParameters {
 	return k.ak.attestationParameters()
+}
+
+// PrivateKey returns a private key that implements crypto.Signer and/or
+// crypto.Decrypter.
+func (k *AK) PrivateKey() crypto.PrivateKey {
+	return k.ak.privateKey()
 }
 
 // AKConfig encapsulates parameters for minting keys. This type is defined

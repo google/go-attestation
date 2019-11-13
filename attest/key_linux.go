@@ -17,7 +17,10 @@
 package attest
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"fmt"
+	"io"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -28,12 +31,14 @@ import (
 type key12 struct {
 	blob   []byte
 	public []byte
+	key    crypto.PublicKey
 }
 
-func newKey12(blob, public []byte) ak {
+func newKey12(blob, public []byte, key crypto.PublicKey) ak {
 	return &key12{
 		blob:   blob,
 		public: public,
+		key:    key,
 	}
 }
 
@@ -85,8 +90,15 @@ func (k *key12) attestationParameters() AttestationParameters {
 	}
 }
 
+func (k *key12) privateKey() crypto.PrivateKey {
+	return rsa12Key{
+		pub: k.key,
+	}
+}
+
 // key20 represents a key bound to a TPM 2.0.
 type key20 struct {
+	tpm io.ReadWriter
 	hnd tpmutil.Handle
 
 	blob              []byte
@@ -94,16 +106,19 @@ type key20 struct {
 	createData        []byte
 	createAttestation []byte
 	createSignature   []byte
+	key               crypto.PublicKey
 }
 
-func newKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) ak {
+func newKey20(tpm io.ReadWriter, hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte, key crypto.PublicKey) ak {
 	return &key20{
+		tpm:               tpm,
 		hnd:               hnd,
 		blob:              blob,
 		public:            public,
 		createData:        createData,
 		createAttestation: createAttestation,
 		createSignature:   createSig,
+		key:               key,
 	}
 }
 
@@ -118,6 +133,13 @@ func (k *key20) marshal() ([]byte, error) {
 		CreateAttestation: k.createAttestation,
 		CreateSignature:   k.createSignature,
 	}).Serialize()
+}
+
+func (k *key20) privateKey() crypto.PrivateKey {
+	if _, ok := k.key.(*ecdsa.PublicKey); ok {
+		return &ec20Key{k.tpm, k.hnd, k.key}
+	}
+	return &rsa20Key{k.tpm, k.hnd, k.key}
 }
 
 func (k *key20) close(tpm *platformTPM) error {

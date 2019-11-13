@@ -42,6 +42,12 @@ const (
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
 	commonSrkEquivalentHandle = 0x81000001
 	commonEkEquivalentHandle  = 0x81010001
+
+	// Default passwords for the AK, an empty password. Since AKs are bound to a
+	// single TPM, passwords provide additional hardening on a running system, but
+	// for now an empty one is reasonable.
+	akDefaultParentPassword = ""
+	akDefaultOwnerPassword  = ""
 )
 
 var (

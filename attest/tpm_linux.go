@@ -274,7 +274,11 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("CreateAIK failed: %v", err)
 		}
-		return &AK{ak: newKey12(blob, pub)}, nil
+		akPub, err := ParseAKPublic(t.version, pub)
+		if err != nil {
+			return nil, fmt.Errorf("parse ak public key: %v", err)
+		}
+		return &AK{ak: newKey12(blob, pub, akPub.Public)}, nil
 	case TPMVersion20:
 		// TODO(jsonp): Abstract choice of hierarchy & parent.
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
@@ -282,9 +286,13 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 		}
 
-		blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", akTemplate)
+		blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, akDefaultParentPassword, akDefaultOwnerPassword, akTemplate)
 		if err != nil {
 			return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
+		}
+		akPub, err := ParseAKPublic(t.version, pub)
+		if err != nil {
+			return nil, fmt.Errorf("parse ak public key: %v", err)
 		}
 		keyHandle, _, err := tpm2.Load(t.rwc, srk, "", pub, blob)
 		if err != nil {
@@ -307,7 +315,7 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 		}
-		return &AK{ak: newKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
+		return &AK{ak: newKey20(t.rwc, keyHandle, blob, pub, creationData, attestation, signature, akPub.Public)}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -321,10 +329,14 @@ func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	if sKey.Encoding != keyEncodingEncrypted {
 		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
+	akPub, err := ParseAKPublic(t.version, sKey.Public)
+	if err != nil {
+		return nil, fmt.Errorf("parse ak public key: %v", err)
+	}
 
 	switch sKey.TPMVersion {
 	case TPMVersion12:
-		return &AK{ak: newKey12(sKey.Blob, sKey.Public)}, nil
+		return &AK{ak: newKey12(sKey.Blob, sKey.Public, akPub.Public)}, nil
 	case TPMVersion20:
 		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
 		if err != nil {
@@ -334,7 +346,7 @@ func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 		if hnd, _, err = tpm2.Load(t.rwc, srk, "", sKey.Public, sKey.Blob); err != nil {
 			return nil, fmt.Errorf("Load() failed: %v", err)
 		}
-		return &AK{ak: newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+		return &AK{ak: newKey20(t.rwc, hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature, akPub.Public)}, nil
 	default:
 		return nil, fmt.Errorf("cannot load AK with TPM version: %v", sKey.TPMVersion)
 	}

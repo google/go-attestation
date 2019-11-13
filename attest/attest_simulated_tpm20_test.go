@@ -22,6 +22,9 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/google/go-tpm-tools/simulator"
@@ -257,5 +260,37 @@ func TestSimTPM20Persistence(t *testing.T) {
 	}
 	if p {
 		t.Fatalf("generated a new key the second time; that shouldn't happen")
+	}
+}
+
+func TestSimTPM20RSASign(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	if _, err := tpm.Info(); err != nil {
+		t.Errorf("tpm.Info() failed: %v", err)
+	}
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("generating AK: %v", err)
+	}
+
+	key := ak.PrivateKey()
+	signer, ok := key.(crypto.Signer)
+	if !ok {
+		t.Fatalf("private key %T doesn't implement crypto.signer", key)
+	}
+	pub, ok := signer.Public().(*rsa.PublicKey)
+	if !ok {
+		t.Fatalf("public key isn't an RSA key")
+	}
+
+	digest := sha256.Sum256([]byte("hello world"))
+	sig, err := signer.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		t.Fatalf("signing failed: %v", err)
+	}
+	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, digest[:], sig); err != nil {
+		t.Errorf("verifying key signature: %v", err)
 	}
 }
