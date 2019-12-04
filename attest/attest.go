@@ -234,10 +234,20 @@ func ParseAKPublic(version TPMVersion, public []byte) (*AKPublic, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parsing TPM public key structure: %v", err)
 		}
+		switch {
+		case pub.RSAParameters == nil && pub.ECCParameters == nil:
+			return nil, errors.New("parsing public key: missing asymmetric parameters")
+		case pub.RSAParameters != nil && pub.RSAParameters.Sign == nil:
+			return nil, errors.New("parsing public key: missing rsa signature scheme")
+		case pub.ECCParameters != nil && pub.ECCParameters.Sign == nil:
+			return nil, errors.New("parsing public key: missing ecc signature scheme")
+		}
+
 		pubKey, err := pub.Key()
 		if err != nil {
 			return nil, fmt.Errorf("parsing public key: %v", err)
 		}
+
 		var h crypto.Hash
 		switch pub.Type {
 		case tpm2.AlgRSA:
