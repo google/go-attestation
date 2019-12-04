@@ -152,3 +152,14 @@ func TestPCRs(t *testing.T) {
 		}
 	}
 }
+
+func TestBug139(t *testing.T) {
+	// Tests ParseAKPublic() with known parseable but non-spec-compliant blobs, and ensure
+	// an error is returned rather than a segfault.
+	// https://github.com/google/go-attestation/issues/139
+	badBlob := []byte{0, 1, 0, 4, 0, 1, 0, 0, 0, 0, 0, 6, 0, 128, 0, 67, 0, 16, 8, 0, 0, 1, 0, 1, 0, 0}
+	msg := "parsing public key: missing rsa signature scheme"
+	if _, err := ParseAKPublic(TPMVersion20, badBlob); err == nil || err.Error() != msg {
+		t.Errorf("ParseAKPublic() err = %v, want %v", err, msg)
+	}
+}
