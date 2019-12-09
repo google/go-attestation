@@ -18,6 +18,8 @@ import (
 	"bytes"
 	"crypto"
 	"flag"
+	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -161,5 +163,15 @@ func TestBug139(t *testing.T) {
 	msg := "parsing public key: missing rsa signature scheme"
 	if _, err := ParseAKPublic(TPMVersion20, badBlob); err == nil || err.Error() != msg {
 		t.Errorf("ParseAKPublic() err = %v, want %v", err, msg)
+	}
+}
+
+func TestBug142(t *testing.T) {
+	// Tests ParseEKCertificate() with a malformed size prefix which would overflow
+	// an int16, ensuring an error is returned rather than a panic occurring.
+	input := []byte{0x10, 0x01, 0x00, 0xff, 0xff, 0x20}
+	wantErr := fmt.Errorf("parsing nvram header: ekCert size %d smaller than specified cert length %d", len(input), 65535)
+	if _, err := ParseEKCertificate(input); !reflect.DeepEqual(err, wantErr) {
+		t.Errorf("ParseEKCertificate() = %v, want %v", err, wantErr)
 	}
 }

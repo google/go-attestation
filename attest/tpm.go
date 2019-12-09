@@ -158,8 +158,8 @@ func ParseEKCertificate(ekCert []byte) (*x509.Certificate, error) {
 	// a prefix when storing a certificate in NVRAM. We look
 	// for and unwrap the certificate if its present.
 	if len(ekCert) > 5 && bytes.Equal(ekCert[:3], []byte{0x10, 0x01, 0x00}) {
-		certLen := binary.BigEndian.Uint16(ekCert[3:5])
-		if len(ekCert) < int(certLen+5) {
+		certLen := int(binary.BigEndian.Uint16(ekCert[3:5]))
+		if len(ekCert) < certLen+5 {
 			return nil, fmt.Errorf("parsing nvram header: ekCert size %d smaller than specified cert length %d", len(ekCert), certLen)
 		}
 		ekCert = ekCert[5 : 5+certLen]
