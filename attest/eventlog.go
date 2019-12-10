@@ -343,20 +343,21 @@ const eventTypeNoAction = 0x03
 
 // ParseEventLog parses an unverified measurement log.
 func ParseEventLog(measurementLog []byte) (*EventLog, error) {
+	var specID *specIDEvent
 	r := bytes.NewBuffer(measurementLog)
 	parseFn := parseRawEvent
 	var el EventLog
-	e, err := parseFn(r)
+	e, err := parseFn(r, specID)
 	if err != nil {
 		return nil, fmt.Errorf("parse first event: %v", err)
 	}
 	if e.typ == eventTypeNoAction {
-		specID, err := parseSpecIDEvent(e.data)
+		specID, err = parseSpecIDEvent(e.data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse spec ID event: %v", err)
 		}
 		for _, alg := range specID.algs {
-			switch tpm2.Algorithm(alg) {
+			switch tpm2.Algorithm(alg.ID) {
 			case tpm2.AlgSHA1:
 				el.Algs = append(el.Algs, HashSHA1)
 			case tpm2.AlgSHA256:
@@ -378,7 +379,7 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 	}
 	sequence := 1
 	for r.Len() != 0 {
-		e, err := parseFn(r)
+		e, err := parseFn(r, specID)
 		if err != nil {
 			return nil, err
 		}
@@ -390,7 +391,7 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 }
 
 type specIDEvent struct {
-	algs []uint16
+	algs []specAlgSize
 }
 
 type specAlgSize struct {
@@ -450,7 +451,7 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 		if err := binary.Read(r, binary.LittleEndian, &specAlg); err != nil {
 			return nil, fmt.Errorf("reading algorithm: %v", err)
 		}
-		e.algs = append(e.algs, specAlg.ID)
+		e.algs = append(e.algs, specAlg)
 	}
 
 	var vendorInfoSize uint8
@@ -489,7 +490,7 @@ func (e *eventSizeErr) Error() string {
 	return fmt.Sprintf("event data size (%d bytes) is greater than remaining measurement log (%d bytes)", e.eventSize, e.logSize)
 }
 
-func parseRawEvent(r *bytes.Buffer) (event rawEvent, err error) {
+func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err error) {
 	var h rawEventHeader
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
 		return event, err
@@ -516,7 +517,7 @@ type rawEvent2Header struct {
 	Type     uint32
 }
 
-func parseRawEvent2(r *bytes.Buffer) (event rawEvent, err error) {
+func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err error) {
 	var h rawEvent2Header
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
 		return event, err
@@ -529,20 +530,24 @@ func parseRawEvent2(r *bytes.Buffer) (event rawEvent, err error) {
 	if err := binary.Read(r, binary.LittleEndian, &numDigests); err != nil {
 		return event, err
 	}
+
 	for i := 0; i < int(numDigests); i++ {
 		var algID uint16
 		if err := binary.Read(r, binary.LittleEndian, &algID); err != nil {
 			return event, err
 		}
 		var digest []byte
-		switch algID {
-		case algSHA1:
-			digest = make([]byte, crypto.SHA1.Size())
-		case algSHA256:
-			digest = make([]byte, crypto.SHA256.Size())
-		default:
-			// ignore signatures that aren't SHA1 or SHA256
-			continue
+		for _, alg := range specID.algs {
+			if alg.ID != algID {
+				continue
+			}
+			if uint16(r.Len()) < alg.Size {
+				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
+			}
+			digest = make([]byte, alg.Size)
+		}
+		if len(digest) == 0 {
+			return event, fmt.Errorf("unknown algorithm ID %x", algID)
 		}
 		if _, err := io.ReadFull(r, digest); err != nil {
 			return event, err

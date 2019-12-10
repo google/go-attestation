@@ -232,13 +232,14 @@ func TestParseSpecIDEvent(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			spec, err := parseSpecIDEvent(test.data)
+			var algs []uint16
 			if (err != nil) != test.wantErr {
 				t.Fatalf("parsing spec, wantErr=%t, got=%v", test.wantErr, err)
 			}
 			if err != nil {
 				return
 			}
-			algsEq := func(got, want []uint16) bool {
+			algsEq := func(want, got []uint16) bool {
 				if len(got) != len(want) {
 					return false
 				}
@@ -250,7 +251,11 @@ func TestParseSpecIDEvent(t *testing.T) {
 				return true
 			}
 
-			if !algsEq(test.want, spec.algs) {
+			for _, alg := range(spec.algs) {
+				algs = append(algs, alg.ID)
+			}
+
+			if !algsEq(test.want, algs) {
 				t.Errorf("algorithms, got=%x, want=%x", spec.algs, test.want)
 			}
 		})
