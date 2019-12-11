@@ -47,7 +47,7 @@ To perform attestation, the client generates an AK and sends the EK and AK
 parameters to the server:
 
 ```go
-// Client generates a AK and sends it to the server
+// Client generates an AK and sends it to the server
 
 config := &attest.OpenConfig{}
 tpm, err := attest.OpenTPM(config)
