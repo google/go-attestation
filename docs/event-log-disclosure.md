@@ -6,7 +6,7 @@ This is a disclosure of a vulnerability report sent to the Trusted Computing Gro
 
 TPMs are cryptographic hardware that, among other things, can be used to verify the boot state of a machine; that a machine booted a specific OS, enabled specific BIOS settings, and hasn’t had its bootchain tampered with.
 
-As a machine boots it records events, such as the bootloader hash and secure boot keys, in a structure called the Event Log.  When an event is written to the log, its digest is also written to rolling hashes in the TPM called PCRs. PCR values can be attested remotely by the TPM and used to verify the log by replaying the log’s digests. If the replay matches the PCRs’ values the log hasn’t been tampered with.
+As a machine boots it records events, such as the bootloader hash and secure boot keys, in a structure called the Event Log. When an event is written to the log, its digest is also written to rolling hashes in the TPM called PCRs. PCR values can be attested remotely by the TPM and used to verify the log by replaying the log’s digests. If the replay matches the PCRs’ values the log hasn’t been tampered with.
 
 An Event Log is a series of events using the following format (the TPM 2.0 format is slightly different but functionally the same):
 
@@ -26,7 +26,9 @@ typedef UINT8  TCG_DIGEST[20];
 
 \- [_TCG EFI Protocol Specification 5.1_][efi-spec-5_1]
 
-PCRIndex indicates which PCR was extended. The Digest contains the value written to the PCR, and is a hash of the Event (except for some events where it’s the Digest is the value being communicated, e.g. the bootloader hash). The EventType indicates what kind of data is being conveyed.
+PCRIndex indicates which PCR was extended. The Digest is the value written to the PCR and is a hash of the Event.* EventType indicates what kind of data is being conveyed.
+
+<sub>* Except when the Digest is the value being communicated (the bootloader hash) or a hash of part of the event (some UEFI variables).</sub>
 
 [efi-spec-5_1]: https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=15
 
