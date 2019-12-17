@@ -134,7 +134,7 @@ func TestParseEventLogEventSizeTooLarge(t *testing.T) {
 		0x31, 0x39, 0x36, 0x33, 0x39, 0x34, 0x34, 0x37, 0x39, 0x32,
 		0x31, 0x32, 0x32, 0x37, 0x39, 0x30, 0x34, 0x30, 0x31, 0x6d,
 
-		// Even size (3.183 GB)
+		// Event size (3.183 GB)
 		0xbd, 0xbf, 0xef, 0x47,
 
 		// "event data"
@@ -251,7 +251,7 @@ func TestParseSpecIDEvent(t *testing.T) {
 				return true
 			}
 
-			for _, alg := range(spec.algs) {
+			for _, alg := range spec.algs {
 				algs = append(algs, alg.ID)
 			}
 

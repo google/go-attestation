@@ -19,7 +19,9 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -75,6 +77,29 @@ type Event struct {
 
 	// TODO(ericchiang): Provide examples or links for which event types must
 	// match their data to their digest.
+}
+
+func (e *Event) digestEquals(b []byte) error {
+	if len(e.Digest) == 0 {
+		return errors.New("no digests present")
+	}
+
+	switch len(e.Digest) {
+	case crypto.SHA256.Size():
+		s := sha256.Sum256(b)
+		if bytes.Equal(s[:], e.Digest) {
+			return nil
+		}
+	case crypto.SHA1.Size():
+		s := sha1.Sum(b)
+		if bytes.Equal(s[:], e.Digest) {
+			return nil
+		}
+	default:
+		return fmt.Errorf("cannot compare hash of length %d", len(e.Digest))
+	}
+
+	return fmt.Errorf("digest (len %d) does not match", len(e.Digest))
 }
 
 // EventLog is a parsed measurement log. This contains unverified data representing
