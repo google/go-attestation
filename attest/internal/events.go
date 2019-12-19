@@ -9,7 +9,31 @@ import (
 	"unicode/utf16"
 
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/uuid"
+)
+
+const (
+	// maxNameLen is the maximum accepted byte length for a name field.
+	// This value should be larger than any reasonable value.
+	maxNameLen = 2048
+	// maxDataLen is the maximum size in bytes of a variable data field.
+	// This value should be larger than any reasonable value.
+	maxDataLen = 1024 * 1024 // 1 Megabyte.
+)
+
+// GUIDs representing the contents of an UEFI_SIGNATURE_LIST.
+var (
+	hashSHA256SigGUID        = efiGUID{0xc1c41626, 0x504c, 0x4092, [8]byte{0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28}}
+	hashSHA1SigGUID          = efiGUID{0x826ca512, 0xcf10, 0x4ac9, [8]byte{0xb1, 0x87, 0xbe, 0x01, 0x49, 0x66, 0x31, 0xbd}}
+	hashSHA224SigGUID        = efiGUID{0x0b6e5233, 0xa65c, 0x44c9, [8]byte{0x94, 0x07, 0xd9, 0xab, 0x83, 0xbf, 0xc8, 0xbd}}
+	hashSHA384SigGUID        = efiGUID{0xff3e5307, 0x9fd0, 0x48c9, [8]byte{0x85, 0xf1, 0x8a, 0xd5, 0x6c, 0x70, 0x1e, 0x01}}
+	hashSHA512SigGUID        = efiGUID{0x093e0fae, 0xa6c4, 0x4f50, [8]byte{0x9f, 0x1b, 0xd4, 0x1e, 0x2b, 0x89, 0xc1, 0x9a}}
+	keyRSA2048SigGUID        = efiGUID{0x3c5766e8, 0x269c, 0x4e34, [8]byte{0xaa, 0x14, 0xed, 0x77, 0x6e, 0x85, 0xb3, 0xb6}}
+	certRSA2048SHA256SigGUID = efiGUID{0xe2b36190, 0x879b, 0x4a3d, [8]byte{0xad, 0x8d, 0xf2, 0xe7, 0xbb, 0xa3, 0x27, 0x84}}
+	certRSA2048SHA1SigGUID   = efiGUID{0x67f8444f, 0x8743, 0x48f1, [8]byte{0xa3, 0x28, 0x1e, 0xaa, 0xb8, 0x73, 0x60, 0x80}}
+	certX509SigGUID          = efiGUID{0xa5c059a1, 0x94e4, 0x4aa7, [8]byte{0x87, 0xb5, 0xab, 0x15, 0x5c, 0x2b, 0xf0, 0x72}}
+	certHashSHA256SigGUID    = efiGUID{0x3bd2a492, 0x96c0, 0x4079, [8]byte{0xb4, 0x20, 0xfc, 0xf9, 0x8e, 0xf1, 0x03, 0xed}}
+	certHashSHA384SigGUID    = efiGUID{0x7076876e, 0x80c2, 0x4ee6, [8]byte{0xaa, 0xd2, 0x28, 0xb3, 0x49, 0xa6, 0x86, 0x5b}}
+	certHashSHA512SigGUID    = efiGUID{0x446dbf63, 0x2502, 0x4cda, [8]byte{0xbc, 0xfa, 0x24, 0x65, 0xd2, 0xb0, 0xfe, 0x9d}}
 )
 
 // EventType describes the type of event signalled in the event log.
@@ -96,8 +120,9 @@ func (e EventType) String() string {
 	return fmt.Sprintf("EventType(0x%x)", uint32(e))
 }
 
-// ExtractEventType returns the event type indicated by the provided value.
-func ExtractEventType(et uint32) (EventType, error) {
+// UntrustedParseEventType returns the event type indicated by
+// the provided value.
+func UntrustedParseEventType(et uint32) (EventType, error) {
 	// "The value associated with a UEFI specific platform event type MUST be in
 	// the range between 0x80000000 and 0x800000FF, inclusive."
 	if (et < 0x80000000 && et > 0x800000FF) || (et < 0x0 && et > 0x12) {
@@ -120,25 +145,11 @@ type efiGUID struct {
 }
 
 func (d efiGUID) String() string {
-	var buf bytes.Buffer
-
-	if err := binary.Write(&buf, binary.BigEndian, d.Data1); err != nil {
-		return ""
-	}
-	if err := binary.Write(&buf, binary.BigEndian, d.Data2); err != nil {
-		return ""
-	}
-	if err := binary.Write(&buf, binary.BigEndian, d.Data3); err != nil {
-		return ""
-	}
-	if err := binary.Write(&buf, binary.BigEndian, d.Data4); err != nil {
-		return ""
-	}
-	uuid := uuid.UUID{}
-	if err := uuid.UnmarshalBinary(buf.Bytes()); err != nil {
-		return ""
-	}
-	return uuid.String()
+	var u [8]byte
+	binary.BigEndian.PutUint32(u[:4], d.Data1)
+	binary.BigEndian.PutUint16(u[4:6], d.Data2)
+	binary.BigEndian.PutUint16(u[6:8], d.Data3)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", u[:4], u[4:6], u[6:8], d.Data4[:2], d.Data4[2:])
 }
 
 // UEFIVariableDataHeader represents the leading fixed-size fields
@@ -158,10 +169,15 @@ type UEFIVariableData struct {
 
 // ParseUEFIVariableData parses the data section of an event structured as
 // a UEFI variable.
+//
+// https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_Specific_Platform_Profile_for_TPM_2p0_1p04_PUBLIC.pdf#page=100
 func ParseUEFIVariableData(r io.Reader) (ret UEFIVariableData, err error) {
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
 		return
+	}
+	if ret.Header.UnicodeNameLength > maxNameLen {
+		return UEFIVariableData{}, fmt.Errorf("unicode name too long: %d > %d", ret.Header.UnicodeNameLength, maxNameLen)
 	}
 	ret.UnicodeName = make([]uint16, ret.Header.UnicodeNameLength)
 	for i := 0; uint64(i) < ret.Header.UnicodeNameLength; i++ {
@@ -169,6 +185,9 @@ func ParseUEFIVariableData(r io.Reader) (ret UEFIVariableData, err error) {
 		if err != nil {
 			return
 		}
+	}
+	if ret.Header.VariableDataLength > maxDataLen {
+		return UEFIVariableData{}, fmt.Errorf("variable data too long: %d > %d", ret.Header.VariableDataLength, maxDataLen)
 	}
 	ret.VariableData = make([]byte, ret.Header.VariableDataLength)
 	_, err = io.ReadFull(r, ret.VariableData)
@@ -191,6 +210,8 @@ type UEFIVariableAuthority struct {
 
 // ParseUEFIVariableAuthority parses the data section of an event structured as
 // a UEFI variable authority.
+//
+// https://uefi.org/sites/default/files/resources/UEFI_Spec_2_8_final.pdf#page=1789
 func ParseUEFIVariableAuthority(r io.Reader) (UEFIVariableAuthority, error) {
 	v, err := ParseUEFIVariableData(r)
 	if err != nil {
@@ -225,6 +246,9 @@ type efiSignatureList struct {
 	Signatures    []byte
 }
 
+// parseEfiSignatureList parses a EFI_SIGNATURE_LIST structure.
+// The structure and related GUIDs are defined at:
+// https://uefi.org/sites/default/files/resources/UEFI_Spec_2_8_final.pdf#page=1790
 func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 	if len(b) < 28 {
 		// Being passed an empty signature list here appears to be valid
@@ -235,14 +259,22 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 	certificates := []x509.Certificate{}
 	hashes := [][]byte{}
 
-	for offset := 0; offset < len(b); {
+	for buf.Len() > 0 {
 		err := binary.Read(buf, binary.LittleEndian, &signatures.Header)
 		if err != nil {
 			return nil, nil, err
 		}
-		signatureType := signatures.Header.SignatureType.String()
+
+		if signatures.Header.SignatureHeaderSize > maxDataLen {
+			return nil, nil, fmt.Errorf("signature header too large: %d > %d", signatures.Header.SignatureHeaderSize, maxDataLen)
+		}
+		if signatures.Header.SignatureListSize > maxDataLen {
+			return nil, nil, fmt.Errorf("signature list too large: %d > %d", signatures.Header.SignatureListSize, maxDataLen)
+		}
+
+		signatureType := signatures.Header.SignatureType
 		switch signatureType {
-		case "a5c059a1-94e4-4aa7-87b5-ab155c2bf072": // X509 certificate
+		case certX509SigGUID: // X509 certificate
 			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-28; {
 				signature := efiSignatureData{}
 				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-16)
@@ -261,7 +293,7 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 				sigOffset += int(signatures.Header.SignatureSize)
 				certificates = append(certificates, *cert)
 			}
-		case "c1c41626-504c-4092-aca9-41f936934328": // SHA256
+		case hashSHA256SigGUID: // SHA256
 			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-28; {
 				signature := efiSignatureData{}
 				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-16)
@@ -270,32 +302,38 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 					return nil, nil, err
 				}
 				err = binary.Read(buf, binary.LittleEndian, &signature.SignatureData)
+				if err != nil {
+					return nil, nil, err
+				}
 				hashes = append(hashes, signature.SignatureData)
 				sigOffset += int(signatures.Header.SignatureSize)
 			}
-		case "3c5766e8-269c-4e34-aa14-ed776e8b3b6": // Raw RSA2048 keys
+		case keyRSA2048SigGUID:
 			err = errors.New("unhandled RSA2048 key")
-		case "e2b36190-879b-4a3d-ad8d-f2e7bba32784":
+		case certRSA2048SHA256SigGUID:
 			err = errors.New("unhandled RSA2048-SHA256 key")
-		case "826ca512-cf10-4ac9-b187-be01496631bd":
+		case hashSHA1SigGUID:
 			err = errors.New("unhandled SHA1 hash")
-		case "67f8444f-8743-48f1-a328-1eaab8736080":
+		case certRSA2048SHA1SigGUID:
 			err = errors.New("unhandled RSA2048-SHA1 key")
-		case "b6e5233-a65c-44c9-9407-d9ab83bfc8bd":
+		case hashSHA224SigGUID:
 			err = errors.New("unhandled SHA224 hash")
-		case "ff3e5307-9fd0-48c9-85f1-8ad56c701e01":
+		case hashSHA384SigGUID:
 			err = errors.New("unhandled SHA384 hash")
-		case "93e0fae-a6c4-4f50-9f1b-d41e2b89c19a":
+		case hashSHA512SigGUID:
 			err = errors.New("unhandled SHA512 hash")
-		case "3bd2a492-96c0-4079-b420-fcf98ef103ed":
-			err = errors.New("unhandled X509-SHA256 key")
+		case certHashSHA256SigGUID:
+			err = errors.New("unhandled X509-SHA256 hash metadata")
+		case certHashSHA384SigGUID:
+			err = errors.New("unhandled X509-SHA384 hash metadata")
+		case certHashSHA512SigGUID:
+			err = errors.New("unhandled X509-SHA512 hash metadata")
 		default:
 			err = fmt.Errorf("unhandled signature type %s", signatureType)
 		}
 		if err != nil {
 			return nil, nil, err
 		}
-		offset += int(signatures.Header.SignatureListSize)
 	}
 	return certificates, hashes, nil
 }
@@ -310,6 +348,10 @@ type EFISignatureData struct {
 
 func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
 	certificates := []x509.Certificate{}
+
+	if len(b) < 16 {
+		return nil, fmt.Errorf("invalid signature: buffer smaller than header (%d < %d)", len(b), 16)
+	}
 
 	buf := bytes.NewReader(b)
 	signature := EFISignatureData{}

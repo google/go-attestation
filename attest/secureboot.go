@@ -14,28 +14,42 @@ import (
 type SecurebootState struct {
 	Enabled bool
 
-	PlatformKeys      []x509.Certificate
+	// PlatformKeys enumerates keys which can sign a key exchange key.
+	PlatformKeys []x509.Certificate
+	// PlatformKeys enumerates key hashes which can sign a key exchange key.
 	PlatformKeyHashes [][]byte
 
-	ExchangeKeys      []x509.Certificate
+	// ExchangeKeys enumerates keys which can sign a database of permitted or
+	// forbidden keys.
+	ExchangeKeys []x509.Certificate
+	// ExchangeKeyHashes enumerates key hashes which can sign a database or
+	// permitted or forbidden keys.
 	ExchangeKeyHashes [][]byte
 
-	PermittedKeys   []x509.Certificate
+	// PermittedKeys enumerates keys which may sign binaries to run.
+	PermittedKeys []x509.Certificate
+	// PermittedHashes enumerates hashes which permit binaries to run.
 	PermittedHashes [][]byte
 
-	ForbiddenKeys   []x509.Certificate
+	// ForbiddenKeys enumerates keys which must not permit a binary to run.
+	ForbiddenKeys []x509.Certificate
+	// ForbiddenKeys enumerates hashes which must not permit a binary to run.
 	ForbiddenHashes [][]byte
 
-	PreSeparatorAuthority  []x509.Certificate
+	// PreSeparatorAuthority describes the use of a secure-boot key to authorize
+	// the execution of a binary before the separator.
+	PreSeparatorAuthority []x509.Certificate
+	// PostSeparatorAuthority describes the use of a secure-boot key to authorize
+	// the execution of a binary after the separator.
 	PostSeparatorAuthority []x509.Certificate
 }
 
-// ExtractSecurebootState parses a series of events to determine the
+// ParseSecurebootState parses a series of events to determine the
 // configuration of secure boot on a device. An error is returned if
 // the state cannot be determined, or if the event log is structured
 // in such a way that it may have been tampered post-execution of
 // platform firmware.
-func ExtractSecurebootState(events []Event) (*SecurebootState, error) {
+func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 	// This algorithm verifies the following:
 	// - All events in PCR 7 have event types which are expected in PCR 7.
 	// - All events are parsable according to their event type.
@@ -61,7 +75,7 @@ func ExtractSecurebootState(events []Event) (*SecurebootState, error) {
 			continue
 		}
 
-		et, err := internal.ExtractEventType(uint32(e.Type))
+		et, err := internal.UntrustedParseEventType(uint32(e.Type))
 		if err != nil {
 			return nil, fmt.Errorf("unrecognised event type: %v", err)
 		}
@@ -76,8 +90,8 @@ func ExtractSecurebootState(events []Event) (*SecurebootState, error) {
 			if !bytes.Equal(e.Data, []byte{0, 0, 0, 0}) {
 				return nil, fmt.Errorf("invalid separator data at event %d: %v", e.sequence, e.Data)
 			}
-			if err := e.digestEquals(e.Data); err != nil {
-				return nil, fmt.Errorf("invalid separator digest at event %d: %v", e.sequence, err)
+			if digestVerify != nil {
+				return nil, fmt.Errorf("invalid separator digest at event %d: %v", e.sequence, digestVerify)
 			}
 
 		case internal.EFIAction:
@@ -147,20 +161,21 @@ func ExtractSecurebootState(events []Event) (*SecurebootState, error) {
 		}
 	}
 
-	if out.Enabled {
-		if !seenAuthority {
-			return nil, errors.New("secure boot was enabled but no key was used")
-		}
-		if len(out.PlatformKeys) == 0 && len(out.PlatformKeyHashes) == 0 {
-			return nil, errors.New("secure boot was enabled but no platform keys were known")
-		}
-		if len(out.ExchangeKeys) == 0 && len(out.ExchangeKeyHashes) == 0 {
-			return nil, errors.New("secure boot was enabled but no key exchange keys were known")
-		}
-		if len(out.PermittedKeys) == 0 && len(out.PermittedHashes) == 0 {
-			return nil, errors.New("secure boot was enabled but no keys or hashes were permitted")
-		}
+	if !out.Enabled {
+		return &out, nil
 	}
 
+	if !seenAuthority {
+		return nil, errors.New("secure boot was enabled but no key was used")
+	}
+	if len(out.PlatformKeys) == 0 && len(out.PlatformKeyHashes) == 0 {
+		return nil, errors.New("secure boot was enabled but no platform keys were known")
+	}
+	if len(out.ExchangeKeys) == 0 && len(out.ExchangeKeyHashes) == 0 {
+		return nil, errors.New("secure boot was enabled but no key exchange keys were known")
+	}
+	if len(out.PermittedKeys) == 0 && len(out.PermittedHashes) == 0 {
+		return nil, errors.New("secure boot was enabled but no keys or hashes were permitted")
+	}
 	return &out, nil
 }

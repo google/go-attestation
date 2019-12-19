@@ -25,7 +25,7 @@ func TestSecureBoot(t *testing.T) {
 		t.Fatalf("validating event log: %v", err)
 	}
 
-	sbState, err := ExtractSecurebootState(events)
+	sbState, err := ParseSecurebootState(events)
 	if err != nil {
 		t.Fatalf("ExtractSecurebootState() failed: %v", err)
 	}
