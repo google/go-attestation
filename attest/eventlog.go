@@ -520,6 +520,9 @@ func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err er
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
 		return event, err
 	}
+	if h.EventSize == 0 {
+		return event, errors.New("event data size is 0")
+	}
 	if h.EventSize > uint32(r.Len()) {
 		return event, &eventSizeErr{h.EventSize, r.Len()}
 	}
@@ -584,6 +587,9 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 	var eventSize uint32
 	if err = binary.Read(r, binary.LittleEndian, &eventSize); err != nil {
 		return event, err
+	}
+	if eventSize == 0 {
+		return event, errors.New("event data size is 0")
 	}
 	if eventSize > uint32(r.Len()) {
 		return event, &eventSizeErr{eventSize, r.Len()}
