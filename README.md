@@ -125,3 +125,28 @@ if err != nil {
 
 At this point, the server records the AK and EK association and allows the client
 to use its AK as a credential (e.g. by issuing it a client certificate).
+
+## Bluetooth
+
+Currently only supported under Linux. Build attest/bluetooth-server
+and attest/bluetooth-client. Create a 16 byte shared secret:
+
+```
+dd if=/dev/random of=secret bs=1 count=16
+```
+
+and place it on client and server. On the machine you wish to attest, run
+
+```
+bluetooth-server name secret
+```
+
+where name is some name that defines the system and secret is the path
+to the shared secret. On the machine that should verify the attestation, run
+
+```
+bluetooth-client name secret
+```
+
+where name is the same name used on the attesting system and secret is
+the path to the shared secret.
