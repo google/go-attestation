@@ -302,7 +302,17 @@ func (t *TPM) LoadAK(opaqueBlob []byte) (*AK, error) {
 // This is a low-level API. Consumers seeking to attest the state of the
 // platform should use tpm.AttestPlatform() instead.
 func (t *TPM) MeasurementLog() ([]byte, error) {
-	return t.tpm.measurementLog()
+	el, err := t.tpm.measurementLog()
+	if err != nil {
+		return nil, err
+	}
+
+	// A valid event log contains at least one SpecID event header (28 bytes).
+	// For TPM 1.2, we would expect at least an event header (32 bytes).
+	if minValidSize := 28; len(el) < minValidSize {
+		return nil, fmt.Errorf("event log too short: %d < %d", len(el), minValidSize)
+	}
+	return el, nil
 }
 
 // NewAK creates an attestation key.
