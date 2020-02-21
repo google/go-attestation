@@ -223,47 +223,36 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 	}
 
 	pcrByIndex := map[int][]byte{}
-	pcrDigestLength := HashAlg(att.AttestedQuoteInfo.PCRSelection.Hash).cryptoHash().Size()
+	pcrDigestAlg := HashAlg(att.AttestedQuoteInfo.PCRSelection.Hash).cryptoHash()
 	for _, pcr := range pcrs {
-		// TODO(jsonp): Use pcr.DigestAlg once #116 is fixed.
-		if len(pcr.Digest) == pcrDigestLength {
+		if pcr.DigestAlg == pcrDigestAlg {
 			pcrByIndex[pcr.Index] = pcr.Digest
 		}
 	}
 
-	n := len(att.AttestedQuoteInfo.PCRDigest)
-	hash, ok := hashBySize[n]
-	if !ok {
-		return fmt.Errorf("quote used unsupported hash algorithm length: %d", n)
-	}
-
-	h := hash.New()
+	sigHash.Reset()
 	for _, index := range att.AttestedQuoteInfo.PCRSelection.PCRs {
 		digest, ok := pcrByIndex[index]
 		if !ok {
 			return fmt.Errorf("quote was over PCR %d which wasn't provided", index)
 		}
-		h.Write(digest)
+		sigHash.Write(digest)
 	}
 
-	if !bytes.Equal(h.Sum(nil), att.AttestedQuoteInfo.PCRDigest) {
+	if !bytes.Equal(sigHash.Sum(nil), att.AttestedQuoteInfo.PCRDigest) {
 		return fmt.Errorf("quote digest didn't match pcrs provided")
 	}
 	return nil
 }
 
-var hashBySize = map[int]crypto.Hash{
-	crypto.SHA1.Size():   crypto.SHA1,
-	crypto.SHA256.Size(): crypto.SHA256,
-}
+func extend(pcr PCR, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest []byte, err error) {
+	h := pcr.DigestAlg
 
-func extend(pcr, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest []byte, err error) {
-	h, ok := hashBySize[len(pcr)]
-	if !ok {
-		return nil, nil, fmt.Errorf("pcr %d was not a known hash size: %d", e.index, len(pcr))
-	}
 	for _, digest := range e.digests {
-		if len(digest) != len(pcr) {
+		if digest.hash != pcr.DigestAlg {
+			continue
+		}
+		if len(digest.data) != len(pcr.Digest) {
 			continue
 		}
 		hash := h.New()
@@ -273,10 +262,10 @@ func extend(pcr, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest []byt
 			b := make([]byte, h.Size())
 			hash.Write(b)
 		}
-		hash.Write(digest)
-		return hash.Sum(nil), digest, nil
+		hash.Write(digest.data)
+		return hash.Sum(nil), digest.data, nil
 	}
-	return nil, nil, fmt.Errorf("no event digest matches pcr length: %d", len(pcr))
+	return nil, nil, fmt.Errorf("no event digest matches pcr algorithm: %d", pcr.DigestAlg)
 }
 
 // replayPCR replays the event log for a specific PCR, using pcr and
@@ -294,7 +283,7 @@ func replayPCR(rawEvents []rawEvent, pcr PCR) ([]Event, bool) {
 			continue
 		}
 
-		replayValue, digest, err := extend(pcr.Digest, replay, e)
+		replayValue, digest, err := extend(pcr, replay, e)
 		if err != nil {
 			return nil, false
 		}
@@ -489,12 +478,17 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 	return &e, nil
 }
 
+type digest struct {
+	hash crypto.Hash
+	data []byte
+}
+
 type rawEvent struct {
 	sequence int
 	index    int
 	typ      EventType
 	data     []byte
-	digests  [][]byte
+	digests  []digest
 }
 
 // TPM 1.2 event log format. See "5.1 SHA1 Event Log Entry Format"
@@ -526,15 +520,21 @@ func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err er
 	if h.EventSize > uint32(r.Len()) {
 		return event, &eventSizeErr{h.EventSize, r.Len()}
 	}
+
+	digests := make([]digest, 1)
+	digests[0].hash = crypto.SHA1
+
 	data := make([]byte, int(h.EventSize))
 	if _, err := io.ReadFull(r, data); err != nil {
 		return event, err
 	}
+	digests[0].data = h.Digest[:]
+
 	return rawEvent{
 		typ:     EventType(h.Type),
 		data:    data,
 		index:   int(h.PCRIndex),
-		digests: [][]byte{h.Digest[:]},
+		digests: digests,
 	}, nil
 }
 
@@ -545,8 +545,14 @@ type rawEvent2Header struct {
 	Type     uint32
 }
 
+var algorithmMap = map[tpm2.Algorithm]crypto.Hash{
+	tpm2.AlgSHA1:   crypto.SHA1,
+	tpm2.AlgSHA256: crypto.SHA256,
+}
+
 func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err error) {
 	var h rawEvent2Header
+
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
 		return event, err
 	}
@@ -564,7 +570,8 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 		if err := binary.Read(r, binary.LittleEndian, &algID); err != nil {
 			return event, err
 		}
-		var digest []byte
+		var digest digest
+
 		for _, alg := range specID.algs {
 			if alg.ID != algID {
 				continue
@@ -572,12 +579,16 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 			if uint16(r.Len()) < alg.Size {
 				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
 			}
-			digest = make([]byte, alg.Size)
+			digest.data = make([]byte, alg.Size)
+			hash, ok := algorithmMap[tpm2.Algorithm(alg.ID)]
+			if ok {
+				digest.hash = hash
+			}
 		}
-		if len(digest) == 0 {
+		if len(digest.data) == 0 {
 			return event, fmt.Errorf("unknown algorithm ID %x", algID)
 		}
-		if _, err := io.ReadFull(r, digest); err != nil {
+		if _, err := io.ReadFull(r, digest.data); err != nil {
 			return event, err
 		}
 		event.digests = append(event.digests, digest)
