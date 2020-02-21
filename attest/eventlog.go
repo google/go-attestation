@@ -265,7 +265,7 @@ func extend(pcr PCR, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest [
 		hash.Write(digest.data)
 		return hash.Sum(nil), digest.data, nil
 	}
-	return nil, nil, fmt.Errorf("no event digest matches pcr algorithm: %d", pcr.DigestAlg)
+	return nil, nil, fmt.Errorf("no event digest matches pcr algorithm: %v", pcr.DigestAlg)
 }
 
 // replayPCR replays the event log for a specific PCR, using pcr and
@@ -521,14 +521,12 @@ func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err er
 		return event, &eventSizeErr{h.EventSize, r.Len()}
 	}
 
-	digests := make([]digest, 1)
-	digests[0].hash = crypto.SHA1
-
 	data := make([]byte, int(h.EventSize))
 	if _, err := io.ReadFull(r, data); err != nil {
 		return event, err
 	}
-	digests[0].data = h.Digest[:]
+
+	digests := []digest{{hash: crypto.SHA1, data: h.Digest[:]}}
 
 	return rawEvent{
 		typ:     EventType(h.Type),
@@ -543,11 +541,6 @@ func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err er
 type rawEvent2Header struct {
 	PCRIndex uint32
 	Type     uint32
-}
-
-var algorithmMap = map[tpm2.Algorithm]crypto.Hash{
-	tpm2.AlgSHA1:   crypto.SHA1,
-	tpm2.AlgSHA256: crypto.SHA256,
 }
 
 func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err error) {
@@ -580,10 +573,7 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
 			}
 			digest.data = make([]byte, alg.Size)
-			hash, ok := algorithmMap[tpm2.Algorithm(alg.ID)]
-			if ok {
-				digest.hash = hash
-			}
+			digest.hash = HashAlg(alg.ID).cryptoHash()
 		}
 		if len(digest.data) == 0 {
 			return event, fmt.Errorf("unknown algorithm ID %x", algID)
