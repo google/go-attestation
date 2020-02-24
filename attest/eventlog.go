@@ -40,6 +40,15 @@ type ReplayError struct {
 	invalidPCRs []int
 }
 
+func (e ReplayError) affected(pcr int) bool {
+	for _, p := range e.invalidPCRs {
+		if p == pcr {
+			return true
+		}
+	}
+	return false
+}
+
 // Error returns a human-friendly description of replay failures.
 func (e ReplayError) Error() string {
 	return fmt.Sprintf("event log failed to verify: the following registers failed to replay: %v", e.invalidPCRs)
@@ -111,11 +120,44 @@ type EventLog struct {
 	rawEvents []rawEvent
 }
 
+func (e *EventLog) clone() *EventLog {
+	out := EventLog{
+		Algs:      make([]HashAlg, len(e.Algs)),
+		rawEvents: make([]rawEvent, len(e.rawEvents)),
+	}
+	copy(out.Algs, e.Algs)
+	copy(out.rawEvents, e.rawEvents)
+	return &out
+}
+
 // Verify replays the event log against a TPM's PCR values, returning the
 // events which could be matched to a provided PCR value.
 // An error is returned if the replayed digest for events with a given PCR
 // index do not match any provided value for that PCR index.
 func (e *EventLog) Verify(pcrs []PCR) ([]Event, error) {
+	events, err := e.verify(pcrs)
+	// If there were any issues replaying the PCRs, try each of the workarounds
+	// in turn.
+	// TODO(jsonp): Allow workarounds to be combined.
+	if rErr, isReplayErr := err.(ReplayError); isReplayErr {
+		for _, wkrd := range eventlogWorkarounds {
+			if !rErr.affected(wkrd.affectedPCR) {
+				continue
+			}
+			el := e.clone()
+			if err := wkrd.apply(el); err != nil {
+				return nil, fmt.Errorf("failed applying workaround %q: %v", wkrd.id, err)
+			}
+			if events, err := el.verify(pcrs); err == nil {
+				return events, nil
+			}
+		}
+	}
+
+	return events, err
+}
+
+func (e *EventLog) verify(pcrs []PCR) ([]Event, error) {
 	events, err := replayEvents(e.rawEvents, pcrs)
 	if err != nil {
 		if _, isReplayErr := err.(ReplayError); isReplayErr {
