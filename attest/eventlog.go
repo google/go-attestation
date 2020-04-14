@@ -253,7 +253,7 @@ func extend(pcr PCR, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest [
 			continue
 		}
 		if len(digest.data) != len(pcr.Digest) {
-			continue
+			return nil, nil, fmt.Errorf("digest data length (%d) doesn't match PCR digest length (%d)", len(digest.data), len(pcr.Digest));
 		}
 		hash := h.New()
 		if len(replay) != 0 {
