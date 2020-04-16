@@ -49,7 +49,7 @@ func inject(e *EventLog, pcr int, data string) error {
 	for _, alg := range e.Algs {
 		h := alg.cryptoHash().New()
 		h.Write([]byte(data))
-		evt.digests = append(evt.digests, h.Sum(nil))
+		evt.digests = append(evt.digests, digest{hash: alg.cryptoHash(), data: h.Sum(nil)})
 	}
 	e.rawEvents = append(e.rawEvents, evt)
 	return nil
