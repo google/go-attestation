@@ -8,6 +8,7 @@ import (
 	"io"
 	"unicode/utf16"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
@@ -77,6 +78,11 @@ const (
 	EFIHCRTMEvent              EventType = 0x80000010
 	EFIVariableAuthority       EventType = 0x800000e0
 )
+
+// ErrSigMissingGUID is returned if an EFI_SIGNATURE_DATA structure was parsed
+// successfully, however was missing the SignatureOwner GUID. This case is
+// handled specially as a workaround for a bug relating to authority events.
+var ErrSigMissingGUID = errors.New("signature data was missing owner GUID")
 
 var eventTypeNames = map[EventType]string{
 	PrebootCert:          "Preboot Cert",
@@ -218,10 +224,7 @@ func ParseUEFIVariableAuthority(r io.Reader) (UEFIVariableAuthority, error) {
 		return UEFIVariableAuthority{}, err
 	}
 	certs, err := parseEfiSignature(v.VariableData)
-	if err != nil {
-		return UEFIVariableAuthority{}, err
-	}
-	return UEFIVariableAuthority{Certs: certs}, nil
+	return UEFIVariableAuthority{Certs: certs}, err
 }
 
 // efiSignatureData represents the EFI_SIGNATURE_DATA type.
@@ -363,9 +366,21 @@ func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
 	if err := binary.Read(buf, binary.LittleEndian, &signature.SignatureData); err != nil {
 		return certificates, err
 	}
+
 	cert, err := x509.ParseCertificate(signature.SignatureData)
 	if err == nil {
 		certificates = append(certificates, *cert)
+	} else {
+		// A bug in shim may cause an event to be missing the SignatureOwner GUID.
+		// We handle this, but signal back to the caller using ErrSigMissingGUID.
+		if _, isStructuralErr := err.(asn1.StructuralError); isStructuralErr {
+			var err2 error
+			cert, err2 = x509.ParseCertificate(b)
+			if err2 == nil {
+				certificates = append(certificates, *cert)
+				err = ErrSigMissingGUID
+			}
+		}
 	}
 	return certificates, err
 }
