@@ -19,6 +19,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tpm/tpm"
@@ -45,6 +46,7 @@ const (
 	TPMInterfaceDirect TPMInterface = iota
 	TPMInterfaceKernelManaged
 	TPMInterfaceDaemonManaged
+	TPMInterfaceCommandChannelManaged
 )
 
 // OpenConfig encapsulates settings passed to OpenTPM().
@@ -53,6 +55,10 @@ type OpenConfig struct {
 	// attempt to use. If the specified version is not available,
 	// ErrTPMNotAvailable is returned. Defaults to TPMVersionAgnostic.
 	TPMVersion TPMVersion
+	// CommandChannel can be passed if a TPM connection has already
+	// been opened, such as a simulator or a network device. Currently
+	// only supported with TPM2.0.
+	CommandChannel io.ReadWriteCloser
 }
 
 // keyEncoding indicates how an exported TPM key is represented.
@@ -85,10 +91,10 @@ const (
 )
 
 type ak interface {
-	close(*platformTPM) error
+	close(t interface{}) error
 	marshal() ([]byte, error)
-	activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error)
-	quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error)
+	activateCredential(t interface{}, in EncryptedCredential) ([]byte, error)
+	quote(t interface{}, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
 }
 
@@ -395,6 +401,9 @@ func (t *probedTPM) MatchesConfig(config OpenConfig) bool {
 func OpenTPM(config *OpenConfig) (*TPM, error) {
 	if config == nil {
 		config = defaultOpenConfig
+	}
+	if config.CommandChannel != nil {
+		return openCommandChannel(config.TPMVersion, config.CommandChannel)
 	}
 	candidateTPMs, err := probeSystemTPMs()
 	if err != nil {

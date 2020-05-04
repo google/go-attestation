@@ -271,7 +271,7 @@ func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, er
 type TPM struct {
 	// tpm holds a platform specific implementation of TPM logic: Windows or Linux.
 	// see *_linux.go and *_windows.go files for definitions of these structs.
-	tpm *platformTPM
+	tpm *selectorTPM
 }
 
 // Close shuts down the connection to the TPM.
@@ -300,7 +300,8 @@ func (t *TPM) LoadAK(opaqueBlob []byte) (*AK, error) {
 // MeasurementLog returns the present value of the System Measurement Log.
 //
 // This is a low-level API. Consumers seeking to attest the state of the
-// platform should use tpm.AttestPlatform() instead.
+// platform should use tpm.AttestPlatform() instead.  Not supported when
+// using CommandChannel.
 func (t *TPM) MeasurementLog() ([]byte, error) {
 	el, err := t.tpm.measurementLog()
 	if err != nil {

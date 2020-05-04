@@ -29,16 +29,18 @@ import (
 
 func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	t.Helper()
-	tpm, err := simulator.Get()
+	sim, err := simulator.Get()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return tpm, &TPM{tpm: &platformTPM{
-		version: TPMVersion20,
-		interf:  TPMInterfaceKernelManaged,
-		sysPath: "/dev/tpmrm0",
-		rwc:     tpm,
-	}}
+	tpm, err := OpenTPM(&OpenConfig{
+		TPMVersion:     TPMVersion20,
+		CommandChannel: sim,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sim, tpm
 }
 
 func TestSimTPM20EK(t *testing.T) {

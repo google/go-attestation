@@ -34,6 +34,7 @@ import (
 
 var wellKnownAuth [20]byte
 
+// platformTPM interfaces with a TPM device on the system.
 type platformTPM struct {
 	version TPMVersion
 	pcp     *winPCP
@@ -89,9 +90,12 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		return nil, fmt.Errorf("tbsConvertVersion(%v) failed: %v", info.TBSInfo.TPMVersion, err)
 	}
 
-	return &TPM{tpm: &platformTPM{
-		pcp:     pcp,
+	return &TPM{tpm: &selectorTPM{
 		version: vers,
+		pTPM: &platformTPM{
+			pcp:     pcp,
+			version: vers,
+		},
 	}}, nil
 }
 
@@ -283,9 +287,9 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		return &AK{ak: newKey12(kh, name, props.RawPublic)}, nil
+		return &AK{ak: newPlatformKey12(kh, name, props.RawPublic)}, nil
 	case TPMVersion20:
-		return &AK{ak: newKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
+		return &AK{ak: newPlatformKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
@@ -307,9 +311,9 @@ func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		return &AK{ak: newKey12(hnd, sKey.Name, sKey.Public)}, nil
+		return &AK{ak: newPlatformKey12(hnd, sKey.Name, sKey.Public)}, nil
 	case TPMVersion20:
-		return &AK{ak: newKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+		return &AK{ak: newPlatformKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
@@ -377,7 +381,7 @@ func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	return out, nil
 }
 
-func (t *platformTPM) measurementLog() ([]byte, error) {
+func platformMeasurementLog() ([]byte, error) {
 	context, err := tpmtbs.CreateContext(tpmtbs.TPMVersion20, tpmtbs.IncludeTPM20|tpmtbs.IncludeTPM12)
 	if err != nil {
 		return nil, err

@@ -62,6 +62,6 @@ func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	return nil, errUnsupported
 }
 
-func (t *platformTPM) measurementLog() ([]byte, error) {
+func platformMeasurementLog() ([]byte, error) {
 	return nil, errUnsupported
 }

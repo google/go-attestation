@@ -24,7 +24,7 @@ import (
 
 var (
 	testTPM12   = flag.Bool("testTPM12", false, "run tests for TPM1.2")
-	tpm12config = &OpenConfig{TPMVersion12}
+	tpm12config = &OpenConfig{TPMVersion: TPMVersion12}
 )
 
 func openTPM12(t *testing.T) *TPM {

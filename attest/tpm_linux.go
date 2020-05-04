@@ -18,9 +18,7 @@ package attest
 
 import (
 	"crypto"
-	"crypto/rsa"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,7 +32,6 @@ import (
 	"github.com/google/go-tspi/tspiconst"
 
 	"github.com/google/go-tpm/tpm2"
-	"github.com/google/go-tpm/tpmutil"
 	"github.com/google/go-tspi/attestation"
 )
 
@@ -47,9 +44,7 @@ type platformTPM struct {
 	version TPMVersion
 	interf  TPMInterface
 
-	sysPath string
-	rwc     io.ReadWriteCloser
-	ctx     *tspi.Context
+	ctx *tspi.Context
 }
 
 func probeSystemTPMs() ([]probedTPM, error) {
@@ -86,6 +81,7 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 	interf := TPMInterfaceDirect
 	var rwc io.ReadWriteCloser
 	var ctx *tspi.Context
+	var pTPM *platformTPM
 	var err error
 
 	switch tpm.Version {
@@ -100,6 +96,12 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		err = ctx.Connect()
 		if err != nil {
 			return nil, err
+		}
+
+		pTPM = &platformTPM{
+			version: tpm.Version,
+			interf:  interf,
+			ctx:     ctx,
 		}
 
 	case TPMVersion20:
@@ -122,12 +124,12 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		}
 	}
 
-	return &TPM{tpm: &platformTPM{
+	return &TPM{tpm: &selectorTPM{
 		version: tpm.Version,
 		interf:  interf,
 		sysPath: tpm.Path,
 		rwc:     rwc,
-		ctx:     ctx,
+		pTPM:    pTPM,
 	}}, nil
 }
 
@@ -139,8 +141,6 @@ func (t *platformTPM) close() error {
 	switch t.version {
 	case TPMVersion12:
 		return t.ctx.Close()
-	case TPMVersion20:
-		return t.rwc.Close()
 	default:
 		return fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -170,13 +170,6 @@ func (t *platformTPM) info() (*TPMInfo, error) {
 	switch t.version {
 	case TPMVersion12:
 		tInfo.Manufacturer, tInfo.VendorInfo, err = readTPM12VendorAttributes(t.ctx)
-	case TPMVersion20:
-		var t2Info tpm20Info
-		t2Info, err = readTPM2VendorAttributes(t.rwc)
-		tInfo.Manufacturer = t2Info.manufacturer
-		tInfo.VendorInfo = t2Info.vendor
-		tInfo.FirmwareVersionMajor = t2Info.fwMajor
-		tInfo.FirmwareVersionMinor = t2Info.fwMinor
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -185,34 +178,6 @@ func (t *platformTPM) info() (*TPMInfo, error) {
 	}
 
 	return &tInfo, nil
-}
-
-// Return value: handle, whether we generated a new one, error
-func (t *platformTPM) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle, bool, error) {
-	_, _, _, err := tpm2.ReadPublic(t.rwc, pHnd)
-	if err == nil {
-		// Found the persistent handle, assume it's the key we want.
-		return pHnd, false, nil
-	}
-
-	var keyHnd tpmutil.Handle
-	switch pHnd {
-	case commonSrkEquivalentHandle:
-		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", defaultSRKTemplate)
-	case commonEkEquivalentHandle:
-		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
-	}
-	if err != nil {
-		return 0, false, fmt.Errorf("CreatePrimary failed: %v", err)
-	}
-	defer tpm2.FlushContext(t.rwc, keyHnd)
-
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, pHnd)
-	if err != nil {
-		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
-	}
-
-	return pHnd, true, nil
 }
 
 func readEKCertFromNVRAM12(ctx *tspi.Context) (*x509.Certificate, error) {
@@ -233,35 +198,6 @@ func (t *platformTPM) eks() ([]EK, error) {
 		return []EK{
 			{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
 		}, nil
-	case TPMVersion20:
-		if cert, err := readEKCertFromNVRAM20(t.rwc); err == nil {
-			return []EK{
-				{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
-			}, nil
-		}
-
-		// Attempt to create an EK.
-		ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
-		if err != nil {
-			return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
-		}
-		defer tpm2.FlushContext(t.rwc, ekHnd)
-
-		pub, _, _, err := tpm2.ReadPublic(t.rwc, ekHnd)
-		if err != nil {
-			return nil, fmt.Errorf("EK ReadPublic failed: %v", err)
-		}
-		if pub.RSAParameters == nil {
-			return nil, errors.New("ECC EK not yet supported")
-		}
-		return []EK{
-			{
-				Public: &rsa.PublicKey{
-					E: int(pub.RSAParameters.Exponent()),
-					N: pub.RSAParameters.Modulus(),
-				},
-			},
-		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -274,40 +210,7 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 		if err != nil {
 			return nil, fmt.Errorf("CreateAIK failed: %v", err)
 		}
-		return &AK{ak: newKey12(blob, pub)}, nil
-	case TPMVersion20:
-		// TODO(jsonp): Abstract choice of hierarchy & parent.
-		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
-		}
-
-		blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", akTemplate)
-		if err != nil {
-			return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
-		}
-		keyHandle, _, err := tpm2.Load(t.rwc, srk, "", pub, blob)
-		if err != nil {
-			return nil, fmt.Errorf("Load() failed: %v", err)
-		}
-		// If any errors occur, free the AK's handle.
-		defer func() {
-			if err != nil {
-				tpm2.FlushContext(t.rwc, keyHandle)
-			}
-		}()
-
-		// We can only certify the creation immediately afterwards, so we cache the result.
-		attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, &tix)
-		if err != nil {
-			return nil, fmt.Errorf("CertifyCreation failed: %v", err)
-		}
-		// Pack the raw structure into a TPMU_SIGNATURE.
-		signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, tpmutil.U16Bytes(sig))
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
-		}
-		return &AK{ak: newKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
+		return &AK{ak: newPlatformKey12(blob, pub)}, nil
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -324,17 +227,7 @@ func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 
 	switch sKey.TPMVersion {
 	case TPMVersion12:
-		return &AK{ak: newKey12(sKey.Blob, sKey.Public)}, nil
-	case TPMVersion20:
-		srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get SRK handle: %v", err)
-		}
-		var hnd tpmutil.Handle
-		if hnd, _, err = tpm2.Load(t.rwc, srk, "", sKey.Public, sKey.Blob); err != nil {
-			return nil, fmt.Errorf("Load() failed: %v", err)
-		}
-		return &AK{ak: newKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+		return &AK{ak: newPlatformKey12(sKey.Blob, sKey.Public)}, nil
 	default:
 		return nil, fmt.Errorf("cannot load AK with TPM version: %v", sKey.TPMVersion)
 	}
@@ -368,13 +261,6 @@ func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read PCRs: %v", err)
 		}
-
-	case TPMVersion20:
-		PCRs, err = readAllPCRs20(t.rwc, alg.goTPMAlg())
-		if err != nil {
-			return nil, fmt.Errorf("failed to read PCRs: %v", err)
-		}
-
 	default:
 		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
 	}
@@ -391,6 +277,6 @@ func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	return out, nil
 }
 
-func (t *platformTPM) measurementLog() ([]byte, error) {
+func platformMeasurementLog() ([]byte, error) {
 	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }
