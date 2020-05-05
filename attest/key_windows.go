@@ -22,22 +22,22 @@ import (
 	tpm1 "github.com/google/go-tpm/tpm"
 )
 
-// key12 represents a Windows-managed key on a TPM1.2 TPM.
-type key12 struct {
+// windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.
+type windowsKey12 struct {
 	hnd        uintptr
 	pcpKeyName string
 	public     []byte
 }
 
-func newKey12(hnd uintptr, pcpKeyName string, public []byte) ak {
-	return &key12{
+func newWindowsKey12(hnd uintptr, pcpKeyName string, public []byte) ak {
+	return &windowsKey12{
 		hnd:        hnd,
 		pcpKeyName: pcpKeyName,
 		public:     public,
 	}
 }
 
-func (k *key12) marshal() ([]byte, error) {
+func (k *windowsKey12) marshal() ([]byte, error) {
 	out := serializedKey{
 		Encoding:   keyEncodingOSManaged,
 		TPMVersion: TPMVersion12,
@@ -47,7 +47,7 @@ func (k *key12) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *key12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -59,7 +59,7 @@ func (k *key12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, e
 	return decryptCredential(secretKey, in.Secret)
 }
 
-func (k *key12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
 	}
@@ -101,18 +101,18 @@ func (k *key12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	}, nil
 }
 
-func (k *key12) close(tpm tpmBase) error {
+func (k *windowsKey12) close(tpm tpmBase) error {
 	return closeNCryptObject(k.hnd)
 }
 
-func (k *key12) attestationParameters() AttestationParameters {
+func (k *windowsKey12) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public: k.public,
 	}
 }
 
-// key20 represents a key bound to a TPM 2.0.
-type key20 struct {
+// windowsKey20 represents a key bound to a TPM 2.0.
+type windowsKey20 struct {
 	hnd uintptr
 
 	pcpKeyName        string
@@ -122,8 +122,8 @@ type key20 struct {
 	createSignature   []byte
 }
 
-func newKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) ak {
-	return &key20{
+func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) ak {
+	return &windowsKey20{
 		hnd:               hnd,
 		pcpKeyName:        pcpKeyName,
 		public:            public,
@@ -133,7 +133,7 @@ func newKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, 
 	}
 }
 
-func (k *key20) marshal() ([]byte, error) {
+func (k *windowsKey20) marshal() ([]byte, error) {
 	out := serializedKey{
 		Encoding:   keyEncodingOSManaged,
 		TPMVersion: TPMVersion20,
@@ -147,7 +147,7 @@ func (k *key20) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *key20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsKey20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -155,7 +155,7 @@ func (k *key20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, e
 	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
 }
 
-func (k *key20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -172,11 +172,11 @@ func (k *key20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	return quote20(tpm, tpmKeyHnd, alg.goTPMAlg(), nonce)
 }
 
-func (k *key20) close(tpm tpmBase) error {
+func (k *windowsKey20) close(tpm tpmBase) error {
 	return closeNCryptObject(k.hnd)
 }
 
-func (k *key20) attestationParameters() AttestationParameters {
+func (k *windowsKey20) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public:            k.public,
 		CreateData:        k.createData,

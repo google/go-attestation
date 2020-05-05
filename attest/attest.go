@@ -19,6 +19,7 @@ import (
 	"crypto"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tpm/tpm"
@@ -45,7 +46,15 @@ const (
 	TPMInterfaceDirect TPMInterface = iota
 	TPMInterfaceKernelManaged
 	TPMInterfaceDaemonManaged
+	TPMInterfaceCommandChannel
 )
+
+// CommandChannelTPM20 represents a pipe along which TPM 2.0 commands
+// can be issued, and measurement logs read.
+type CommandChannelTPM20 interface {
+	io.ReadWriteCloser
+	MeasurementLog() ([]byte, error)
+}
 
 // OpenConfig encapsulates settings passed to OpenTPM().
 type OpenConfig struct {
@@ -53,6 +62,10 @@ type OpenConfig struct {
 	// attempt to use. If the specified version is not available,
 	// ErrTPMNotAvailable is returned. Defaults to TPMVersionAgnostic.
 	TPMVersion TPMVersion
+
+	// CommandChannel provides a TPM 2.0 command channel, which can be
+	// used in-lieu of any TPM present on the platform.
+	CommandChannel CommandChannelTPM20
 }
 
 // keyEncoding indicates how an exported TPM key is represented.
@@ -396,6 +409,18 @@ func OpenTPM(config *OpenConfig) (*TPM, error) {
 	if config == nil {
 		config = defaultOpenConfig
 	}
+	// As a special case, if the user provided us with a command channel,
+	// we should use that.
+	if config.CommandChannel != nil {
+		if config.TPMVersion > TPMVersionAgnostic && config.TPMVersion != TPMVersion20 {
+			return nil, errors.New("command channel can only be used as a TPM 2.0 device")
+		}
+		return &TPM{&wrappedTPM20{
+			interf: TPMInterfaceCommandChannel,
+			rwc:    config.CommandChannel,
+		}}, nil
+	}
+
 	candidateTPMs, err := probeSystemTPMs()
 	if err != nil {
 		return nil, err
