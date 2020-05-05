@@ -19,8 +19,6 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -29,7 +27,7 @@ import (
 // wrappedTPM20 interfaces with a TPM 2.0 command channel.
 type wrappedTPM20 struct {
 	interf TPMInterface
-	rwc    io.ReadWriteCloser
+	rwc    CommandChannelTPM20
 }
 
 func (*wrappedTPM20) isTPMBase() {}
@@ -196,7 +194,7 @@ func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
 }
 
 func (t *wrappedTPM20) measurementLog() ([]byte, error) {
-	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
+	return t.rwc.MeasurementLog()
 }
 
 // wrappedKey20 represents a key manipulated through a *wrappedTPM20.

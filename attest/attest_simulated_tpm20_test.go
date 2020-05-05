@@ -33,7 +33,11 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return tpm, &TPM{tpm: &wrappedTPM20{rwc: tpm}}
+	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &linuxCmdChannel{tpm}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tpm, attestTPM
 }
 
 func TestSimTPM20EK(t *testing.T) {
