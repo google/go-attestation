@@ -285,9 +285,9 @@ func (t *windowsTPM) newAK(opts *AKConfig) (*AK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		return &AK{ak: newKey12(kh, name, props.RawPublic)}, nil
+		return &AK{ak: newWindowsKey12(kh, name, props.RawPublic)}, nil
 	case TPMVersion20:
-		return &AK{ak: newKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
+		return &AK{ak: newWindowsKey20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
@@ -309,9 +309,9 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 
 	switch t.version {
 	case TPMVersion12:
-		return &AK{ak: newKey12(hnd, sKey.Name, sKey.Public)}, nil
+		return &AK{ak: newWindowsKey12(hnd, sKey.Name, sKey.Public)}, nil
 	case TPMVersion20:
-		return &AK{ak: newKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+		return &AK{ak: newWindowsKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}

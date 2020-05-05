@@ -33,12 +33,7 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return tpm, &TPM{tpm: &linuxTPM{
-		version: TPMVersion20,
-		interf:  TPMInterfaceKernelManaged,
-		sysPath: "/dev/tpmrm0",
-		rwc:     tpm,
-	}}
+	return tpm, &TPM{tpm: &wrappedTPM20{rwc: tpm}}
 }
 
 func TestSimTPM20EK(t *testing.T) {
@@ -87,7 +82,7 @@ func TestSimTPM20AKCreateAndLoad(t *testing.T) {
 	}
 	defer loaded.Close(tpm)
 
-	k1, k2 := ak.ak.(*key20), loaded.ak.(*key20)
+	k1, k2 := ak.ak.(*wrappedKey20), loaded.ak.(*wrappedKey20)
 
 	if !bytes.Equal(k1.public, k2.public) {
 		t.Error("Original & loaded AK public blobs did not match.")
@@ -240,7 +235,7 @@ func TestSimTPM20Persistence(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	ekHnd, _, err := tpm.tpm.(*linuxTPM).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, _, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("getPrimaryKeyHandle() failed: %v", err)
 	}
@@ -248,7 +243,7 @@ func TestSimTPM20Persistence(t *testing.T) {
 		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
 	}
 
-	ekHnd, p, err := tpm.tpm.(*linuxTPM).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, p, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("second getPrimaryKeyHandle() failed: %v", err)
 	}
