@@ -267,11 +267,24 @@ func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, er
 	return out, nil
 }
 
+// tpmBase defines the implementation of a TPM invariant.
+type tpmBase interface {
+	close() error
+	tpmVersion() TPMVersion
+	eks() ([]EK, error)
+	info() (*TPMInfo, error)
+
+	loadAK(opaqueBlob []byte) (*AK, error)
+	newAK(opts *AKConfig) (*AK, error)
+	pcrs(alg HashAlg) ([]PCR, error)
+	measurementLog() ([]byte, error)
+}
+
 //TPM interfaces with a TPM device on the system.
 type TPM struct {
-	// tpm holds a platform specific implementation of TPM logic: Windows or Linux.
-	// see *_linux.go and *_windows.go files for definitions of these structs.
-	tpm *platformTPM
+	// tpm refers to a concrete implementation of TPM logic, based on the current
+	// platform and TPM version.
+	tpm tpmBase
 }
 
 // Close shuts down the connection to the TPM.

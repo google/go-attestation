@@ -22,46 +22,10 @@ import (
 
 var errUnsupported = errors.New("tpm operations not supported from given build parameters")
 
-type platformTPM struct {
-}
-
 func probeSystemTPMs() ([]probedTPM, error) {
 	return nil, errUnsupported
 }
 
 func openTPM(tpm probedTPM) (*TPM, error) {
-	return nil, errUnsupported
-}
-
-func (t *platformTPM) tpmVersion() TPMVersion {
-	return TPMVersionAgnostic
-}
-
-func (t *platformTPM) close() error {
-
-	return errUnsupported
-}
-
-func (t *platformTPM) info() (*TPMInfo, error) {
-	return nil, errUnsupported
-}
-
-func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
-	return nil, errUnsupported
-}
-
-func (t *platformTPM) eks() ([]EK, error) {
-	return nil, errUnsupported
-}
-
-func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
-	return nil, errUnsupported
-}
-
-func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
-	return nil, errUnsupported
-}
-
-func (t *platformTPM) measurementLog() ([]byte, error) {
 	return nil, errUnsupported
 }

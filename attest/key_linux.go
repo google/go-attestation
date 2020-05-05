@@ -49,11 +49,16 @@ func (k *key12) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *key12) close(tpm *platformTPM) error {
+func (k *key12) close(tpm tpmBase) error {
 	return nil // No state for tpm 1.2.
 }
 
-func (k *key12) activateCredential(t *platformTPM, in EncryptedCredential) ([]byte, error) {
+func (k *key12) activateCredential(tb tpmBase, in EncryptedCredential) ([]byte, error) {
+	t, ok := tb.(*linuxTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
+	}
+
 	cred, err := attestation.AIKChallengeResponse(t.ctx, k.blob, in.Credential, in.Secret)
 	if err != nil {
 		return nil, fmt.Errorf("failed to activate ak: %v", err)
@@ -61,7 +66,11 @@ func (k *key12) activateCredential(t *platformTPM, in EncryptedCredential) ([]by
 	return cred, nil
 }
 
-func (k *key12) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *key12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+	t, ok := tb.(*linuxTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
+	}
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
 	}
@@ -120,11 +129,20 @@ func (k *key20) marshal() ([]byte, error) {
 	}).Serialize()
 }
 
-func (k *key20) close(tpm *platformTPM) error {
+func (k *key20) close(t tpmBase) error {
+	tpm, ok := t.(*linuxTPM)
+	if !ok {
+		return fmt.Errorf("expected *linuxTPM, got %T", t)
+	}
 	return tpm2.FlushContext(tpm.rwc, k.hnd)
 }
 
-func (k *key20) activateCredential(t *platformTPM, in EncryptedCredential) ([]byte, error) {
+func (k *key20) activateCredential(tb tpmBase, in EncryptedCredential) ([]byte, error) {
+	t, ok := tb.(*linuxTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
+	}
+
 	ekHnd, _, err := t.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		return nil, err
@@ -154,7 +172,11 @@ func (k *key20) activateCredential(t *platformTPM, in EncryptedCredential) ([]by
 	}, k.hnd, ekHnd, in.Credential[2:], in.Secret[2:])
 }
 
-func (k *key20) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *key20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+	t, ok := tb.(*linuxTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
+	}
 	return quote20(t.rwc, k.hnd, tpm2.Algorithm(alg), nonce)
 }
 

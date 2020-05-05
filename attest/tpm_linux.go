@@ -42,8 +42,8 @@ const (
 	tpmRoot = "/sys/class/tpm"
 )
 
-// platformTPM interfaces with a TPM device on the system.
-type platformTPM struct {
+// linuxTPM interfaces with a TPM device on the system.
+type linuxTPM struct {
 	version TPMVersion
 	interf  TPMInterface
 
@@ -51,6 +51,8 @@ type platformTPM struct {
 	rwc     io.ReadWriteCloser
 	ctx     *tspi.Context
 }
+
+func (*linuxTPM) isTPMBase() {}
 
 func probeSystemTPMs() ([]probedTPM, error) {
 	var tpms []probedTPM
@@ -122,7 +124,7 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		}
 	}
 
-	return &TPM{tpm: &platformTPM{
+	return &TPM{tpm: &linuxTPM{
 		version: tpm.Version,
 		interf:  interf,
 		sysPath: tpm.Path,
@@ -131,11 +133,11 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 	}}, nil
 }
 
-func (t *platformTPM) tpmVersion() TPMVersion {
+func (t *linuxTPM) tpmVersion() TPMVersion {
 	return t.version
 }
 
-func (t *platformTPM) close() error {
+func (t *linuxTPM) close() error {
 	switch t.version {
 	case TPMVersion12:
 		return t.ctx.Close()
@@ -160,7 +162,7 @@ func readTPM12VendorAttributes(context *tspi.Context) (TCGVendorID, string, erro
 }
 
 // Info returns information about the TPM.
-func (t *platformTPM) info() (*TPMInfo, error) {
+func (t *linuxTPM) info() (*TPMInfo, error) {
 	tInfo := TPMInfo{
 		Version:   t.version,
 		Interface: t.interf,
@@ -188,7 +190,7 @@ func (t *platformTPM) info() (*TPMInfo, error) {
 }
 
 // Return value: handle, whether we generated a new one, error
-func (t *platformTPM) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle, bool, error) {
+func (t *linuxTPM) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle, bool, error) {
 	_, _, _, err := tpm2.ReadPublic(t.rwc, pHnd)
 	if err == nil {
 		// Found the persistent handle, assume it's the key we want.
@@ -223,7 +225,7 @@ func readEKCertFromNVRAM12(ctx *tspi.Context) (*x509.Certificate, error) {
 	return ParseEKCertificate(ekCert)
 }
 
-func (t *platformTPM) eks() ([]EK, error) {
+func (t *linuxTPM) eks() ([]EK, error) {
 	switch t.version {
 	case TPMVersion12:
 		cert, err := readEKCertFromNVRAM12(t.ctx)
@@ -267,7 +269,7 @@ func (t *platformTPM) eks() ([]EK, error) {
 	}
 }
 
-func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
+func (t *linuxTPM) newAK(opts *AKConfig) (*AK, error) {
 	switch t.version {
 	case TPMVersion12:
 		pub, blob, err := attestation.CreateAIK(t.ctx)
@@ -313,7 +315,7 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 	}
 }
 
-func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
+func (t *linuxTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -355,7 +357,7 @@ func allPCRs12(ctx *tspi.Context) (map[uint32][]byte, error) {
 	return PCRs, nil
 }
 
-func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
+func (t *linuxTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	var PCRs map[uint32][]byte
 	var err error
 
@@ -391,6 +393,6 @@ func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	return out, nil
 }
 
-func (t *platformTPM) measurementLog() ([]byte, error) {
+func (t *linuxTPM) measurementLog() ([]byte, error) {
 	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }
