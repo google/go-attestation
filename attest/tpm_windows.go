@@ -34,10 +34,12 @@ import (
 
 var wellKnownAuth [20]byte
 
-type platformTPM struct {
+type windowsTPM struct {
 	version TPMVersion
 	pcp     *winPCP
 }
+
+func (*windowsTPM) isTPMBase() {}
 
 func probeSystemTPMs() ([]probedTPM, error) {
 	// Windows systems appear to only support a single abstracted TPM.
@@ -89,17 +91,17 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		return nil, fmt.Errorf("tbsConvertVersion(%v) failed: %v", info.TBSInfo.TPMVersion, err)
 	}
 
-	return &TPM{tpm: &platformTPM{
+	return &TPM{tpm: &windowsTPM{
 		pcp:     pcp,
 		version: vers,
 	}}, nil
 }
 
-func (t *platformTPM) tpmVersion() TPMVersion {
+func (t *windowsTPM) tpmVersion() TPMVersion {
 	return t.version
 }
 
-func (t *platformTPM) close() error {
+func (t *windowsTPM) close() error {
 	return t.pcp.Close()
 }
 
@@ -112,7 +114,7 @@ func readTPM12VendorAttributes(tpm io.ReadWriter) (TCGVendorID, string, error) {
 	return vendorID, vendorID.String(), nil
 }
 
-func (t *platformTPM) info() (*TPMInfo, error) {
+func (t *windowsTPM) info() (*TPMInfo, error) {
 	tInfo := TPMInfo{
 		Version:   t.version,
 		Interface: TPMInterfaceKernelManaged,
@@ -142,7 +144,7 @@ func (t *platformTPM) info() (*TPMInfo, error) {
 	return &tInfo, nil
 }
 
-func (t *platformTPM) eks() ([]EK, error) {
+func (t *windowsTPM) eks() ([]EK, error) {
 	ekCerts, err := t.pcp.EKCerts()
 	if err != nil {
 		return nil, fmt.Errorf("could not read EKCerts: %v", err)
@@ -171,7 +173,7 @@ func (t *platformTPM) eks() ([]EK, error) {
 	return []EK{ek}, nil
 }
 
-func (t *platformTPM) ekPub() (*rsa.PublicKey, error) {
+func (t *windowsTPM) ekPub() (*rsa.PublicKey, error) {
 	p, err := t.pcp.EKPub()
 	if err != nil {
 		return nil, fmt.Errorf("could not read ekpub: %v", err)
@@ -264,7 +266,7 @@ func decryptCredential(secretKey, blob []byte) ([]byte, error) {
 	return secret, nil
 }
 
-func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
+func (t *windowsTPM) newAK(opts *AKConfig) (*AK, error) {
 	nameHex := make([]byte, 5)
 	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
 		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
@@ -291,7 +293,7 @@ func (t *platformTPM) newAK(opts *AKConfig) (*AK, error) {
 	}
 }
 
-func (t *platformTPM) loadAK(opaqueBlob []byte) (*AK, error) {
+func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	sKey, err := deserializeKey(opaqueBlob, t.version)
 	if err != nil {
 		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -334,7 +336,7 @@ func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
 	return out, nil
 }
 
-func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
+func (t *windowsTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	var PCRs map[uint32][]byte
 
 	switch t.version {
@@ -377,7 +379,7 @@ func (t *platformTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	return out, nil
 }
 
-func (t *platformTPM) measurementLog() ([]byte, error) {
+func (t *windowsTPM) measurementLog() ([]byte, error) {
 	context, err := tpmtbs.CreateContext(tpmtbs.TPMVersion20, tpmtbs.IncludeTPM20|tpmtbs.IncludeTPM12)
 	if err != nil {
 		return nil, err

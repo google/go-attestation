@@ -47,7 +47,11 @@ func (k *key12) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *key12) activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error) {
+func (k *key12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+	tpm, ok := t.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
+	}
 	secretKey, err := tpm.pcp.ActivateCredential(k.hnd, in.Credential)
 	if err != nil {
 		return nil, err
@@ -55,9 +59,13 @@ func (k *key12) activateCredential(tpm *platformTPM, in EncryptedCredential) ([]
 	return decryptCredential(secretKey, in.Secret)
 }
 
-func (k *key12) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *key12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
+	}
+	t, ok := tb.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
 	}
 
 	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
@@ -93,7 +101,7 @@ func (k *key12) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error)
 	}, nil
 }
 
-func (k *key12) close(tpm *platformTPM) error {
+func (k *key12) close(tpm tpmBase) error {
 	return closeNCryptObject(k.hnd)
 }
 
@@ -139,11 +147,19 @@ func (k *key20) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *key20) activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error) {
+func (k *key20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+	tpm, ok := t.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
+	}
 	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
 }
 
-func (k *key20) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *key20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+	t, ok := tb.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
+	}
 	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
 	if err != nil {
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
@@ -156,7 +172,7 @@ func (k *key20) quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error)
 	return quote20(tpm, tpmKeyHnd, alg.goTPMAlg(), nonce)
 }
 
-func (k *key20) close(tpm *platformTPM) error {
+func (k *key20) close(tpm tpmBase) error {
 	return closeNCryptObject(k.hnd)
 }
 

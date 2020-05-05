@@ -85,10 +85,10 @@ const (
 )
 
 type ak interface {
-	close(*platformTPM) error
+	close(tpmBase) error
 	marshal() ([]byte, error)
-	activateCredential(tpm *platformTPM, in EncryptedCredential) ([]byte, error)
-	quote(t *platformTPM, nonce []byte, alg HashAlg) (*Quote, error)
+	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
+	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
 }
 
