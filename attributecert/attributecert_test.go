@@ -15,6 +15,7 @@
 package attributecert
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
 	"reflect"
@@ -22,12 +23,48 @@ import (
 	"testing"
 )
 
+func TestVerifyAttributeCert(t *testing.T) {
+	testfiles := [...]string{"testdata/Intel_nuc_pc2.cer",
+		"testdata/Intel_nuc_pc.cer",
+		"testdata/Intel_pc2.cer",
+		"testdata/Intel_pc3.cer",
+	}
+	data, err := ioutil.ReadFile("testdata/IntelSigningKey_20April2017.cer")
+	if err != nil {
+		t.Fatalf("failed to read Intel intermediate certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(data)
+	if err != nil {
+		t.Fatalf("failed to parse Intel intermediate certificate: %v", err)
+	}
+
+	for _, filename := range(testfiles) {
+		data, err = ioutil.ReadFile(filename)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", filename, err)
+		}
+
+		attributecert, err := ParseAttributeCertificate(data)
+		if err != nil {
+			t.Fatalf("failed to parse %s: %v", filename, err)
+		}
+
+		err = attributecert.CheckSignatureFrom(cert)
+		if err != nil {
+			t.Fatalf("failed to verify signature on %s: %v", filename, err)
+		}
+	}
+}
+
 func TestParseAttributeCerts(t *testing.T) {
 	files, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Fatalf("failed to read test dir: %v", err)
 	}
 	for _, file := range files {
+		if strings.Contains(file.Name(), "Signing") {
+			continue
+		}
 		if strings.HasSuffix(file.Name(), ".json") {
 			continue
 		}
