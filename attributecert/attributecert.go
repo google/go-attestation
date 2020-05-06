@@ -62,7 +62,9 @@ var (
 )
 
 var (
+	oidSignatureRSASha1 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
 	oidSignatureRSAPSS  = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+	oidSignatureRSASha256 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
 	oidSignatureEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
 
 	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
@@ -79,6 +81,8 @@ var signatureAlgorithmDetails = []struct {
 	pubKeyAlgo x509.PublicKeyAlgorithm
 	hash       crypto.Hash
 }{
+	{x509.SHA1WithRSA, "SHA1-RSA", oidSignatureRSASha1, x509.RSA, crypto.SHA1},
+	{x509.SHA256WithRSA, "SHA256-RSA", oidSignatureRSASha256, x509.RSA, crypto.SHA256},
 	{x509.SHA256WithRSAPSS, "SHA256-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA256},
 	{x509.SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA384},
 	{x509.SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA512},
@@ -689,16 +693,6 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 // CheckSignatureFrom verifies that the signature on c is a valid signature
 // from parent.
 func (c *AttributeCertificate) CheckSignatureFrom(parent *x509.Certificate) error {
-	// RFC 5280, 4.2.1.9:
-	// "If the basic constraints extension is not present in a version 3
-	// certificate, or the extension is present but the cA boolean is not
-	// asserted, then the certified public key MUST NOT be used to verify
-	// certificate signatures."
-	if parent.Version == 3 && !parent.BasicConstraintsValid ||
-		parent.BasicConstraintsValid && !parent.IsCA {
-		return x509.ConstraintViolationError{}
-	}
-
 	if parent.KeyUsage != 0 && parent.KeyUsage&x509.KeyUsageCertSign == 0 {
 		return x509.ConstraintViolationError{}
 	}
