@@ -1,13 +1,13 @@
 module github.com/google/go-attestation
 
-go 1.12
+go 1.13
 
 require (
 	github.com/google/certificate-transparency-go v1.0.22-0.20190605205155-41fc2ef3a2a8
 	github.com/google/go-cmp v0.3.1
-	github.com/google/go-tpm v0.2.1-0.20191015210219-431489f43254
-	github.com/google/go-tpm-tools v0.1.1
+	github.com/google/go-tpm v0.2.1-0.20200326081539-9cc5bb2cf703
+	github.com/google/go-tpm-tools v0.1.2
 	github.com/google/go-tspi v0.2.1-0.20190423175329-115dea689aad
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7 // indirect
-	golang.org/x/sys v0.0.0-20190919044723-0c1ff786ef13
+	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3
 )
