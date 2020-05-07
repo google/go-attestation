@@ -17,19 +17,13 @@
 package attest
 
 import (
-	"crypto"
-	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"strings"
-
-	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/go-tspi/attestation"
-	"github.com/google/go-tspi/tspi" //for tpm12 support
-	"github.com/google/go-tspi/tspiconst"
 
 	"github.com/google/go-tpm/tpm2"
 )
@@ -77,18 +71,16 @@ func (cc *linuxCmdChannel) MeasurementLog() ([]byte, error) {
 	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }
 
+// This will be initialized if we build with TPM 1.2 support
+var getTPM12Impl func() (*TPM, error)
+
 func openTPM(tpm probedTPM) (*TPM, error) {
 	switch tpm.Version {
 	case TPMVersion12:
-		// TPM1.2 must be using Daemon (Connect will fail if not the case)
-		ctx, err := tspi.NewContext()
-		if err != nil {
-			return nil, err
+		if getTPM12Impl == nil {
+			return nil, errors.New("support for Linux TPM 1.2 disabled (build with \"-tags tspi\" to enable)")
 		}
-		if err = ctx.Connect(); err != nil {
-			return nil, err
-		}
-		return &TPM{tpm: &trousersTPM{ctx: ctx}}, nil
+		return getTPM12Impl()
 
 	case TPMVersion20:
 		interf := TPMInterfaceDirect
@@ -118,124 +110,4 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 	default:
 		return nil, fmt.Errorf("unsuported TPM version: %v", tpm.Version)
 	}
-}
-
-// trousersTPM interfaces with a TPM 1.2 device via tcsd.
-type trousersTPM struct {
-	ctx *tspi.Context
-}
-
-func (*trousersTPM) isTPMBase() {}
-
-func (t *trousersTPM) tpmVersion() TPMVersion {
-	return TPMVersion12
-}
-
-func (t *trousersTPM) close() error {
-	return t.ctx.Close()
-}
-
-func readTPM12VendorAttributes(context *tspi.Context) (TCGVendorID, string, error) {
-	// TPM 1.2 doesn't seem to store vendor data (other than unique ID)
-	vendor, err := context.GetCapability(tspiconst.TSS_TPMCAP_PROPERTY, 4, tspiconst.TSS_TPMCAP_PROP_MANUFACTURER)
-	if err != nil {
-		return TCGVendorID(0), "", fmt.Errorf("tspi::Context::GetCapability failed: %v", err)
-	}
-	if len(vendor) > 4 {
-		return TCGVendorID(0), "", fmt.Errorf("expecting at most 32-bit VendorID, got %d-bit ID instead", len(vendor)*8)
-	}
-	vendorID := TCGVendorID(binary.BigEndian.Uint32(vendor))
-	return vendorID, vendorID.String(), nil
-}
-
-// Info returns information about the TPM.
-func (t *trousersTPM) info() (*TPMInfo, error) {
-	tInfo := TPMInfo{
-		Version:   TPMVersion12,
-		Interface: TPMInterfaceDaemonManaged,
-	}
-	var err error
-
-	if tInfo.Manufacturer, tInfo.VendorInfo, err = readTPM12VendorAttributes(t.ctx); err != nil {
-		return nil, err
-	}
-	return &tInfo, nil
-}
-
-func readEKCertFromNVRAM12(ctx *tspi.Context) (*x509.Certificate, error) {
-	ekCert, err := attestation.GetEKCert(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("reading EK cert: %v", err)
-	}
-	return ParseEKCertificate(ekCert)
-}
-
-func (t *trousersTPM) eks() ([]EK, error) {
-	cert, err := readEKCertFromNVRAM12(t.ctx)
-	if err != nil {
-		return nil, fmt.Errorf("readEKCertFromNVRAM failed: %v", err)
-	}
-	return []EK{
-		{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
-	}, nil
-}
-
-func (t *trousersTPM) newAK(opts *AKConfig) (*AK, error) {
-	pub, blob, err := attestation.CreateAIK(t.ctx)
-	if err != nil {
-		return nil, fmt.Errorf("CreateAIK failed: %v", err)
-	}
-	return &AK{ak: newTrousersKey12(blob, pub)}, nil
-}
-
-func (t *trousersTPM) loadAK(opaqueBlob []byte) (*AK, error) {
-	sKey, err := deserializeKey(opaqueBlob, TPMVersion12)
-	if err != nil {
-		return nil, fmt.Errorf("deserializeKey() failed: %v", err)
-	}
-	if sKey.Encoding != keyEncodingEncrypted {
-		return nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
-	}
-
-	return &AK{ak: newTrousersKey12(sKey.Blob, sKey.Public)}, nil
-}
-
-// allPCRs12 returns a map of all the PCR values on the TPM
-func allPCRs12(ctx *tspi.Context) (map[uint32][]byte, error) {
-	tpm := ctx.GetTPM()
-	PCRlist, err := tpm.GetPCRValues()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read PCRs: %v", err)
-	}
-
-	PCRs := make(map[uint32][]byte)
-	for i := 0; i < len(PCRlist); i++ {
-		PCRs[(uint32)(i)] = PCRlist[i]
-	}
-	return PCRs, nil
-}
-
-func (t *trousersTPM) pcrs(alg HashAlg) ([]PCR, error) {
-	if alg != HashSHA1 {
-		return nil, fmt.Errorf("non-SHA1 algorithm %v is not supported on TPM 1.2", alg)
-	}
-	PCRs, err := allPCRs12(t.ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read PCRs: %v", err)
-	}
-
-	out := make([]PCR, len(PCRs))
-	for index, digest := range PCRs {
-		out[int(index)] = PCR{
-			Index:     int(index),
-			Digest:    digest,
-			DigestAlg: alg.cryptoHash(),
-		}
-	}
-
-	return out, nil
-}
-
-func (t *trousersTPM) measurementLog() ([]byte, error) {
-	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }

@@ -24,7 +24,20 @@ Please note that this is not an official Google product.
 
 The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
 
-Linux users must install `libtspi` and its headers. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+## Linux TPM 1.2 support
+
+This package includes optional support for TPM 1.2 on Linux via the
+[TrouSerS `tcsd` daemon](http://trousers.sourceforge.net/). To build with
+support, users must:
+  - Install `libtspi` and its headers
+    - Debian-based systems: `apt install libtspi-dev`
+    - RedHat-based systems: `yum install trousers-devel`
+  - Build this package with the `tspi` [build tag](https://golang.org/pkg/go/build/#hdr-Build_Constraints)
+    - For example: `go build -tags tspi ./path/to/your/target`
+  - Make sure the the TrousSerS `tcsd` deamon is active at runtime.
+
+Note that this is only for TPM 1.2 support _on Linux_. Windows TPM 1.2 works
+without any additional configuration (just `go build` like normal).
 
 ## Example: device identity
 
