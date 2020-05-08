@@ -193,5 +193,41 @@
             "NoticeNumbers": null
         },
         "ExplicitText": ""
-    }
+    },
+    "Components": [
+        {
+            "Manufacturer": "Intel",
+            "Model": "platform2018",
+            "Serial": "BQKP52840678",
+            "Revision": "1.0",
+            "ManufacturerID": 12110025430499884,
+            "FieldReplaceable": true,
+            "Addresses": [
+                {
+                    "AddressType": [
+                        2,
+                        23,
+                        133,
+                        5,
+                        1,
+                        6
+                    ],
+                    "AddressValue": "2.23.133.5.1.6"
+                }
+            ]
+        }
+    ],
+    "Properties": [
+        {
+            "PropertyName": "vPro",
+            "PropertyValue": "true",
+            "Status": 0
+        },
+        {
+            "PropertyName": "AMT",
+            "PropertyValue": "true",
+            "Status": 0
+        }
+    ],
+    "PropertiesURI": "https://www.intel.com/platformproperties.xml"
 }

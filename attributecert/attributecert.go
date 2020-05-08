@@ -263,6 +263,16 @@ type Certholder struct {
 	Serial *big.Int
 }
 
+type Component struct {
+	Manufacturer     string
+	Model            string
+	Serial           string
+	Revision         string
+	ManufacturerID   int
+	FieldReplaceable bool
+	Addresses        []ComponentAddress
+}
+
 type AttributeCertificate struct {
 	Raw                        []byte // Complete ASN.1 DER content (certificate, signature algorithm and signature).
 	RawTBSAttributeCertificate []byte // Certificate part of raw ASN.1 DER content.
@@ -284,6 +294,9 @@ type AttributeCertificate struct {
 	PlatformSerial           string
 	CredentialSpecification  string
 	UserNotice               userNotice
+	Components               []Component
+	Properties               []Property
+	PropertiesURI            string
 }
 
 // ParseAttributeCertificate parses a single attribute certificate from the
@@ -441,7 +454,7 @@ type ComponentIdentifierV1 struct {
 	ComponentModel          string
 	ComponentSerial         string             `asn1:"optional,tag:0"`
 	ComponentRevision       string             `asn1:"optional,tag:1"`
-	ComponentManufacturerId int                `asn1:"optional,tag:2"`
+	ComponentManufacturerID int                `asn1:"optional,tag:2"`
 	FieldReplaceable        bool               `asn1:"optional,tag:3"`
 	ComponentAddresses      []ComponentAddress `asn1:"optional,tag:4"`
 }
@@ -550,11 +563,39 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
 			}
+			for _, component := range platformConfiguration.ComponentIdentifiers {
+				t := Component{
+					Manufacturer:     component.ComponentManufacturer,
+					Model:            component.ComponentModel,
+					Serial:           component.ComponentSerial,
+					Revision:         component.ComponentRevision,
+					ManufacturerID:   component.ComponentManufacturerID,
+					FieldReplaceable: component.FieldReplaceable,
+					Addresses:        component.ComponentAddresses,
+				}
+				out.Components = append(out.Components, t)
+			}
+			out.Properties = platformConfiguration.PlatformProperties
+			out.PropertiesURI = platformConfiguration.PlatformPropertiesURI.UniformResourceIdentifier
 		case attribute.ID.Equal(oidTcgPlatformConfigurationV2):
 			var platformConfiguration PlatformConfigurationV2
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
 			}
+			for _, component := range platformConfiguration.ComponentIdentifiers {
+				t := Component{
+					Manufacturer:     component.ComponentManufacturer,
+					Model:            component.ComponentModel,
+					Serial:           component.ComponentSerial,
+					Revision:         component.ComponentRevision,
+					ManufacturerID:   component.ComponentManufacturerID,
+					FieldReplaceable: component.FieldReplaceable,
+					Addresses:        component.ComponentAddresses,
+				}
+				out.Components = append(out.Components, t)
+			}
+			out.Properties = platformConfiguration.PlatformProperties
+			out.PropertiesURI = platformConfiguration.PlatformPropertiesURI.UniformResourceIdentifier
 		case attribute.ID.Equal(oidTcgPlatformConfigURI):
 			var platformConfigurationURI URIReference
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationURI); err != nil {

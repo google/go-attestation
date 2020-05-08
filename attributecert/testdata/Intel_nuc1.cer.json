@@ -197,5 +197,72 @@
             "NoticeNumbers": null
         },
         "ExplicitText": ""
-    }
+    },
+    "Components": [
+        {
+            "Manufacturer": "Intel(R) Corporation",
+            "Model": "Core i5",
+            "Serial": "X2398392",
+            "Revision": "2.6",
+            "ManufacturerID": 3355699,
+            "FieldReplaceable": true,
+            "Addresses": null
+        },
+        {
+            "Manufacturer": "Samsung",
+            "Model": "M471A5143EB0-CPB",
+            "Serial": "ABC45989",
+            "Revision": "3.1",
+            "ManufacturerID": 3225910,
+            "FieldReplaceable": false,
+            "Addresses": null
+        },
+        {
+            "Manufacturer": "Not Specified",
+            "Model": "KINGSTON SA400S3",
+            "Serial": "50026B777805270B",
+            "Revision": "609.0",
+            "ManufacturerID": 3225910,
+            "FieldReplaceable": false,
+            "Addresses": null
+        },
+        {
+            "Manufacturer": "Intel Corporation",
+            "Model": "Ethernet Connection I219-LM",
+            "Serial": "8c:0f:6f:72:c6:c5",
+            "Revision": "21.0",
+            "ManufacturerID": 3355699,
+            "FieldReplaceable": true,
+            "Addresses": [
+                {
+                    "AddressType": [
+                        2,
+                        23,
+                        133,
+                        17,
+                        1
+                    ],
+                    "AddressValue": "8c:0f:6f:72:c6:c5"
+                }
+            ]
+        }
+    ],
+    "Properties": [
+        {
+            "PropertyName": "AMT",
+            "PropertyValue": "true",
+            "Status": 0
+        },
+        {
+            "PropertyName": "vPro Enabled",
+            "PropertyValue": "true",
+            "Status": 0
+        },
+        {
+            "PropertyName": "DropShip Enabled",
+            "PropertyValue": "false",
+            "Status": 0
+        }
+    ],
+    "PropertiesURI": "https://www.platformmfg.com/platforproperties/493894384.htm"
 }

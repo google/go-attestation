@@ -164,5 +164,8 @@
             "NoticeNumbers": []
         },
         "ExplicitText": "TCPA Trusted Platform Endorsement"
-    }
+    },
+    "Components": null,
+    "Properties": null,
+    "PropertiesURI": ""
 }
