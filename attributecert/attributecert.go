@@ -62,10 +62,10 @@ var (
 )
 
 var (
-	oidSignatureRSASha1 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
-	oidSignatureRSAPSS  = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+	oidSignatureRSASha1   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
+	oidSignatureRSAPSS    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
 	oidSignatureRSASha256 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
-	oidSignatureEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
+	oidSignatureEd25519   = asn1.ObjectIdentifier{1, 3, 101, 112}
 
 	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
@@ -343,26 +343,49 @@ type CommonCriteriaMeasures struct {
 	AssuranceLevel     asn1.Enumerated
 	EvaluationStatus   asn1.Enumerated
 	Plus               bool
-	StrengthOfFunction asn1.Enumerated       `asn1:"optional,tag=0"`
-	ProfileOid         asn1.ObjectIdentifier `asn1:"optional,tag=1"`
-	ProfileURI         string                `asn1:"optional,tag=2"`
-	TargetOid          asn1.ObjectIdentifier `asn1:"optional,tag=3"`
-	TargetURI          asn1.ObjectIdentifier `asn1:"optional,tag=4"`
+	StrengthOfFunction asn1.Enumerated       `asn1:"optional,tag:0"`
+	ProfileOid         asn1.ObjectIdentifier `asn1:"optional,tag:1"`
+	ProfileURI         string                `asn1:"optional,tag:2"`
+	TargetOid          asn1.ObjectIdentifier `asn1:"optional,tag:3"`
+	TargetURI          asn1.ObjectIdentifier `asn1:"optional,tag:4"`
 }
 
 type TBBSecurityAssertions struct {
 	Version          int
-	CcInfo           CommonCriteriaMeasures `asn1:"optional,tag=0"`
-	FipsLevel        FipsLevel              `asn1:"optional,tag=1"`
-	RtmType          asn1.Enumerated        `asn1:"optional,tag=2"`
+	CcInfo           CommonCriteriaMeasures `asn1:"optional,tag:0"`
+	FipsLevel        FipsLevel              `asn1:"optional,tag:1"`
+	RtmType          asn1.Enumerated        `asn1:"optional,tag:2"`
 	Iso9000Certified bool                   `asn1:"optional"`
 	Iso9000URI       string                 `asn1:"optional"`
+}
+
+// Certificates with this information in the SDA region appear to fail to
+// tag the optional fields
+type CommonCriteriaMeasures_sda struct {
+	Version            string
+	AssuranceLevel     asn1.Enumerated
+	EvaluationStatus   asn1.Enumerated
+	Plus               bool
+	StrengthOfFunction asn1.Enumerated       `asn1:"optional"`
+	ProfileOid         asn1.ObjectIdentifier `asn1:"optional"`
+	ProfileURI         string                `asn1:"optional"`
+	TargetOid          asn1.ObjectIdentifier `asn1:"optional"`
+	TargetURI          asn1.ObjectIdentifier `asn1:"optional"`
+}
+
+type TBBSecurityAssertions_sda struct {
+	Version          int
+	CcInfo           CommonCriteriaMeasures_sda `asn1:"optional"`
+	FipsLevel        FipsLevel                  `asn1:"optional"`
+	RtmType          asn1.Enumerated            `asn1:"optional"`
+	Iso9000Certified bool                       `asn1:"optional"`
+	Iso9000URI       string                     `asn1:"optional"`
 }
 
 type Property struct {
 	PropertyName  string
 	PropertyValue string
-	Status        asn1.Enumerated `asn1:"optional,tag=0"`
+	Status        asn1.Enumerated `asn1:"optional,tag:0"`
 }
 
 type AttributeCertificateIdentifier struct {
@@ -371,8 +394,8 @@ type AttributeCertificateIdentifier struct {
 }
 
 type CertificateIdentifier struct {
-	AttributeCertIdentifier AttributeCertificateIdentifier `asn1:"optional,tag=0"`
-	GenericCertIdientifier  issuerSerial                   `asn1:"optional,tag=1"`
+	AttributeCertIdentifier AttributeCertificateIdentifier `asn1:"optional,tag:0"`
+	GenericCertIdientifier  issuerSerial                   `asn1:"optional,tag:1"`
 }
 
 type ComponentAddress struct {
@@ -389,14 +412,14 @@ type ComponentIdentifierV2 struct {
 	ComponentClass           ComponentClass
 	ComponentManufacturer    string
 	ComponentModel           string
-	ComponentSerial          string                `asn1:"optional,tag=0"`
-	ComponentRevision        string                `asn1:"optional,tag=1"`
-	ComponentManufacturerID  int                   `asn1:"optional,tag=2"`
-	FieldReplaceable         bool                  `asn1:"optional,tag=3"`
-	ComponentAddresses       []ComponentAddress    `asn1:"optional,tag=4"`
-	ComponentPlatformCert    CertificateIdentifier `asn1:"optional,tag=5"`
-	ComponentPlatformCertURI string                `asn1:"optional,tag=6"`
-	Status                   asn1.Enumerated       `asn1:"optional,tag=7"`
+	ComponentSerial          string                `asn1:"optional,tag:0"`
+	ComponentRevision        string                `asn1:"optional,tag:1"`
+	ComponentManufacturerID  int                   `asn1:"optional,tag:2"`
+	FieldReplaceable         bool                  `asn1:"optional,tag:3"`
+	ComponentAddresses       []ComponentAddress    `asn1:"optional,tag:4"`
+	ComponentPlatformCert    CertificateIdentifier `asn1:"optional,tag:5"`
+	ComponentPlatformCertURI string                `asn1:"optional,tag:6"`
+	Status                   asn1.Enumerated       `asn1:"optional,tag:7"`
 }
 
 type URIReference struct {
@@ -406,26 +429,27 @@ type URIReference struct {
 }
 
 type PlatformConfigurationV2 struct {
-	ComponentIdentifiers    []ComponentIdentifierV2 `asn1:"optional,tag=0"`
-	ComponentIdentifiersURI URIReference            `asn1:"optional,tag=1"`
-	PlatformProperties      []Property              `asn1:"optional,tag=2"`
-	PlatformPropertiesURI   URIReference            `asn1:"optional,tag=3"`
+	ComponentIdentifiers    []ComponentIdentifierV2 `asn1:"optional,tag:0"`
+	ComponentIdentifiersURI URIReference            `asn1:"optional,tag:1"`
+	PlatformProperties      []Property              `asn1:"optional,tag:2"`
+	PlatformPropertiesURI   URIReference            `asn1:"optional,tag:3"`
 }
 
 type ComponentIdentifierV1 struct {
+	ComponentClass          []byte `asn1:"optional"`
 	ComponentManufacturer   string
 	ComponentModel          string
-	ComponentSerial         string             `asn1:"optional,tag=0"`
-	ComponentRevision       string             `asn1:"optional,tag=1"`
-	ComponentManufacturerId int                `asn1:"optional,tag=2"`
-	FieldReplaceable        bool               `asn1:"optional,tag=3"`
-	ComponentAddresses      []ComponentAddress `asn1:"optional,tag=4"`
+	ComponentSerial         string             `asn1:"optional,tag:0"`
+	ComponentRevision       string             `asn1:"optional,tag:1"`
+	ComponentManufacturerId int                `asn1:"optional,tag:2"`
+	FieldReplaceable        bool               `asn1:"optional,tag:3"`
+	ComponentAddresses      []ComponentAddress `asn1:"optional,tag:4"`
 }
 
 type PlatformConfigurationV1 struct {
-	ComponentIdentifiers  []ComponentIdentifierV1 `asn1:"optional,tag=0"`
-	PlatformProperties    []Property              `asn1:"optional,tag=1"`
-	PlatformPropertiesURI []URIReference          `asn1:"optional,tag=2"`
+	ComponentIdentifiers  []ComponentIdentifierV1 `asn1:"optional,tag:0"`
+	PlatformProperties    []Property              `asn1:"optional,tag:1"`
+	PlatformPropertiesURI URIReference            `asn1:"optional,tag:2"`
 }
 
 func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
@@ -614,12 +638,17 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					}
 					out.TCGPlatformSpecification = platformSpecification
 				case e.ID.Equal(oidTbbSecurityAssertions):
-					var securityAssertions TBBSecurityAssertions
+					var securityAssertions TBBSecurityAssertions_sda
 					_, err := asn1.Unmarshal(e.Data.Bytes, &securityAssertions)
 					if err != nil {
 						return nil, err
 					}
-					out.TBBSecurityAssertions = securityAssertions
+					out.TBBSecurityAssertions.Version = securityAssertions.Version
+					out.TBBSecurityAssertions.CcInfo = CommonCriteriaMeasures(securityAssertions.CcInfo)
+					out.TBBSecurityAssertions.FipsLevel = securityAssertions.FipsLevel
+					out.TBBSecurityAssertions.RtmType = securityAssertions.RtmType
+					out.TBBSecurityAssertions.Iso9000Certified = securityAssertions.Iso9000Certified
+					out.TBBSecurityAssertions.Iso9000URI = securityAssertions.Iso9000URI
 				default:
 					return nil, fmt.Errorf("attributecert: unhandled TCG directory attribute: %v", e.ID)
 				}

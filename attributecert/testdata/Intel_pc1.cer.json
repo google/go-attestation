@@ -140,9 +140,9 @@
             "Plus": false,
             "StrengthOfFunction": 1,
             "ProfileOid": null,
-            "ProfileUri": "",
+            "ProfileURI": "",
             "TargetOid": null,
-            "TargetUri": null
+            "TargetURI": null
         },
         "FipsLevel": {
             "Version": "",
@@ -151,7 +151,7 @@
         },
         "RtmType": 2,
         "Iso9000Certified": true,
-        "Iso9000Uri": "URL to iso9000 certificate"
+        "Iso9000URI": "URL to iso9000 certificate"
     },
     "PlatformManufacturer": "Intel",
     "PlatformModel": "S2600KP",

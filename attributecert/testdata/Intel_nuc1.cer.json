@@ -173,18 +173,18 @@
             "Plus": false,
             "StrengthOfFunction": 0,
             "ProfileOid": null,
-            "ProfileUri": "",
+            "ProfileURI": "",
             "TargetOid": null,
-            "TargetUri": null
+            "TargetURI": null
         },
         "FipsLevel": {
             "Version": "",
             "Level": 0,
             "Plus": false
         },
-        "RtmType": 0,
+        "RtmType": 3,
         "Iso9000Certified": false,
-        "Iso9000Uri": ""
+        "Iso9000URI": ""
     },
     "PlatformManufacturer": "Intel Corporation",
     "PlatformModel": "NUC7i5DNHE",

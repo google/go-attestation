@@ -156,24 +156,31 @@
     "TBBSecurityAssertions": {
         "Version": 0,
         "CcInfo": {
-            "Version": "",
-            "AssuranceLevel": 0,
-            "EvaluationStatus": 0,
+            "Version": "3.1",
+            "AssuranceLevel": 7,
+            "EvaluationStatus": 2,
             "Plus": false,
-            "StrengthOfFunction": 0,
-            "ProfileOid": null,
-            "ProfileUri": "",
+            "StrengthOfFunction": 1,
+            "ProfileOid": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+            ],
+            "ProfileURI": "",
             "TargetOid": null,
-            "TargetUri": null
+            "TargetURI": null
         },
         "FipsLevel": {
-            "Version": "",
-            "Level": 0,
+            "Version": "140-2",
+            "Level": 4,
             "Plus": false
         },
-        "RtmType": 0,
+        "RtmType": 3,
         "Iso9000Certified": false,
-        "Iso9000Uri": ""
+        "Iso9000URI": "https://www.intel.com/isocertification.pdf"
     },
     "PlatformManufacturer": "Intel",
     "PlatformModel": "S2600KP",
