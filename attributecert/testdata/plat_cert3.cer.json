@@ -171,5 +171,19 @@
             "NoticeNumbers": null
         },
         "ExplicitText": ""
-    }
+    },
+    "Components": null,
+    "Properties": [
+        {
+            "PropertyName": "vPro",
+            "PropertyValue": "true",
+            "Status": 0
+        },
+        {
+            "PropertyName": "AMT",
+            "PropertyValue": "true",
+            "Status": 0
+        }
+    ],
+    "PropertiesURI": "https://www.intel.com/platformproperties.xml"
 }
