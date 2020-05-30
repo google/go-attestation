@@ -448,6 +448,13 @@ type PlatformConfigurationV2 struct {
 	PlatformPropertiesURI   URIReference            `asn1:"optional,tag:3"`
 }
 
+type PlatformConfigurationV2Workaround struct {
+	ComponentIdentifiers    []ComponentIdentifierV2 `asn1:"optional,tag:0"`
+	ComponentIdentifiersURI URIReference            `asn1:"optional,tag:1"`
+	PlatformProperty        Property                `asn1:"optional,tag:2"`
+	PlatformPropertiesURI   URIReference            `asn1:"optional,tag:3"`
+}
+
 type ComponentIdentifierV1 struct {
 	ComponentClass          []byte `asn1:"optional"`
 	ComponentManufacturer   string
@@ -580,7 +587,14 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 		case attribute.ID.Equal(oidTcgPlatformConfigurationV2):
 			var platformConfiguration PlatformConfigurationV2
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
-				return nil, err
+				var workaround PlatformConfigurationV2Workaround
+				if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &workaround); err != nil {
+					return nil, err
+				}
+				platformConfiguration.ComponentIdentifiers = workaround.ComponentIdentifiers
+				platformConfiguration.ComponentIdentifiersURI = workaround.ComponentIdentifiersURI
+				platformConfiguration.PlatformProperties = append(platformConfiguration.PlatformProperties, workaround.PlatformProperty)
+				platformConfiguration.PlatformPropertiesURI = workaround.PlatformPropertiesURI
 			}
 			for _, component := range platformConfiguration.ComponentIdentifiers {
 				t := Component{
