@@ -119,6 +119,38 @@ var eventTypeNames = map[EventType]string{
 	EFIHCRTMEvent:              "EFI H-CRTM Event",
 }
 
+// TaggedEventData represents the TCG_PCClientTaggedEventStruct structure,
+// as defined by 11.3.2.1 in the "TCG PC Client Specific Implementation
+// Specification for Conventional BIOS", version 1.21.
+type TaggedEventData struct {
+	ID   uint32
+	Data []byte
+}
+
+// ParseTaggedEventData parses a TCG_PCClientTaggedEventStruct structure.
+func ParseTaggedEventData(d []byte) (*TaggedEventData, error) {
+	var (
+		r      = bytes.NewReader(d)
+		header struct {
+			ID      uint32
+			DataLen uint32
+		}
+	)
+	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
+		return nil, fmt.Errorf("reading header: %w", err)
+	}
+
+	if int(header.DataLen) > len(d) {
+		return nil, fmt.Errorf("tagged event len (%d bytes) larger than data length (%d bytes)", header.DataLen, len(d))
+	}
+
+	out := TaggedEventData{
+		ID:   header.ID,
+		Data: make([]byte, header.DataLen),
+	}
+	return &out, binary.Read(r, binary.LittleEndian, &out.Data)
+}
+
 func (e EventType) String() string {
 	if s, ok := eventTypeNames[e]; ok {
 		return s
