@@ -125,7 +125,7 @@ type BitlockerStatus uint8
 // Valid BitlockerStatus values.
 const (
 	BitlockerStatusCached   = 0x01
-	bBitlockerStatusMedia   = 0x02
+	BitlockerStatusMedia    = 0x02
 	BitlockerStatusTPM      = 0x04
 	BitlockerStatusPin      = 0x10
 	BitlockerStatusExternal = 0x20
@@ -157,12 +157,12 @@ type WinEvents struct {
 	// TestSigningEnabled is true if test-mode signature verification was
 	// ever reported as enabled.
 	TestSigningEnabled bool
-	// BitlockerStatus reports the status of bitlocker.
-	BitlockerStatus BitlockerStatus
+	// BitlockerUnlocks reports the bitlocker status for every instance of
+	// a disk unlock, where bitlocker was used to secure the disk.
+	BitlockerUnlocks []BitlockerStatus
 
 	seenDep           bool
 	seenCodeIntegrity bool
-	seenBitlocker     bool
 }
 
 // WinModuleLoad describes a module which was loaded while
@@ -320,12 +320,7 @@ func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *bytes.Re
 		return fmt.Errorf("reading u%d: invalid varint", header.Size<<8)
 	}
 
-	s := BitlockerStatus(i)
-	if w.seenBitlocker && w.BitlockerStatus != s {
-		return fmt.Errorf("conflicting values for bitlocker status: %v != %v", s, w.BitlockerStatus)
-	}
-	w.BitlockerStatus = s
-	w.seenBitlocker = true
+	w.BitlockerUnlocks = append(w.BitlockerUnlocks, BitlockerStatus(i))
 	return nil
 }
 
