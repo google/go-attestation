@@ -62,7 +62,7 @@ if err != nil {
 ek := eks[0]
 
 akConfig := &attest.AKConfig{}
-ak, err := attest.NewAK(akConfig)
+ak, err := tpm.NewAK(akConfig)
 if err != nil {
     // handle error
 }
