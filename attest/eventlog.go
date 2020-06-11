@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	// Ensure hashes are available.
 	_ "crypto/sha256"
@@ -287,7 +288,7 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 	return nil
 }
 
-func extend(pcr PCR, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest []byte, err error) {
+func extend(pcr PCR, replay []byte, e rawEvent, locality byte) (pcrDigest []byte, eventDigest []byte, err error) {
 	h := pcr.DigestAlg
 
 	for _, digest := range e.digests {
@@ -295,13 +296,14 @@ func extend(pcr PCR, replay []byte, e rawEvent) (pcrDigest []byte, eventDigest [
 			continue
 		}
 		if len(digest.data) != len(pcr.Digest) {
-			return nil, nil, fmt.Errorf("digest data length (%d) doesn't match PCR digest length (%d)", len(digest.data), len(pcr.Digest));
+			return nil, nil, fmt.Errorf("digest data length (%d) doesn't match PCR digest length (%d)", len(digest.data), len(pcr.Digest))
 		}
 		hash := h.New()
 		if len(replay) != 0 {
 			hash.Write(replay)
 		} else {
 			b := make([]byte, h.Size())
+			b[h.Size()-1] = locality
 			hash.Write(b)
 		}
 		hash.Write(digest.data)
@@ -318,14 +320,25 @@ func replayPCR(rawEvents []rawEvent, pcr PCR) ([]Event, bool) {
 	var (
 		replay    []byte
 		outEvents []Event
+		locality  byte
 	)
 
 	for _, e := range rawEvents {
 		if e.index != pcr.Index {
 			continue
 		}
-
-		replayValue, digest, err := extend(pcr, replay, e)
+		// If TXT is enabled then the first event for PCR0
+		// should be a StartupLocality event. The final byte
+		// of this event indicates the locality from which
+		// TPM2_Startup() was issued. The initial value of
+		// PCR0 is equal to the locality.
+		if e.typ == eventTypeNoAction {
+			if pcr.Index == 0 && len(e.data) == 17 && strings.HasPrefix(string(e.data), "StartupLocality") {
+				locality = e.data[len(e.data)-1]
+			}
+			continue
+		}
+		replayValue, digest, err := extend(pcr, replay, e, locality)
 		if err != nil {
 			return nil, false
 		}
