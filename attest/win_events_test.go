@@ -28,6 +28,7 @@ func TestParseWinEvents(t *testing.T) {
 		BootCount:            4,
 		DEPEnabled:           true,
 		CodeIntegrityEnabled: true,
+		BitlockerUnlocks:     []BitlockerStatus{0, 0},
 		LoadedModules: map[string]WinModuleLoad{
 			"32e9370e7b5990dead1aba5187b8f3f70b1e19f70e5116286345113014822198": WinModuleLoad{
 				ImageBase:        []uint64{62648320},
