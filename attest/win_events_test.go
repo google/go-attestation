@@ -287,6 +287,9 @@ func TestParseWinEvents(t *testing.T) {
 				AuthenticodeHash: []byte{206, 206, 205, 136, 150, 241, 250, 153, 119, 202, 90, 156, 153, 3, 200, 140, 32, 158, 252, 45, 213, 179, 244, 48, 212, 60, 18, 155, 182, 98, 198, 161},
 			},
 		},
+		ELAM: map[string]WinELAM{
+			"Windows Defender": WinELAM{Measured: []byte{0x06, 0x7d, 0x5b, 0x9d, 0xc5, 0x62, 0x7f, 0x97, 0xdc, 0xf3, 0xfe, 0xff, 0x60, 0x2a, 0x34, 0x2e, 0xd6, 0x98, 0xd2, 0xcc}},
+		},
 	}
 
 	data, err := ioutil.ReadFile("testdata/windows_gcp_shielded_vm.json")

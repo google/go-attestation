@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
+	"unicode/utf16"
 
 	"github.com/google/go-attestation/attest/internal"
 )
@@ -142,6 +144,9 @@ type WinEvents struct {
 	// LoadedModules contains authenticode hashes for binaries which
 	// were loaded during boot.
 	LoadedModules map[string]WinModuleLoad
+	// ELAM describes the configuration of each Early Launch AntiMalware driver,
+	// for each AV Vendor key.
+	ELAM map[string]WinELAM
 	// BootDebuggingEnabled is true if boot debugging was ever reported
 	// as enabled.
 	BootDebuggingEnabled bool
@@ -175,13 +180,25 @@ type WinModuleLoad struct {
 	ImageBase []uint64
 }
 
+// WinELAM describes the configuration of an Early Launch AntiMalware driver.
+// These values represent the 3 measured registry values stored in the ELAM
+// hive for the driver.
+type WinELAM struct {
+	Measured []byte
+	Config   []byte
+	Policy   []byte
+}
+
 // ParseWinEvents parses a series of events to extract information about
 // the bringup of Microsoft Windows. This information is not trustworthy
 // unless the integrity of platform & bootloader events has already been
 // established.
 func ParseWinEvents(events []Event) (*WinEvents, error) {
 	var (
-		out           = WinEvents{LoadedModules: map[string]WinModuleLoad{}}
+		out = WinEvents{
+			LoadedModules: map[string]WinModuleLoad{},
+			ELAM:          map[string]WinELAM{},
+		}
 		seenSeparator bool
 	)
 
@@ -348,39 +365,38 @@ func (w *WinEvents) parseAuthenticodeHash(header microsoftEventHeader, r io.Read
 
 func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header microsoftEventHeader) error {
 	var (
-		r        = io.LimitReader(rdr, int64(header.Size))
+		r        = &io.LimitedReader{R: rdr, N: int64(header.Size)}
 		codeHash []byte
 		imgBase  uint64
 	)
 
-eventLoop:
-	for {
-		var header microsoftEventHeader
-		if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
-			if errors.Is(err, io.EOF) {
-				break eventLoop
-			}
+	for r.N > 0 {
+		var h microsoftEventHeader
+		if err := binary.Read(r, binary.LittleEndian, &h); err != nil {
 			return fmt.Errorf("parsing LMA sub-event: %v", err)
+		}
+		if int64(h.Size) > r.N {
+			return fmt.Errorf("LMA sub-event is larger than available data: %d > %d", h.Size, r.N)
 		}
 
 		var err error
-		switch header.Type {
+		switch h.Type {
 		case imageBase:
 			if imgBase != 0 {
 				return errors.New("duplicate image base data in LMA event")
 			}
-			if imgBase, err = w.parseImageBase(header, r); err != nil {
+			if imgBase, err = w.parseImageBase(h, r); err != nil {
 				return err
 			}
 		case authenticodeHash:
 			if codeHash != nil {
 				return errors.New("duplicate authenticode hash structure in LMA event")
 			}
-			if codeHash, err = w.parseAuthenticodeHash(header, r); err != nil {
+			if codeHash, err = w.parseAuthenticodeHash(h, r); err != nil {
 				return err
 			}
 		default:
-			return fmt.Errorf("unknown event in LMA aggregation: %v", header.Type)
+			return fmt.Errorf("unknown event in LMA aggregation: %v", h.Type)
 		}
 	}
 
@@ -394,6 +410,83 @@ eventLoop:
 	return nil
 }
 
+// parseUTF16 decodes data representing a UTF16 string. It is assumed the
+// caller has validated that the data size is within allowable bounds.
+func (w *WinEvents) parseUTF16(header microsoftEventHeader, r io.Reader) (string, error) {
+	data := make([]uint16, header.Size/2)
+	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(string(utf16.Decode(data)), string(0x00)), nil
+}
+
+func (w *WinEvents) readELAMAggregation(rdr *bytes.Reader, header microsoftEventHeader) error {
+	var (
+		r          = &io.LimitedReader{R: rdr, N: int64(header.Size)}
+		driverName string
+		measured   []byte
+		policy     []byte
+		config     []byte
+	)
+
+	for r.N > 0 {
+		var h microsoftEventHeader
+		if err := binary.Read(r, binary.LittleEndian, &h); err != nil {
+			return fmt.Errorf("parsing ELAM aggregation sub-event: %v", err)
+		}
+		if int64(h.Size) > r.N {
+			return fmt.Errorf("ELAM aggregation sub-event is larger than available data: %d > %d", h.Size, r.N)
+		}
+
+		var err error
+		switch h.Type {
+		case elamKeyname:
+			if driverName != "" {
+				return errors.New("duplicate driver name in ELAM aggregation event")
+			}
+			if driverName, err = w.parseUTF16(h, r); err != nil {
+				return fmt.Errorf("parsing ELAM driver name: %v", err)
+			}
+		case elamMeasured:
+			if measured != nil {
+				return errors.New("duplicate measured data in ELAM aggregation event")
+			}
+			measured = make([]byte, h.Size)
+			if err := binary.Read(r, binary.LittleEndian, &measured); err != nil {
+				return fmt.Errorf("reading ELAM measured value: %v", err)
+			}
+		case elamPolicy:
+			if policy != nil {
+				return errors.New("duplicate policy data in ELAM aggregation event")
+			}
+			policy = make([]byte, h.Size)
+			if err := binary.Read(r, binary.LittleEndian, &policy); err != nil {
+				return fmt.Errorf("reading ELAM policy value: %v", err)
+			}
+		case elamConfiguration:
+			if config != nil {
+				return errors.New("duplicate config data in ELAM aggregation event")
+			}
+			config = make([]byte, h.Size)
+			if err := binary.Read(r, binary.LittleEndian, &config); err != nil {
+				return fmt.Errorf("reading ELAM config value: %v", err)
+			}
+		default:
+			return fmt.Errorf("unknown event in LMA aggregation: %v", h.Type)
+		}
+	}
+
+	if driverName == "" {
+		return errors.New("ELAM driver name not specified")
+	}
+	w.ELAM[driverName] = WinELAM{
+		Measured: measured,
+		Config:   config,
+		Policy:   policy,
+	}
+	return nil
+}
+
 func (w *WinEvents) readSIPAEvent(r *bytes.Reader) error {
 	var header microsoftEventHeader
 	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
@@ -401,6 +494,8 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader) error {
 	}
 
 	switch header.Type {
+	case elamAggregation:
+		return w.readELAMAggregation(r, header)
 	case loadedModuleAggregation:
 		return w.readLoadedModuleAggregation(r, header)
 	case bootCounter:
