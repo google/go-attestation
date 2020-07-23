@@ -16,49 +16,21 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/google/go-attestation/oid"
 )
 
 var (
-	oidExtensionSubjectDirectoryAttributes = []int{2, 5, 29, 9}
-	oidExtensionSubjectAltName             = []int{2, 5, 29, 17}
-	oidExtensionCertificatePolicies        = []int{2, 5, 29, 32}
-	oidExtensionAuthorityKeyIdentifier     = []int{2, 5, 29, 35}
-	oidAuthorityInfoAccess                 = []int{1, 3, 6, 1, 5, 5, 7, 1, 1}
-	oidCpsCertificatePolicy                = []int{1, 3, 6, 1, 5, 5, 7, 2, 1}
-	oidAttributeUserNotice                 = []int{1, 3, 6, 1, 5, 5, 7, 2, 2}
-	oidAuthorityInfoAccessOcsp             = []int{1, 3, 6, 1, 5, 5, 7, 48, 1}
-	oidAuthorityInfoAccessIssuers          = []int{1, 3, 6, 1, 5, 5, 7, 48, 2}
-	oidTcgCertificatePolicy                = []int{1, 2, 840, 113741, 1, 5, 2, 4}
-	oidTcgAttribute                        = []int{2, 23, 133, 2}
-	oidTpmManufacturer                     = []int{2, 23, 133, 2, 1}
-	oidTpmModel                            = []int{2, 23, 133, 2, 2}
-	oidTpmVersion                          = []int{2, 23, 133, 2, 3}
-	oidTcgPlatformManufacturerStrV1        = []int{2, 23, 133, 2, 4}
-	oidTcgPlatformModelV1                  = []int{2, 23, 133, 2, 5}
-	oidTcgPlatformVersionV1                = []int{2, 23, 133, 2, 6}
-	oidSecurityQualities                   = []int{2, 23, 133, 2, 10}
-	oidTpmProtectionProfile                = []int{2, 23, 133, 2, 11}
-	oidTpmSecurityTarget                   = []int{2, 23, 133, 2, 12}
-	oidTbbProtectionProfile                = []int{2, 23, 133, 2, 13}
-	oidTbbSecurityTarget                   = []int{2, 23, 133, 2, 14}
-	oidTpmIDLabel                          = []int{2, 23, 133, 2, 15}
-	oidTpmSpecification                    = []int{2, 23, 133, 2, 16}
-	oidTcgPlatformSpecification            = []int{2, 23, 133, 2, 17}
-	oidTpmSecurityAssertions               = []int{2, 23, 133, 2, 18}
-	oidTbbSecurityAssertions               = []int{2, 23, 133, 2, 19}
-	oidTcgCredentialSpecification          = []int{2, 23, 133, 2, 23}
-	oidTcgCredentialType                   = []int{2, 23, 133, 2, 25}
-	oidTcgPlatformClass                    = []int{2, 23, 133, 5}
-	oidTcgCommon                           = []int{2, 23, 133, 5, 1}
-	oidTcgPlatformManufacturerStrV2        = []int{2, 23, 133, 5, 1, 1}
-	oidTcgPlatformManufacturerIDV2         = []int{2, 23, 133, 5, 1, 2}
-	oidTcgPlatformConfigURI                = []int{2, 23, 133, 5, 1, 3}
-	oidTcgPlatformModelV2                  = []int{2, 23, 133, 5, 1, 4}
-	oidTcgPlatformVersionV2                = []int{2, 23, 133, 5, 1, 5}
-	oidTcgPlatformSerialV2                 = []int{2, 23, 133, 5, 1, 6}
-	oidTcgPlatformConfiguration            = []int{2, 23, 133, 5, 1, 7}
-	oidTcgPlatformConfigurationV1          = []int{2, 23, 133, 5, 1, 7, 1}
-	oidTcgPlatformConfigurationV2          = []int{2, 23, 133, 5, 1, 7, 2}
+	oidExtensionAuthorityKeyIdentifier = []int{2, 5, 29, 35}
+	oidAuthorityInfoAccess             = []int{1, 3, 6, 1, 5, 5, 7, 1, 1}
+	oidCpsCertificatePolicy            = []int{1, 3, 6, 1, 5, 5, 7, 2, 1}
+	oidAuthorityInfoAccessOcsp         = []int{1, 3, 6, 1, 5, 5, 7, 48, 1}
+	oidAuthorityInfoAccessIssuers      = []int{1, 3, 6, 1, 5, 5, 7, 48, 2}
+	oidTcgCertificatePolicy            = []int{1, 2, 840, 113741, 1, 5, 2, 4}
+	oidAttributeUserNotice             = []int{1, 3, 6, 1, 5, 5, 7, 2, 2}
+	oidTcgPlatformManufacturerStrV1    = []int{2, 23, 133, 2, 4}
+	oidTcgPlatformModelV1              = []int{2, 23, 133, 2, 5}
+	oidTcgPlatformVersionV1            = []int{2, 23, 133, 2, 6}
 )
 
 var (
@@ -544,15 +516,15 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.UserNotice); err != nil {
 				return nil, err
 			}
-		case attribute.ID.Equal(oidTcgPlatformSpecification):
+		case attribute.ID.Equal(oid.TCGPlatformSpecification):
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TCGPlatformSpecification); err != nil {
 				return nil, err
 			}
-		case attribute.ID.Equal(oidTbbSecurityAssertions):
+		case attribute.ID.Equal(oid.TBBSecurityAssertions):
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.TBBSecurityAssertions); err != nil {
 				return nil, err
 			}
-		case attribute.ID.Equal(oidTcgCredentialSpecification):
+		case attribute.ID.Equal(oid.TCGCredentialSpecification):
 			var credentialSpecification TCGCredentialSpecification
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialSpecification); err != nil {
 				var credentialSpecification TCGSpecificationVersion
@@ -560,12 +532,12 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, err
 				}
 			}
-		case attribute.ID.Equal(oidTcgCredentialType):
+		case attribute.ID.Equal(oid.TCGCredentialType):
 			var credentialType TCGCredentialType
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &credentialType); err != nil {
 				return nil, err
 			}
-		case attribute.ID.Equal(oidTcgPlatformConfigurationV1):
+		case attribute.ID.Equal(oid.PlatformConfigurationV1):
 			var platformConfiguration PlatformConfigurationV1
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				return nil, err
@@ -584,7 +556,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			}
 			out.Properties = platformConfiguration.PlatformProperties
 			out.PropertiesURI = platformConfiguration.PlatformPropertiesURI.UniformResourceIdentifier
-		case attribute.ID.Equal(oidTcgPlatformConfigurationV2):
+		case attribute.ID.Equal(oid.PlatformConfigurationV2):
 			var platformConfiguration PlatformConfigurationV2
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfiguration); err != nil {
 				var workaround PlatformConfigurationV2Workaround
@@ -610,7 +582,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			}
 			out.Properties = platformConfiguration.PlatformProperties
 			out.PropertiesURI = platformConfiguration.PlatformPropertiesURI.UniformResourceIdentifier
-		case attribute.ID.Equal(oidTcgPlatformConfigURI):
+		case attribute.ID.Equal(oid.PlatformConfigURI):
 			var platformConfigurationURI URIReference
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &platformConfigurationURI); err != nil {
 				return nil, err
@@ -622,7 +594,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 
 	for _, extension := range in.TBSAttributeCertificate.Extensions {
 		switch {
-		case extension.Id.Equal(oidExtensionSubjectAltName):
+		case extension.Id.Equal(oid.SubjectAltName):
 			var seq asn1.RawValue
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
 			if err != nil {
@@ -649,19 +621,19 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 						out.PlatformModel = e.Value.(string)
 					case e.Type.Equal(oidTcgPlatformVersionV1):
 						out.PlatformVersion = e.Value.(string)
-					case e.Type.Equal(oidTcgCredentialSpecification):
+					case e.Type.Equal(oid.TCGCredentialSpecification):
 						// This OID appears to be misused in this context
 						out.PlatformSerial = e.Value.(string)
-					case e.Type.Equal(oidTcgPlatformManufacturerStrV2):
+					case e.Type.Equal(oid.PlatformManufacturerStr):
 						out.PlatformManufacturer = e.Value.(string)
-					case e.Type.Equal(oidTcgPlatformManufacturerIDV2):
+					case e.Type.Equal(oid.PlatformManufacturerID):
 						// We can't parse these out at present
 						break
-					case e.Type.Equal(oidTcgPlatformModelV2):
+					case e.Type.Equal(oid.PlatformModel):
 						out.PlatformModel = e.Value.(string)
-					case e.Type.Equal(oidTcgPlatformVersionV2):
+					case e.Type.Equal(oid.PlatformVersion):
 						out.PlatformVersion = e.Value.(string)
-					case e.Type.Equal(oidTcgPlatformSerialV2):
+					case e.Type.Equal(oid.PlatformSerial):
 						out.PlatformSerial = e.Value.(string)
 					default:
 						return nil, fmt.Errorf("attributecert: unhandled attribute: %v", e.Type)
@@ -669,7 +641,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 				}
 			}
 
-		case extension.Id.Equal(oidExtensionSubjectDirectoryAttributes):
+		case extension.Id.Equal(oid.SubjectDirectoryAttributes):
 			var seq asn1.RawValue
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
 			if err != nil {
@@ -685,14 +657,14 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, err
 				}
 				switch {
-				case e.ID.Equal(oidTcgPlatformSpecification):
+				case e.ID.Equal(oid.TCGPlatformSpecification):
 					var platformSpecification TCGPlatformSpecification
 					_, err := asn1.Unmarshal(e.Data.Bytes, &platformSpecification)
 					if err != nil {
 						return nil, err
 					}
 					out.TCGPlatformSpecification = platformSpecification
-				case e.ID.Equal(oidTbbSecurityAssertions):
+				case e.ID.Equal(oid.TBBSecurityAssertions):
 					var securityAssertions TBBSecurityAssertions_sda
 					_, err := asn1.Unmarshal(e.Data.Bytes, &securityAssertions)
 					if err != nil {
@@ -709,7 +681,7 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 				}
 			}
 
-		case extension.Id.Equal(oidExtensionCertificatePolicies):
+		case extension.Id.Equal(oid.CertificatePolicies):
 			var policies []policyInformation
 			_, err := asn1.Unmarshal(extension.Value, &policies)
 			if err != nil {
