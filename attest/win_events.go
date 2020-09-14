@@ -121,6 +121,18 @@ const (
 	ksrSignature                    windowsEvent = 0x000B0001
 )
 
+type WinCSPAlg uint32
+
+// Valid CSP Algorithm IDs.
+const (
+	WinAlgMD4    WinCSPAlg = 0x02
+	WinAlgMD5    WinCSPAlg = 0x03
+	WinAlgSHA1   WinCSPAlg = 0x04
+	WinAlgSHA256 WinCSPAlg = 0x0c
+	WinAlgSHA384 WinCSPAlg = 0x0d
+	WinAlgSHA512 WinCSPAlg = 0x0e
+)
+
 // BitlockerStatus describes the status of BitLocker on a Windows system.
 type BitlockerStatus uint8
 
@@ -173,11 +185,33 @@ type WinEvents struct {
 // WinModuleLoad describes a module which was loaded while
 // Windows booted.
 type WinModuleLoad struct {
+	// FilePath represents the path from which the module was loaded. This
+	// information is not always present.
+	FilePath string
 	// AuthenticodeHash contains the authenticode hash of the binary
 	// blob which was loaded.
 	AuthenticodeHash []byte
 	// ImageBase describes all the addresses to which the the blob was loaded.
 	ImageBase []uint64
+	// ImageSize describes the size of the image in bytes. This information
+	// is not always present.
+	ImageSize uint64
+	// HashAlgorithm describes the hash algorithm used.
+	HashAlgorithm WinCSPAlg
+	// ImageValidated is set if the post-boot loader validated the image.
+	ImageValidated bool
+
+	// AuthorityIssuer identifies the issuer of the certificate which certifies
+	// the signature on this module.
+	AuthorityIssuer string
+	// AuthorityPublisher identifies the publisher of the certificate which
+	// certifies the signature on this module.
+	AuthorityPublisher string
+	// AuthoritySerial contains the serial of the certificate certifying this
+	// module.
+	AuthoritySerial []byte
+	// AuthoritySHA1 is the SHA1 hash of the certificate thumbprint.
+	AuthoritySHA1 []byte
 }
 
 // WinELAM describes the configuration of an Early Launch AntiMalware driver.
@@ -199,11 +233,14 @@ func ParseWinEvents(events []Event) (*WinEvents, error) {
 			LoadedModules: map[string]WinModuleLoad{},
 			ELAM:          map[string]WinELAM{},
 		}
-		seenSeparator bool
+		seenSeparator struct {
+			PCR12 bool
+			PCR13 bool
+		}
 	)
 
 	for _, e := range events {
-		if e.Index != 12 {
+		if e.Index != 12 && e.Index != 13 {
 			continue
 		}
 
@@ -213,32 +250,70 @@ func ParseWinEvents(events []Event) (*WinEvents, error) {
 		}
 
 		digestVerify := e.digestEquals(e.Data)
-		switch et {
-		case internal.EventTag:
-			s, err := internal.ParseTaggedEventData(e.Data)
-			if err != nil {
-				return nil, fmt.Errorf("invalid tagged event structure at event %d: %w", e.sequence, err)
-			}
-			if digestVerify != nil {
-				return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, err)
-			}
-			if err := out.readWinEventBlock(s); err != nil {
-				return nil, fmt.Errorf("invalid SIPA events in event %d: %w", e.sequence, err)
-			}
-		case internal.Separator:
-			if seenSeparator {
-				return nil, fmt.Errorf("duplicate WBCL separator at event %d", e.sequence)
-			}
-			seenSeparator = true
-			if !bytes.Equal(e.Data, []byte("WBCL")) {
-				return nil, fmt.Errorf("invalid WBCL separator data at event %d: %v", e.sequence, e.Data)
-			}
-			if digestVerify != nil {
-				return nil, fmt.Errorf("invalid separator digest at event %d: %v", e.sequence, digestVerify)
-			}
 
-		default:
-			return nil, fmt.Errorf("unexpected event type: %v", et)
+		switch e.Index {
+		case 12: // 'early boot' events
+			switch et {
+			case internal.EventTag:
+				if seenSeparator.PCR12 {
+					continue
+				}
+				s, err := internal.ParseTaggedEventData(e.Data)
+				if err != nil {
+					return nil, fmt.Errorf("invalid tagged event structure at event %d: %w", e.sequence, err)
+				}
+				if digestVerify != nil {
+					return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, err)
+				}
+				if err := out.readWinEventBlock(s, e.Index); err != nil {
+					return nil, fmt.Errorf("invalid SIPA events in event %d: %w", e.sequence, err)
+				}
+			case internal.Separator:
+				if seenSeparator.PCR12 {
+					return nil, fmt.Errorf("duplicate WBCL separator at event %d", e.sequence)
+				}
+				seenSeparator.PCR12 = true
+				if !bytes.Equal(e.Data, []byte("WBCL")) {
+					return nil, fmt.Errorf("invalid WBCL separator data at event %d: %v", e.sequence, e.Data)
+				}
+				if digestVerify != nil {
+					return nil, fmt.Errorf("invalid separator digest at event %d: %v", e.sequence, digestVerify)
+				}
+
+			default:
+				return nil, fmt.Errorf("unexpected (PCR12) event type: %v", et)
+			}
+		case 13: // Post 'early boot' events
+			switch et {
+			case internal.EventTag:
+				if seenSeparator.PCR13 {
+					continue
+				}
+				s, err := internal.ParseTaggedEventData(e.Data)
+				if err != nil {
+					return nil, fmt.Errorf("invalid tagged event structure at event %d: %w", e.sequence, err)
+				}
+				if digestVerify != nil {
+					return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, err)
+				}
+				if err := out.readWinEventBlock(s, e.Index); err != nil {
+					return nil, fmt.Errorf("invalid SIPA events in event %d: %w", e.sequence, err)
+				}
+			case internal.Separator:
+				if seenSeparator.PCR13 {
+					return nil, fmt.Errorf("duplicate WBCL separator at event %d", e.sequence)
+				}
+				seenSeparator.PCR13 = true
+				if !bytes.Equal(e.Data, []byte("WBCL")) {
+					return nil, fmt.Errorf("invalid WBCL separator data at event %d: %v", e.sequence, e.Data)
+				}
+				if digestVerify != nil {
+					return nil, fmt.Errorf("invalid separator digest at event %d: %v", e.sequence, digestVerify)
+				}
+
+			default:
+				return nil, fmt.Errorf("unexpected (PCR13) event type: %v", et)
+			}
 		}
 	}
 	return &out, nil
@@ -304,17 +379,27 @@ func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.R
 	return nil
 }
 
-func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader) error {
+func (w *WinEvents) readUint(header microsoftEventHeader, r io.Reader) (uint64, error) {
 	if header.Size > 8 {
-		return fmt.Errorf("boot counter data too large (%d bytes)", header.Size)
+		return 0, fmt.Errorf("integer too large (%d bytes)", header.Size)
 	}
+
 	data := make([]uint8, header.Size)
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
-		return fmt.Errorf("reading u%d: %w", header.Size<<8, err)
+		return 0, fmt.Errorf("reading u%d: %w", header.Size<<8, err)
 	}
 	i, n := binary.Uvarint(data)
 	if n <= 0 {
-		return fmt.Errorf("reading u%d: invalid varint", header.Size<<8)
+		return 0, fmt.Errorf("reading u%d: invalid varint", header.Size<<8)
+	}
+
+	return i, nil
+}
+
+func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader) error {
+	i, err := w.readUint(header, r)
+	if err != nil {
+		return fmt.Errorf("boot counter: %v", err)
 	}
 
 	if w.BootCount > 0 && w.BootCount != int(i) {
@@ -324,7 +409,7 @@ func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader
 	return nil
 }
 
-func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *bytes.Reader) error {
+func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *bytes.Reader, pcr int) error {
 	if header.Size > 8 {
 		return fmt.Errorf("bitlocker data too large (%d bytes)", header.Size)
 	}
@@ -337,8 +422,62 @@ func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *bytes.Re
 		return fmt.Errorf("reading u%d: invalid varint", header.Size<<8)
 	}
 
+	if pcr == 13 {
+		// The bitlocker status is duplicated across both PCRs. As such,
+		// we prefer the earlier one, and bail here to prevent duplicate
+		// records.
+		return nil
+	}
+
 	w.BitlockerUnlocks = append(w.BitlockerUnlocks, BitlockerStatus(i))
 	return nil
+}
+
+func (w *WinEvents) parseImageValidated(header microsoftEventHeader, r io.Reader) (bool, error) {
+	if header.Size != 1 {
+		return false, fmt.Errorf("payload was %d bytes, want 1", header.Size)
+	}
+	var num byte
+	if err := binary.Read(r, binary.LittleEndian, &num); err != nil {
+		return false, fmt.Errorf("reading u8: %w", err)
+	}
+	return num == 1, nil
+}
+
+func (w *WinEvents) parseHashAlgID(header microsoftEventHeader, r io.Reader) (WinCSPAlg, error) {
+	i, err := w.readUint(header, r)
+	if err != nil {
+		return 0, fmt.Errorf("hash algorithm ID: %v", err)
+	}
+
+	switch alg := WinCSPAlg(i & 0xff); alg {
+	case WinAlgMD4, WinAlgMD5, WinAlgSHA1, WinAlgSHA256, WinAlgSHA384, WinAlgSHA512:
+		return alg, nil
+	default:
+		return 0, fmt.Errorf("unknown algorithm ID: %x", i)
+	}
+}
+
+func (w *WinEvents) parseAuthoritySerial(header microsoftEventHeader, r io.Reader) ([]byte, error) {
+	if header.Size > 128 {
+		return nil, fmt.Errorf("authority serial is too long (%d bytes)", header.Size)
+	}
+	data := make([]byte, header.Size)
+	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
+		return nil, fmt.Errorf("reading bytes: %w", err)
+	}
+	return data, nil
+}
+
+func (w *WinEvents) parseAuthoritySHA1(header microsoftEventHeader, r io.Reader) ([]byte, error) {
+	if header.Size > 20 {
+		return nil, fmt.Errorf("authority thumbprint is too long (%d bytes)", header.Size)
+	}
+	data := make([]byte, header.Size)
+	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
+		return nil, fmt.Errorf("reading bytes: %w", err)
+	}
+	return data, nil
 }
 
 func (w *WinEvents) parseImageBase(header microsoftEventHeader, r io.Reader) (uint64, error) {
@@ -365,9 +504,14 @@ func (w *WinEvents) parseAuthenticodeHash(header microsoftEventHeader, r io.Read
 
 func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header microsoftEventHeader) error {
 	var (
-		r        = &io.LimitedReader{R: rdr, N: int64(header.Size)}
-		codeHash []byte
-		imgBase  uint64
+		r                   = &io.LimitedReader{R: rdr, N: int64(header.Size)}
+		codeHash            []byte
+		imgBase, imgSize    uint64
+		fPath               string
+		algID               WinCSPAlg
+		imgValidated        bool
+		aIssuer, aPublisher string
+		aSerial, aSHA1      []byte
 	)
 
 	for r.N > 0 {
@@ -395,14 +539,89 @@ func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header micros
 			if codeHash, err = w.parseAuthenticodeHash(h, r); err != nil {
 				return err
 			}
+		case filePath:
+			if fPath != "" {
+				return errors.New("duplicate file path in LMA event")
+			}
+			if fPath, err = w.parseUTF16(h, r); err != nil {
+				return err
+			}
+		case imageSize:
+			if imgSize != 0 {
+				return errors.New("duplicate image size in LMA event")
+			}
+			if imgSize, err = w.readUint(h, r); err != nil {
+				return err
+			}
+		case hashAlgorithmID:
+			if algID != 0 {
+				return errors.New("duplicate hash algorithm ID in LMA event")
+			}
+			if algID, err = w.parseHashAlgID(h, r); err != nil {
+				return err
+			}
+		case imageValidated:
+			if imgValidated == true {
+				return errors.New("duplicate image validated field in LMA event")
+			}
+			if imgValidated, err = w.parseImageValidated(h, r); err != nil {
+				return err
+			}
+		case authorityIssuer:
+			if aIssuer != "" {
+				return errors.New("duplicate authority issuer in LMA event")
+			}
+			if aIssuer, err = w.parseUTF16(h, r); err != nil {
+				return err
+			}
+		case authorityPublisher:
+			if aPublisher != "" {
+				return errors.New("duplicate authority publisher in LMA event")
+			}
+			if aPublisher, err = w.parseUTF16(h, r); err != nil {
+				return err
+			}
+		case authoritySerial:
+			if aSerial != nil {
+				return errors.New("duplicate authority serial in LMA event")
+			}
+			if aSerial, err = w.parseAuthoritySerial(h, r); err != nil {
+				return err
+			}
+		case authoritySHA1Thumbprint:
+			if aSHA1 != nil {
+				return errors.New("duplicate authority SHA1 thumbprint in LMA event")
+			}
+			if aSHA1, err = w.parseAuthoritySHA1(h, r); err != nil {
+				return err
+			}
+		case moduleSVN:
+			// Ignore - consume value.
+			b := make([]byte, h.Size)
+			if err := binary.Read(r, binary.LittleEndian, &b); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unknown event in LMA aggregation: %v", h.Type)
 		}
 	}
 
+	var iBase []uint64
+	if imgBase != 0 {
+		iBase = []uint64{imgBase}
+	}
+
 	l := WinModuleLoad{
-		AuthenticodeHash: codeHash,
-		ImageBase:        []uint64{imgBase},
+		FilePath:           fPath,
+		AuthenticodeHash:   codeHash,
+		ImageBase:          iBase,
+		ImageSize:          imgSize,
+		ImageValidated:     imgValidated,
+		HashAlgorithm:      algID,
+		AuthorityIssuer:    aIssuer,
+		AuthorityPublisher: aPublisher,
+		AuthoritySerial:    aSerial,
+		AuthoritySHA1:      aSHA1,
 	}
 	hashHex := hex.EncodeToString(l.AuthenticodeHash)
 	l.ImageBase = append(l.ImageBase, w.LoadedModules[hashHex].ImageBase...)
@@ -487,7 +706,7 @@ func (w *WinEvents) readELAMAggregation(rdr *bytes.Reader, header microsoftEvent
 	return nil
 }
 
-func (w *WinEvents) readSIPAEvent(r *bytes.Reader) error {
+func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
 	var header microsoftEventHeader
 	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
 		return err
@@ -501,7 +720,7 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader) error {
 	case bootCounter:
 		return w.readBootCounter(header, r)
 	case bitlockerUnlock:
-		return w.readBitlockerUnlock(header, r)
+		return w.readBitlockerUnlock(header, r, pcr)
 
 	case osKernelDebug, codeIntegrity, bootDebugging, testSigning: // Parse boolean values.
 		return w.readBooleanByteEvent(header, r)
@@ -524,7 +743,7 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader) error {
 
 // readWinEventBlock extracts boot configuration from SIPA events contained in
 // the given tagged event.
-func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData) error {
+func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData, pcr int) error {
 	r := bytes.NewReader(evt.Data)
 
 	// All windows information should be sub events in an enclosing SIPA
@@ -534,7 +753,7 @@ func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData) error {
 	}
 
 	for r.Len() > 0 {
-		if err := w.readSIPAEvent(r); err != nil {
+		if err := w.readSIPAEvent(r, pcr); err != nil {
 			if errors.Is(err, unknownSIPAEvent) {
 				// Unknown SIPA events are okay as all TCG events are verifiable.
 				continue
