@@ -397,8 +397,8 @@ type ComponentIdentifierV2 struct {
 	ComponentClass           ComponentClass
 	ComponentManufacturer    string
 	ComponentModel           string
-	ComponentSerial          string                `asn1:"optional,tag:0"`
-	ComponentRevision        string                `asn1:"optional,tag:1"`
+	ComponentSerial          string                `asn1:"optional,utf8,tag:0"`
+	ComponentRevision        string                `asn1:"optional,utf8,tag:1"`
 	ComponentManufacturerID  int                   `asn1:"optional,tag:2"`
 	FieldReplaceable         bool                  `asn1:"optional,tag:3"`
 	ComponentAddresses       []ComponentAddress    `asn1:"optional,tag:4"`
@@ -431,8 +431,8 @@ type ComponentIdentifierV1 struct {
 	ComponentClass          []byte `asn1:"optional"`
 	ComponentManufacturer   string
 	ComponentModel          string
-	ComponentSerial         string             `asn1:"optional,tag:0"`
-	ComponentRevision       string             `asn1:"optional,tag:1"`
+	ComponentSerial         string             `asn1:"optional,utf8,tag:0"`
+	ComponentRevision       string             `asn1:"optional,utf8,tag:1"`
 	ComponentManufacturerID int                `asn1:"optional,tag:2"`
 	FieldReplaceable        bool               `asn1:"optional,tag:3"`
 	ComponentAddresses      []ComponentAddress `asn1:"optional,tag:4"`
