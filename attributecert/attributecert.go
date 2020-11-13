@@ -390,7 +390,7 @@ type ComponentAddress struct {
 
 type ComponentClass struct {
 	ComponentClassRegistry asn1.ObjectIdentifier
-	ComponentClassValue    string
+	ComponentClassValue    []byte
 }
 
 type ComponentIdentifierV2 struct {
