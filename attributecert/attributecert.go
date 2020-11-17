@@ -320,7 +320,7 @@ type TCGCredentialType struct {
 type FipsLevel struct {
 	Version string
 	Level   asn1.Enumerated
-	Plus    bool
+	Plus    bool `asn1:"optional,default=false"`
 }
 
 type CommonCriteriaMeasures struct {
@@ -336,11 +336,11 @@ type CommonCriteriaMeasures struct {
 }
 
 type TBBSecurityAssertions struct {
-	Version          int
+	Version          int                    `asn1:"optional,default=0"`
 	CcInfo           CommonCriteriaMeasures `asn1:"optional,tag:0"`
 	FipsLevel        FipsLevel              `asn1:"optional,tag:1"`
 	RtmType          asn1.Enumerated        `asn1:"optional,tag:2"`
-	Iso9000Certified bool                   `asn1:"optional"`
+	Iso9000Certified bool                   `asn1:"optional,default=false"`
 	Iso9000URI       string                 `asn1:"optional"`
 }
 
@@ -350,7 +350,7 @@ type CommonCriteriaMeasures_sda struct {
 	Version            string
 	AssuranceLevel     asn1.Enumerated
 	EvaluationStatus   asn1.Enumerated
-	Plus               bool
+	Plus               bool                  `asn1:"optional,default=false"`
 	StrengthOfFunction asn1.Enumerated       `asn1:"optional"`
 	ProfileOid         asn1.ObjectIdentifier `asn1:"optional"`
 	ProfileURI         string                `asn1:"optional"`
