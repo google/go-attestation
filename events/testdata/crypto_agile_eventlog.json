@@ -1,0 +1,828 @@
+[
+    {
+        "Index": 0,
+        "Type": 7,
+        "Data": "Qm9vdCBHdWFyZCBNZWFzdXJlZCBTLUNSVE0A",
+        "Digest": null,
+        "Err": null,
+        "Message": "Boot Guard Measured S-CRTM\u0000"
+    },
+    {
+        "Index": 0,
+        "Type": 8,
+        "Data": "HvtrVAwdVUCkrU70vxe4Og==",
+        "Digest": null,
+        "Err": {},
+        "Message": ""
+    },
+    {
+        "Index": 0,
+        "Type": 1,
+        "Data": "AACi/wAAAAAAAE4AAAAAAA==",
+        "Digest": null,
+        "Err": {},
+        "Message": ""
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAoAAAAAAAAAAAAAAAAAAABTAGUAYwB1AHIAZQBCAG8AbwB0AA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "SecureBoot",
+        "VariableData": ""
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAIAAAAAAAAARwMAAAAAAABQAEsAoVnApeSUp0qHtasVXCvwckcDAAAAAAAAKwMAADMIzL8lIdFCjG0Tgh4jwHgwggMXMIIB/6ADAgECAgkAwx05yu89i90wDQYJKoZIhvcNAQELBQAwIjEgMB4GA1UEAwwXSW50ZWwoUikgRGVza3RvcCBCb2FyZHMwHhcNMTMwMjAyMDAwOTQ5WhcNMjMwMTMxMDAwOTQ5WjAiMSAwHgYDVQQDDBdJbnRlbChSKSBEZXNrdG9wIEJvYXJkczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOAyd02l8zFBX582OdGTzrIW+EV/TmXBQixl1ZZemSJdihYtiVLj5hUjx324HlWEe8oqJ13upDNqUv85qdSBIY/C9bj4PIVDYGFoI3LxgrFtaK1pC/vRWu3SzcHEgdPSum/Ob61YJW85MsUG/1eAUtaLY5Dsp0vPKrAu9xMu/KdbbHmGDdKzBBN1GG2LejW4nHEAHBlypIwk1A3V6crQO6A2xlVLWLPzfVgte5LwOOM/Bo2qeTIublDcjB3h99sPS69hvL3SutZf7I95PrjIN9ypWk2A7FvO62xUaHQqXKq8JdJp4cFRWzXF+8+mWKls+HMzxvWo0grv6+If7POqhAsCAwEAAaNQME4wHQYDVR0OBBYEFNLudgSAAMHmVtL+1++LWtgMPLE5MB8GA1UdIwQYMBaAFNLudgSAAMHmVtL+1++LWtgMPLE5MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBADjnwyGUl5oMllstDop3HZHalX/G0ryEzJ3shHyMCTYnLAjSkIoyOT5ORtlC7C2QlDg0JOYQ2S6l8s6yjsBRfx6weReLQB4s1Y3LcInq+S5jsSOAyUFJ3tBfWr+GMDPEV8ZOLxqz6WNdaZANuQD2tD6J15cP0+4sbsqoy7rYSjhG3gFv4Y0ubf7t4lX4Gm/Herh929s0fz6enjf3O4EOUu9FrNQLzoz4PTb/L5v05byfX9drjYv9Y9SxaUPLrgQHoRro7WkJOgk90rDosrdvJSycPiSlil62DcUaEJA/i4MzfdM3QoDLbiP4Cd1XFlnf44u0+veCQpDYsXHG/hZ5G4c=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "PK",
+        "VariableData": "oVnApeSUp0qHtasVXCvwckcDAAAAAAAAKwMAADMIzL8lIdFCjG0Tgh4jwHgwggMXMIIB/6ADAgECAgkAwx05yu89i90wDQYJKoZIhvcNAQELBQAwIjEgMB4GA1UEAwwXSW50ZWwoUikgRGVza3RvcCBCb2FyZHMwHhcNMTMwMjAyMDAwOTQ5WhcNMjMwMTMxMDAwOTQ5WjAiMSAwHgYDVQQDDBdJbnRlbChSKSBEZXNrdG9wIEJvYXJkczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOAyd02l8zFBX582OdGTzrIW+EV/TmXBQixl1ZZemSJdihYtiVLj5hUjx324HlWEe8oqJ13upDNqUv85qdSBIY/C9bj4PIVDYGFoI3LxgrFtaK1pC/vRWu3SzcHEgdPSum/Ob61YJW85MsUG/1eAUtaLY5Dsp0vPKrAu9xMu/KdbbHmGDdKzBBN1GG2LejW4nHEAHBlypIwk1A3V6crQO6A2xlVLWLPzfVgte5LwOOM/Bo2qeTIublDcjB3h99sPS69hvL3SutZf7I95PrjIN9ypWk2A7FvO62xUaHQqXKq8JdJp4cFRWzXF+8+mWKls+HMzxvWo0grv6+If7POqhAsCAwEAAaNQME4wHQYDVR0OBBYEFNLudgSAAMHmVtL+1++LWtgMPLE5MB8GA1UdIwQYMBaAFNLudgSAAMHmVtL+1++LWtgMPLE5MAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBADjnwyGUl5oMllstDop3HZHalX/G0ryEzJ3shHyMCTYnLAjSkIoyOT5ORtlC7C2QlDg0JOYQ2S6l8s6yjsBRfx6weReLQB4s1Y3LcInq+S5jsSOAyUFJ3tBfWr+GMDPEV8ZOLxqz6WNdaZANuQD2tD6J15cP0+4sbsqoy7rYSjhG3gFv4Y0ubf7t4lX4Gm/Herh929s0fz6enjf3O4EOUu9FrNQLzoz4PTb/L5v05byfX9drjYv9Y9SxaUPLrgQHoRro7WkJOgk90rDosrdvJSycPiSlil62DcUaEJA/i4MzfdM3QoDLbiP4Cd1XFlnf44u0+veCQpDYsXHG/hZ5G4c="
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "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",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "KEK",
+        "VariableData": "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"
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "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",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 3608785611,
+            "Data2": 15674,
+            "Data3": 17814,
+            "Data4": [
+                163,
+                188,
+                218,
+                208,
+                14,
+                103,
+                101,
+                111
+            ]
+        },
+        "VariableName": "db",
+        "VariableData": "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"
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "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Mk29YCj05494S2yIVEeN1Vnik1G4JsBsuL/vK5StNTg1h3LRk/gu0coRvZr6d1kDMk29YCj05494S28UKP9xydsO1a8fLnu/y6tkfMJl3fWyk822JvUKOnhevZr6d1kDMk29YCj05494S3HykG/SIkl+VKNGYqskl/zIECB3D/UTaOnj2b/L/WN1vZr6d1kDMk29YCj05494S3JrPrZUBGow8/g9m5bOA/Zw6agG0XCKA3HmLcSdLCPBvZr6d1kDMk29YCj05494S3LgvRhnz12dVqsVit873byCvzKo2KodjF4vbfKUKNbYvZr6d1kDMk29YCj05494S3gnr5k2LPrwcX2t5LG/4EOK0XHBWt3CSLdb+MqkS7LFvZr6d1kDMk29YCj05494S4GouWW7hNOHa5QpqVSBzJVTGM+qFBLYCMijO/0z//DkvZr6d1kDMk29YCj05494S4LbO8609ghDzp2Xw9GHzZtZQc096BAOWG8r2lY3V19nvZr6d1kDMk29YCj05494S4lal4X2F8odftRPwaFHC3Hz8SI4Ytn/ncw64t+SFj2vvZr6d1kDMk29YCj05494S4rWSFnxlbX1ja+qlAtqYWes1nqIbo9Gk2QXciHFWUW5vZr6d1kDMk29YCj05494S4v0NLSeAMz3FQKizZAIZcsB7Ds9oDw1vlBf33vVY/UhvZr6d1kDMk29YCj05494S42OoonP5wocB6tzZcso7lHt0zzyUG3oiPut1g6/gEgcvZr6d1kDMk29YCj05494S5mY02PEkb4WvXS6ELlNkpEAFhFzb9ymQ6NmZLwPMVpCvZr6d1kDMk29YCj05494S55KaRcxYWguVf3o/vVg64jsH/7crwQAH2bAyvcHsrc0vZr6d1kDMk29YCj05494S6a1FR82VdOirw1HJ1l5a+SkIA5UlafYaXVMSEiFdAinvZr6d1kDMk29YCj05494S6fzL1CNTrD+rZoIfvlO0boK7F3m9+9v8KYrk77fXUWNvZr6d1kDMk29YCj05494S61oJuGUbSbT6vNoXIjZfYXeO03LPQ7iroHHBWDRPFcgvZr6d1kDMk29YCj05494S67rrjFRJxJz7ZWqLmcROe0xqYVnMDozIpj4Nwmp1VqhvZr6d1kDMk29YCj05494S6/iAwr7fSzaE/n6MzoC409nUa/sEbAQ281EH99MQAKzvZr6d1kDMk29YCj05494S7VPHuY2Yx+taAWNOwk3AxrBuQzLFwYqORzKaK/b5A1VvZr6d1kDMk29YCj05494S7jweNmDokrEMyFjk4g1FM2TLDOvGOfdcIhMgjX0J1c2vZr6d1kDMk29YCj05494S7l6CIkFnANf8dVLbbU7Ebl2ZmjZ+VUkfAKLKDfXoEzZvZr6d1kDMk29YCj05494S7yHpmjoGWZInLUI7oBRg8Geas0kzxd5nKBi0uOE2g6nvZr6d1kDMk29YCj05494S8QJvaxHda3Y25KqIrW3GPuMlKFGLB/ppBa5XYoziML8vZr6d1kDMk29YCj05494S8YXwaix7iqBHCi1qBtMg9fJi1sMJygdYQIH6+aSwpZ/vZr6d1kDMk29YCj05494S8kPM2YXuOf5g5dUE8mX8Qtz6yZ/2KEMueO9v8Znq9uLvZr6d1kDMk29YCj05494S8trhYtA06CYdlgVtZLBUUpJYE+v1ggZ2ojXp26XeP73vZr6d1kDMk29YCj05494S847+r5Z1nzorI39Shb3xD75wiRRP7xlWVfXNfop9UDOvZr6d1kDMk29YCj05494S9jL65c19WcrNn5Pls3HSWlhXRcHSulsck1CzgIW+PP6vZr6d1kDMk29YCj05494S+ksIus7VkLWXB7CyvJH0llHOO67f7OEGkSVb1nisNH6vZr6d1kDMk29YCj05494S/3dbj0p6oTHdD2tShvbxwC1/sGzkfkyQJCGrMcd1tvYvZr6d1kDMk29YCj05494S/5jqE94LMnT/PLM+fwR+9A3YIeHWNJihe0SZpvcbm0BvZr6d1kDMk29YCj05494S/7PsjLRLplLbUhdLHFncoqlUlmErVymHnUWIh8HmhQ2vZr6d1kDMk29YCj05494S8oXHWFKjX4SHJOUjND+VdOZgfnRGqluA0UKQVInwsZbvZr6d1kDMk29YCj05494S1W5mw3lPbz+SFqpxzfPP7YW7z2R+rWZqnyrGe2nY7W6vZr6d1kDMk29YCj05494S3fdGQ+jDYj/XjsBGgrmHmIJeAwTC1Ney4fm8IiKC2svvZr6d1kDMk29YCj05494S8g8sTkirZn1YHRGdd03zJTcrVofy6ZHL+40EXHZOeiEvZr6d1kDMk29YCj05494SzsCh1M+DMPQ7BqoI8vwqUGq2HIVedHEmYAt0cOmNripvZr6d1kDMk29YCj05494S5Oa7vT1+lHiM0DD8uSQSM6IclJq/fdSw6fzo/K8n2BJvZr6d1kDMk29YCj05494S2RXW9kSeJouFK1W9jQfUq9r+Az5RAB4WXXp8E4tZNdFvZr6d1kDMk29YCj05494S0XHyK51Cs+7SPw3Un1kEt1kTa7YkTzNiiTJTYVpZ9+O",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 3608785611,
+            "Data2": 15674,
+            "Data3": 17814,
+            "Data4": [
+                163,
+                188,
+                218,
+                208,
+                14,
+                103,
+                101,
+                111
+            ]
+        },
+        "VariableName": "dbx",
+        "VariableData": "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"
+    },
+    {
+        "Index": 7,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 0,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 1,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 2,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 3,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 4,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 5,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 6,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 5,
+        "Type": 2147483654,
+        "Data": "RUZJIFBBUlQAAAEAXAAAAP+5KHYAAAAAAQAAAAAAAACvbXB0AAAAACIAAAAAAAAAjm1wdAAAAAA63XS3H+kBTK/uGVegrIMlAgAAAAAAAACAAAAAgAAAAM47cuoFAAAAAAAAAChzKsEf+NIRuksAoMk+yTvROc0j+UJrT4mRPpoDJgsIAAgAAAAAAAD/RwYAAAAAAAAAAAAAAAAARQBGAEkAIABTAHkAcwB0AGUAbQAgAFAAYQByAHQAaQB0AGkAbwBuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoqDQ6+W5M0SHwGi2tyaZx8z/MJUqou5EueEEkNmV4SwASAYAAAAAAP9HJgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB509bmB/XCRKI8I48qPfkobq2Zv0l2fkmStVDpcFMJlwBIJgAAAAAA/ydSKQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK89xg+DhHJHjnk9adhHfeTeSTP9fAeUSax9MtoaVhkbAChSKQAAAAD/1z5MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAArz3GD4OEckeOeT1p2Ed95KhVMAyWSwNEkNiKEzWUGxQA2D5MAAAAAP+HK28AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "Digest": null,
+        "Err": null,
+        "UEFIPartitionHeader": {
+            "Header": {
+                "Signature": 6075990659671082565,
+                "Revision": 65536,
+                "HeaderSize": 92,
+                "CRC32": 1982380543,
+                "Reserved": 0
+            },
+            "MyLBA": 1,
+            "AlternateLBA": 1953525167,
+            "FirstUsableLBA": 34,
+            "LastUsableLBA": 1953525134,
+            "DiskGUID": {
+                "Data1": 3077889338,
+                "Data2": 59679,
+                "Data3": 19457,
+                "Data4": [
+                    175,
+                    238,
+                    25,
+                    87,
+                    160,
+                    172,
+                    131,
+                    37
+                ]
+            },
+            "PartitionEntryLBA": 2,
+            "NumberOfPartitionEntries": 128,
+            "SizeOfPartitionEntry": 128,
+            "PartitionEntryArrayCRC32": 3933354958
+        },
+        "Partitions": [
+            {
+                "TypeGUID": {
+                    "Data1": 3240784680,
+                    "Data2": 63519,
+                    "Data3": 4562,
+                    "Data4": [
+                        186,
+                        75,
+                        0,
+                        160,
+                        201,
+                        62,
+                        201,
+                        59
+                    ]
+                },
+                "PartitionGUID": {
+                    "Data1": 600652241,
+                    "Data2": 17145,
+                    "Data3": 20331,
+                    "Data4": [
+                        137,
+                        145,
+                        62,
+                        154,
+                        3,
+                        38,
+                        11,
+                        8
+                    ]
+                },
+                "FirstLBA": 2048,
+                "LastLBA": 411647,
+                "AttributeFlags": 0,
+                "PartitionName": [
+                    69,
+                    70,
+                    73,
+                    32,
+                    83,
+                    121,
+                    115,
+                    116,
+                    101,
+                    109,
+                    32,
+                    80,
+                    97,
+                    114,
+                    116,
+                    105,
+                    116,
+                    105,
+                    111,
+                    110,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            {
+                "TypeGUID": {
+                    "Data1": 3956318370,
+                    "Data2": 47589,
+                    "Data3": 17459,
+                    "Data4": [
+                        135,
+                        192,
+                        104,
+                        182,
+                        183,
+                        38,
+                        153,
+                        199
+                    ]
+                },
+                "PartitionGUID": {
+                    "Data1": 2503016396,
+                    "Data2": 41514,
+                    "Data3": 17646,
+                    "Data4": [
+                        185,
+                        225,
+                        4,
+                        144,
+                        217,
+                        149,
+                        225,
+                        44
+                    ]
+                },
+                "FirstLBA": 411648,
+                "LastLBA": 2508799,
+                "AttributeFlags": 0,
+                "PartitionName": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            {
+                "TypeGUID": {
+                    "Data1": 3872838521,
+                    "Data2": 62727,
+                    "Data3": 17602,
+                    "Data4": [
+                        162,
+                        60,
+                        35,
+                        143,
+                        42,
+                        61,
+                        249,
+                        40
+                    ]
+                },
+                "PartitionGUID": {
+                    "Data1": 3214519662,
+                    "Data2": 30281,
+                    "Data3": 18814,
+                    "Data4": [
+                        146,
+                        181,
+                        80,
+                        233,
+                        112,
+                        83,
+                        9,
+                        151
+                    ]
+                },
+                "FirstLBA": 2508800,
+                "LastLBA": 693250047,
+                "AttributeFlags": 0,
+                "PartitionName": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            {
+                "TypeGUID": {
+                    "Data1": 264650159,
+                    "Data2": 33923,
+                    "Data3": 18290,
+                    "Data4": [
+                        142,
+                        121,
+                        61,
+                        105,
+                        216,
+                        71,
+                        125,
+                        228
+                    ]
+                },
+                "PartitionGUID": {
+                    "Data1": 4247996894,
+                    "Data2": 1916,
+                    "Data3": 18836,
+                    "Data4": [
+                        172,
+                        125,
+                        50,
+                        218,
+                        26,
+                        86,
+                        25,
+                        27
+                    ]
+                },
+                "FirstLBA": 693250048,
+                "LastLBA": 1279186943,
+                "AttributeFlags": 0,
+                "PartitionName": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            {
+                "TypeGUID": {
+                    "Data1": 264650159,
+                    "Data2": 33923,
+                    "Data3": 18290,
+                    "Data4": [
+                        142,
+                        121,
+                        61,
+                        105,
+                        216,
+                        71,
+                        125,
+                        228
+                    ]
+                },
+                "PartitionGUID": {
+                    "Data1": 204494248,
+                    "Data2": 19350,
+                    "Data3": 17411,
+                    "Data4": [
+                        144,
+                        216,
+                        138,
+                        19,
+                        53,
+                        148,
+                        27,
+                        20
+                    ]
+                },
+                "FirstLBA": 1279186944,
+                "LastLBA": 1865123839,
+                "AttributeFlags": 0,
+                "PartitionName": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            }
+        ]
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAkAAAAAAAAADAAAAAAAAABCAG8AbwB0AE8AcgBkAGUAcgAFAAIAAQAEAAMAAAA=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "BootOrder",
+        "VariableData": "BQACAAEABAADAAAA",
+        "Description": "",
+        "DevicePath": "",
+        "DevicePathRaw": null,
+        "OptionalData": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAVgAAAAAAAABCAG8AbwB0ADAAMAAwADUAAQAAABgAVQBFAEYASQAgADoAIABCAHUAaQBsAHQALQBpAG4AIABFAEYASQAgAFMAaABlAGwAbAAAAAQDFABcuSNQJtubQqZIvUdmTIASf/8EAAAAQk8=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0005",
+        "VariableData": "AQAAABgAVQBFAEYASQAgADoAIABCAHUAaQBsAHQALQBpAG4AIABFAEYASQAgAFMAaABlAGwAbAAAAAQDFABcuSNQJtubQqZIvUdmTIASf/8EAAAAQk8=",
+        "Description": "UEFI : Built-in EFI Shell\u0000",
+        "DevicePath": "MediaPath(3,5cb9235026db9b42a648bd47664c8012),",
+        "DevicePathRaw": "BAMUAFy5I1Am25tCpki9R2ZMgBJ//wQA",
+        "OptionalData": "AABCTw=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAdgAAAAAAAABCAG8AbwB0ADAAMAAwADIAAQAAAGIAQwBlAG4AdABPAFMAAAAEASoAAQAAAAAIAAAAAAAAAEAGAAAAAADROc0j+UJrT4mRPpoDJgsIAgIEBDQAXABFAEYASQBcAGMAZQBuAHQAbwBzAFwAcwBoAGkAbQB4ADYANAAuAGUAZgBpAAAAf/8EAA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0002",
+        "VariableData": "AQAAAGIAQwBlAG4AdABPAFMAAAAEASoAAQAAAAAIAAAAAAAAAEAGAAAAAADROc0j+UJrT4mRPpoDJgsIAgIEBDQAXABFAEYASQBcAGMAZQBuAHQAbwBzAFwAcwBoAGkAbQB4ADYANAAuAGUAZgBpAAAAf/8EAA==",
+        "Description": "CentOS\u0000",
+        "DevicePath": "HD(1,GPT,23cd39d1-42f9-4f6b-8991-3e9a03260b08,0x800,0x64000)/\\EFI\\centos\\shimx64.efi,",
+        "DevicePathRaw": "BAEqAAEAAAAACAAAAAAAAABABgAAAAAA0TnNI/lCa0+JkT6aAyYLCAICBAQ0AFwARQBGAEkAXABjAGUAbgB0AG8AcwBcAHMAaABpAG0AeAA2ADQALgBlAGYAaQAAAH//BAA=",
+        "OptionalData": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAjgAAAAAAAABCAG8AbwB0ADAAMAAwADEACQAAAHoAdQBiAHUAbgB0AHUAAAABBBQA53XimaB1N0ui5sU4XmwAy3//BAAEASoAAQAAAAAIAAAAAAAAAEAGAAAAAADOOXUtlxelRpwX8FSvbdHTAgIEBDQAXABFAEYASQBcAHUAYgB1AG4AdAB1AFwAcwBoAGkAbQB4ADYANAAuAGUAZgBpAAAAf/8EAA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0001",
+        "VariableData": "CQAAAHoAdQBiAHUAbgB0AHUAAAABBBQA53XimaB1N0ui5sU4XmwAy3//BAAEASoAAQAAAAAIAAAAAAAAAEAGAAAAAADOOXUtlxelRpwX8FSvbdHTAgIEBDQAXABFAEYASQBcAHUAYgB1AG4AdAB1AFwAcwBoAGkAbQB4ADYANAAuAGUAZgBpAAAAf/8EAA==",
+        "Description": "ubuntu\u0000",
+        "DevicePath": "HardwarePath(4,e775e299a075374ba2e6c5385e6c00cb),HD(1,GPT,2d7539ce-1797-46a5-9c17-f054af6dd1d3,0x800,0x64000)/\\EFI\\ubuntu\\shimx64.efi,",
+        "DevicePathRaw": "AQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAABABgAAAAAAzjl1LZcXpUacF/BUr23R0wICBAQ0AFwARQBGAEkAXAB1AGIAdQBuAHQAdQBcAHMAaABpAG0AeAA2ADQALgBlAGYAaQAAAH//BAA=",
+        "OptionalData": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAhgAAAAAAAABCAG8AbwB0ADAAMAAwADQACQAAAHQAcwBoAGUAbABsAAAAAQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAABABgAAAAAA2eTCVHrEdUG5Qk9PiKWE3wICBAQuAFwARQBGAEkAXABzAGgAZQBsAGwAXABTAGgAZQBsAGwALgBlAGYAaQAAAH//BAA=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0004",
+        "VariableData": "CQAAAHQAcwBoAGUAbABsAAAAAQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAABABgAAAAAA2eTCVHrEdUG5Qk9PiKWE3wICBAQuAFwARQBGAEkAXABzAGgAZQBsAGwAXABTAGgAZQBsAGwALgBlAGYAaQAAAH//BAA=",
+        "Description": "shell\u0000",
+        "DevicePath": "HardwarePath(4,e775e299a075374ba2e6c5385e6c00cb),HD(1,GPT,54c2e4d9-c47a-4175-b942-4f4f88a584df,0x800,0x64000)/\\EFI\\shell\\Shell.efi,",
+        "DevicePathRaw": "AQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAABABgAAAAAA2eTCVHrEdUG5Qk9PiKWE3wICBAQuAFwARQBGAEkAXABzAGgAZQBsAGwAXABTAGgAZQBsAGwALgBlAGYAaQAAAH//BAA=",
+        "OptionalData": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAjgAAAAAAAABCAG8AbwB0ADAAMAAwADMACQAAAHoARgBlAGQAbwByAGEAAAABBBQA53XimaB1N0ui5sU4XmwAy3//BAAEASoAAQAAAAAIAAAAAAAAAEAGAAAAAADZ5MJUesR1QblCT0+IpYTfAgIEBDQAXABFAEYASQBcAGYAZQBkAG8AcgBhAFwAcwBoAGkAbQB4ADYANAAuAGUAZgBpAAAAf/8EAA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0003",
+        "VariableData": "CQAAAHoARgBlAGQAbwByAGEAAAABBBQA53XimaB1N0ui5sU4XmwAy3//BAAEASoAAQAAAAAIAAAAAAAAAEAGAAAAAADZ5MJUesR1QblCT0+IpYTfAgIEBDQAXABFAEYASQBcAGYAZQBkAG8AcgBhAFwAcwBoAGkAbQB4ADYANAAuAGUAZgBpAAAAf/8EAA==",
+        "Description": "Fedora\u0000",
+        "DevicePath": "HardwarePath(4,e775e299a075374ba2e6c5385e6c00cb),HD(1,GPT,54c2e4d9-c47a-4175-b942-4f4f88a584df,0x800,0x64000)/\\EFI\\fedora\\shimx64.efi,",
+        "DevicePathRaw": "AQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAABABgAAAAAA2eTCVHrEdUG5Qk9PiKWE3wICBAQ0AFwARQBGAEkAXABmAGUAZABvAHIAYQBcAHMAaABpAG0AeAA2ADQALgBlAGYAaQAAAH//BAA=",
+        "OptionalData": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAARAEAAAAAAABCAG8AbwB0ADAAMAAwADAACQAAAIwAVwBpAG4AZABvAHcAcwAgAEIAbwBvAHQAIABNAGEAbgBhAGcAZQByAAAAAQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAAAgCAAAAAAAUOegSaD3DUiaDsc4Ip3nvQICBARGAFwARQBGAEkAXABNAGkAYwByAG8AcwBvAGYAdABcAEIAbwBvAHQAXABiAG8AbwB0AG0AZwBmAHcALgBlAGYAaQAAAH//BABXSU5ET1dTAAEAAACIAAAAeAAAAEIAQwBEAE8AQgBKAEUAQwBUAD0AewA5AGQAZQBhADgANgAyAGMALQA1AGMAZABkAC0ANABlADcAMAAtAGEAYwBjADEALQBmADMAMgBiADMANAA0AGQANAA3ADkANQB9AAAAAAABAAAAEAAAAAQAAAB//wQA",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0000",
+        "VariableData": "CQAAAIwAVwBpAG4AZABvAHcAcwAgAEIAbwBvAHQAIABNAGEAbgBhAGcAZQByAAAAAQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAAAgCAAAAAAAUOegSaD3DUiaDsc4Ip3nvQICBARGAFwARQBGAEkAXABNAGkAYwByAG8AcwBvAGYAdABcAEIAbwBvAHQAXABiAG8AbwB0AG0AZwBmAHcALgBlAGYAaQAAAH//BABXSU5ET1dTAAEAAACIAAAAeAAAAEIAQwBEAE8AQgBKAEUAQwBUAD0AewA5AGQAZQBhADgANgAyAGMALQA1AGMAZABkAC0ANABlADcAMAAtAGEAYwBjADEALQBmADMAMgBiADMANAA0AGQANAA3ADkANQB9AAAAAAABAAAAEAAAAAQAAAB//wQA",
+        "Description": "Windows Boot Manager\u0000",
+        "DevicePath": "HardwarePath(4,e775e299a075374ba2e6c5385e6c00cb),HD(1,GPT,49a0e750-f7a0-480d-9a0e-c738229de7bd,0x800,0x82000)/\\EFI\\Microsoft\\Boot\\bootmgfw.efi,",
+        "DevicePathRaw": "AQQUAOd14pmgdTdLoubFOF5sAMt//wQABAEqAAEAAAAACAAAAAAAAAAgCAAAAAAAUOegSaD3DUiaDsc4Ip3nvQICBARGAFwARQBGAEkAXABNAGkAYwByAG8AcwBvAGYAdABcAEIAbwBvAHQAXABiAG8AbwB0AG0AZwBmAHcALgBlAGYAaQAAAH//BAA=",
+        "OptionalData": "V0lORE9XUwABAAAAiAAAAHgAAABCAEMARABPAEIASgBFAEMAVAA9AHsAOQBkAGUAYQA4ADYAMgBjAC0ANQBjAGQAZAAtADQAZQA3ADAALQBhAGMAYwAxAC0AZgAzADIAYgAzADQANABkADQANwA5ADUAfQAAAAAAAQAAABAAAAAEAAAAf/8EAA=="
+    },
+    {
+        "Index": 4,
+        "Type": 2147483651,
+        "Data": "GHD/hQAAAAAAxAsAAAAAAAAAAAAAAAAAGAAAAAAAAAAEAxQAXLkjUCbbm0KmSL1HZkyAEn//BAA=",
+        "Digest": null,
+        "Err": null,
+        "ImageLocationInMemory": 2248110104,
+        "ImageLengthInMemory": 771072,
+        "ImageLinkTimeAddress": 0,
+        "DevicePath": "MediaPath(3,5cb9235026db9b42a648bd47664c8012),",
+        "DevicePathRaw": "BAMUAFy5I1Am25tCpki9R2ZMgBJ//wQA"
+    },
+    {
+        "Index": 4,
+        "Type": 2147483651,
+        "Data": "GGD5hQAAAACg1REAAAAAAAAAAAAAAAAAjgAAAAAAAAACAQwA0EEDCgAAAAABAQYAAB0BAQYAAAADFxAAAQAAAAAAAAAAAAAABAEqAAEAAAAACAAAAAAAAABABgAAAAAA0TnNI/lCa0+JkT6aAyYLCAICBAQcAFwARQBGAEkAXABjAGUAbgB0AG8AcwAAAAQEHABnAHIAdQBiAHgANgA0AC4AZQBmAGkAAAB//wQA",
+        "Digest": null,
+        "Err": null,
+        "ImageLocationInMemory": 2247712792,
+        "ImageLengthInMemory": 1168800,
+        "ImageLinkTimeAddress": 0,
+        "DevicePath": "PciRoot(0x0)/Pci(0x1d,0x0)/Pci(0x0,0x0)/NVMe(0x1,00-00-00-00-00-00-00-00)/HD(1,GPT,23cd39d1-42f9-4f6b-8991-3e9a03260b08,0x800,0x64000)/\\EFI\\centos/grubx64.efi,",
+        "DevicePathRaw": "AgEMANBBAwoAAAAAAQEGAAAdAQEGAAAAAxcQAAEAAAAAAAAAAAAAAAQBKgABAAAAAAgAAAAAAAAAQAYAAAAAANE5zSP5QmtPiZE+mgMmCwgCAgQEHABcAEUARgBJAFwAYwBlAG4AdABvAHMAAAAEBBwAZwByAHUAYgB4ADYANAAuAGUAZgBpAAAAf/8EAA=="
+    }
+]

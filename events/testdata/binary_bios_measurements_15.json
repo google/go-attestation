@@ -1,0 +1,727 @@
+[
+    {
+        "Index": 0,
+        "Type": 8,
+        "Data": "TTYwAAAAAAAAAAAAAAAAAAIADgAAAAAA+Gi/obSMVJ7BJf4eUCaJLcQ2SNzyorecO9r2lKiBKWw61f3OmT/g/SydB4zDoqxwRVZ/bBoRvaKNR3Y7XzSqPcq8un5h5B3JlSjoRxEkbILiYRvvmqiFg2aI9Uo3gq9a+abSNfJQWjKAZQ1LKsM0jl3EefJ6SOEPBSZBY3if6ReGrcMdN0e3biVHqi2i9151fyURMqA1kE/g+YQUMHLpFcvfq0BVKWOWG1wh/M52/Hi6qaOn2fEhoVD88/eSyKzs7Wowx72WXFyhIpUn9dLxl/TxL0ZjzZC5jGBnq5k+5drIwxPoM7gHkF+0pmpmWDxyB5BtU6cEsXmovzn3DtkCdQ==",
+        "Digest": null,
+        "Err": {},
+        "Message": ""
+    },
+    {
+        "Index": 0,
+        "Type": 2147483656,
+        "Data": "ABBq/wAAAAAA8F8AAAAAAA==",
+        "Digest": null,
+        "Err": null,
+        "BlobBase": 4285140992,
+        "BlobLength": 6287360
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAoAAAAAAAAAAQAAAAAAAABTAGUAYwB1AHIAZQBCAG8AbwB0AAA=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "SecureBoot",
+        "VariableData": "AA=="
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAIAAAAAAAAAAAAAAAAAAABQAEsA",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "PK",
+        "VariableData": ""
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAMAAAAAAAAAAAAAAAAAAABLAEUASwA=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "KEK",
+        "VariableData": ""
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "y7IZ1zo9lkWjvNrQDmdlbwIAAAAAAAAAAAAAAAAAAABkAGIA",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 3608785611,
+            "Data2": 15674,
+            "Data3": 17814,
+            "Data4": [
+                163,
+                188,
+                218,
+                208,
+                14,
+                103,
+                101,
+                111
+            ]
+        },
+        "VariableName": "db",
+        "VariableData": ""
+    },
+    {
+        "Index": 7,
+        "Type": 2147483649,
+        "Data": "y7IZ1zo9lkWjvNrQDmdlbwMAAAAAAAAAAAAAAAAAAABkAGIAeAA=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 3608785611,
+            "Data2": 15674,
+            "Data3": 17814,
+            "Data4": [
+                163,
+                188,
+                218,
+                208,
+                14,
+                103,
+                101,
+                111
+            ]
+        },
+        "VariableName": "dbx",
+        "VariableData": ""
+    },
+    {
+        "Index": 7,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 1,
+        "Type": 9,
+        "Data": "TG9hZCBtaWNyb2NvZGUgcmV2aXNpb24gMDAwMDAwQTEgZm9yIHByb2Nlc3NvciAwMDAzMDZGMgA=",
+        "Digest": null,
+        "Err": null,
+        "Message": "Load microcode revision 000000A1 for processor 000306F2\u0000"
+    },
+    {
+        "Index": 0,
+        "Type": 1,
+        "Data": "QUNQSSBEQVRB",
+        "Digest": null,
+        "Err": null,
+        "Message": "ACPI DATA"
+    },
+    {
+        "Index": 2,
+        "Type": 6,
+        "Data": "BwAAABgAAAAAAAAASxJn+va3DhoGW9Dk2eGLAlJg4Qs=",
+        "Digest": null,
+        "Err": null,
+        "PFA": 0,
+        "OptionROMStruct": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAkAAAAAAAAAIAAAAAAAAABCAG8AbwB0AE8AcgBkAGUAcgAMAA0ADgAPAAoACwAAAAEAAgADAAQABQAGAAcACAAQAA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "BootOrder",
+        "VariableData": "DAANAA4ADwAKAAsAAAABAAIAAwAEAAUABgAHAAgAEAA=",
+        "Description": "",
+        "DevicePath": "",
+        "DevicePathRaw": null,
+        "OptionalData": null
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAQgAAAAAAAABCAG8AbwB0ADAAMAAwAEMAAAAAABYAVQBTAEIAOgAgACAAAAACAQwA0EEDCgAAAAABAQYAAB1//wQATqwIgRGfWU2FDuIaUixZsgsIAABJU1BI",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot000C",
+        "VariableData": "AAAAABYAVQBTAEIAOgAgACAAAAACAQwA0EEDCgAAAAABAQYAAB1//wQATqwIgRGfWU2FDuIaUixZsgsIAABJU1BI",
+        "Description": "USB:  \u0000",
+        "DevicePath": "PciRoot(0x0)/Pci(0x1d,0x0),",
+        "DevicePathRaw": "AgEMANBBAwoAAAAAAQEGAAAdf/8EAA==",
+        "OptionalData": "TqwIgRGfWU2FDuIaUixZsgsIAABJU1BI"
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAUAAAAAAAAABCAG8AbwB0ADAAMAAwAEQAAAAAACAAQwBEAFIATwBNADoAIAAgAAAAAgEMANBBAwoAAAAAAQEGAAIfAxIKAAAAAAAAAH//BABOrAiBEZ9ZTYUO4hpSLFmyCwAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot000D",
+        "VariableData": "AAAAACAAQwBEAFIATwBNADoAIAAgAAAAAgEMANBBAwoAAAAAAQEGAAIfAxIKAAAAAAAAAH//BABOrAiBEZ9ZTYUO4hpSLFmyCwAAAElTUEg=",
+        "Description": "CDROM:  \u0000",
+        "DevicePath": "PciRoot(0x0)/Pci(0x1f,0x2)/Sata(0x0,0x0,0x0),",
+        "DevicePathRaw": "AgEMANBBAwoAAAAAAQEGAAIfAxIKAAAAAAAAAH//BAA=",
+        "OptionalData": "TqwIgRGfWU2FDuIaUixZsgsAAABJU1BI"
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAPQAAAAAAAABCAG8AbwB0ADAAMAAwAEUAAAAAAB8AVQBTAEIAOgAgACAAAAAFAQkA//8AAAACAQwA0EEDCgAAAAABAQYAAB1//wQA//8LCAAASVNQSA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot000E",
+        "VariableData": "AAAAAB8AVQBTAEIAOgAgACAAAAAFAQkA//8AAAACAQwA0EEDCgAAAAABAQYAAB1//wQA//8LCAAASVNQSA==",
+        "Description": "USB:  \u0000",
+        "DevicePath": "BBS(0xffff,,0x0)/PciRoot(0x0)/Pci(0x1d,0x0),",
+        "DevicePathRaw": "BQEJAP//AAAAAgEMANBBAwoAAAAAAQEGAAAdf/8EAA==",
+        "OptionalData": "//8LCAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAASwAAAAAAAABCAG8AbwB0ADAAMAAwAEYAAAAAACkAQwBEAFIATwBNADoAIAAgAAAABQEJAP//AAAAAgEMANBBAwoAAAAAAQEGAAIfAxIKAAAAAAAAAH//BAD//wsAAABJU1BI",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot000F",
+        "VariableData": "AAAAACkAQwBEAFIATwBNADoAIAAgAAAABQEJAP//AAAAAgEMANBBAwoAAAAAAQEGAAIfAxIKAAAAAAAAAH//BAD//wsAAABJU1BI",
+        "Description": "CDROM:  \u0000",
+        "DevicePath": "BBS(0xffff,,0x0)/PciRoot(0x0)/Pci(0x1f,0x2)/Sata(0x0,0x0,0x0),",
+        "DevicePathRaw": "BQEJAP//AAAAAgEMANBBAwoAAAAAAQEGAAIfAxIKAAAAAAAAAH//BAA=",
+        "OptionalData": "//8LAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAaAAAAAAAAABCAG8AbwB0ADAAMAAwAEEAAQAAACgATQBUAEYARABEAEEASwA1ADEAMgBNAEIARgAtADEAQQBOADEAWgBBAEIASABBAAAABQESAAIAAABIYXJkZGlzazEAAgEMANBBAwoAAAAAAQEGAAQRf/8EABUAEAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot000A",
+        "VariableData": "AQAAACgATQBUAEYARABEAEEASwA1ADEAMgBNAEIARgAtADEAQQBOADEAWgBBAEIASABBAAAABQESAAIAAABIYXJkZGlzazEAAgEMANBBAwoAAAAAAQEGAAQRf/8EABUAEAAAAElTUEg=",
+        "Description": "MTFDDAK512MBF-1AN1ZABHA\u0000",
+        "DevicePath": "BBS(HD,Harddisk1,0x0)/PciRoot(0x0)/Pci(0x11,0x4),",
+        "DevicePathRaw": "BQESAAIAAABIYXJkZGlzazEAAgEMANBBAwoAAAAAAQEGAAQRf/8EAA==",
+        "OptionalData": "FQAQAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAZQAAAAAAAABCAG8AbwB0ADAAMAAwAEIAAQAAACcASQBCAEEAIABHAEUAIABTAGwAbwB0ACAAMAAwAEMAOAAgAHYAMQA1ADUAMAAAAAUBEQAGAAAATmV0d29yazEAAgEMANBBAwoAAAAAAQEGAAAZf/8EABYAEAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot000B",
+        "VariableData": "AQAAACcASQBCAEEAIABHAEUAIABTAGwAbwB0ACAAMAAwAEMAOAAgAHYAMQA1ADUAMAAAAAUBEQAGAAAATmV0d29yazEAAgEMANBBAwoAAAAAAQEGAAAZf/8EABYAEAAAAElTUEg=",
+        "Description": "IBA GE Slot 00C8 v1550\u0000",
+        "DevicePath": "BBS(Network,Network1,0x0)/PciRoot(0x0)/Pci(0x19,0x0),",
+        "DevicePathRaw": "BQERAAYAAABOZXR3b3JrMQACAQwA0EEDCgAAAAABAQYAABl//wQA",
+        "OptionalData": "FgAQAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAVAAAAAAAAABCAG8AbwB0ADAAMAAwADAAAAEAACwAUwB0AGEAcgB0AHUAcAAgAE0AZQBuAHUAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAAAAAABJU1BI",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0000",
+        "VariableData": "AAEAACwAUwB0AGEAcgB0AHUAcAAgAE0AZQBuAHUAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAAAAAABJU1BI",
+        "Description": "Startup Menu\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "AAAAAElTUEg="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAYgAAAAAAAABCAG8AbwB0ADAAMAAwADEAAAEAACwAUwB5AHMAdABlAG0AIABJAG4AZgBvAHIAbQBhAHQAaQBvAG4AAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAPEAAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0001",
+        "VariableData": "AAEAACwAUwB5AHMAdABlAG0AIABJAG4AZgBvAHIAbQBhAHQAaQBvAG4AAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAPEAAAAAAElTUEg=",
+        "Description": "System Information\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "8QAAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAUgAAAAAAAABCAG8AbwB0ADAAMAAwADIAAAEAACwAQgBpAG8AcwAgAFMAZQB0AHUAcAAAAAQHFAA1e7vNM2jWTpqyV9Ks3fbwBAYUAOhDgp2Bgz1FrOvDUO53V8p//wQAEA8AAAAASVNQSA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0002",
+        "VariableData": "AAEAACwAQgBpAG8AcwAgAFMAZQB0AHUAcAAAAAQHFAA1e7vNM2jWTpqyV9Ks3fbwBAYUAOhDgp2Bgz1FrOvDUO53V8p//wQAEA8AAAAASVNQSA==",
+        "Description": "Bios Setup\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "EA8AAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAfAAAAAAAAABCAG8AbwB0ADAAMAAwADMAAAEAACwAMwByAGQAIABQAGEAcgB0AHkAIABPAHAAdABpAG8AbgAgAFIATwBNACAATQBhAG4AYQBnAGUAbQBlAG4AdAAAAAQHFAA1e7vNM2jWTpqyV9Ks3fbwBAYUAOhDgp2Bgz1FrOvDUO53V8p//wQA8wAAAAAASVNQSA==",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0003",
+        "VariableData": "AAEAACwAMwByAGQAIABQAGEAcgB0AHkAIABPAHAAdABpAG8AbgAgAFIATwBNACAATQBhAG4AYQBnAGUAbQBlAG4AdAAAAAQHFAA1e7vNM2jWTpqyV9Ks3fbwBAYUAOhDgp2Bgz1FrOvDUO53V8p//wQA8wAAAAAASVNQSA==",
+        "Description": "3rd Party Option ROM Management\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "8wAAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAYgAAAAAAAABCAG8AbwB0ADAAMAAwADQAAAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAADyAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0004",
+        "VariableData": "AAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAADyAAAAAElTUEg=",
+        "Description": "System Diagnostics\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "APIAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAYgAAAAAAAABCAG8AbwB0ADAAMAAwADUAAAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAAHyAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0005",
+        "VariableData": "AAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAAHyAAAAAElTUEg=",
+        "Description": "System Diagnostics\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "AfIAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAYgAAAAAAAABCAG8AbwB0ADAAMAAwADYAAAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAALyAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0006",
+        "VariableData": "AAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAALyAAAAAElTUEg=",
+        "Description": "System Diagnostics\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "AvIAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAYgAAAAAAAABCAG8AbwB0ADAAMAAwADcAAAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAAPyAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0007",
+        "VariableData": "AAEAACwAUwB5AHMAdABlAG0AIABEAGkAYQBnAG4AbwBzAHQAaQBjAHMAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAAPyAAAAAElTUEg=",
+        "Description": "System Diagnostics\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "A/IAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAUAAAAAAAAABCAG8AbwB0ADAAMAAwADgAAAEAACwAQgBvAG8AdAAgAE0AZQBuAHUAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAPkAAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0008",
+        "VariableData": "AAEAACwAQgBvAG8AdAAgAE0AZQBuAHUAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EAPkAAAAAAElTUEg=",
+        "Description": "Boot Menu\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "+QAAAAAASVNQSA=="
+    },
+    {
+        "Index": 1,
+        "Type": 2147483650,
+        "Data": "Yd/ki8qT0hGqDQDgmAMrjAgAAAAAAAAAVgAAAAAAAABCAG8AbwB0ADAAMAAxADAAAAEAACwATgBlAHQAdwBvAHIAawAgAEIAbwBvAHQAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EABIPAAAAAElTUEg=",
+        "Digest": null,
+        "Err": null,
+        "VariableGUID": {
+            "Data1": 2347032417,
+            "Data2": 37834,
+            "Data3": 4562,
+            "Data4": [
+                170,
+                13,
+                0,
+                224,
+                152,
+                3,
+                43,
+                140
+            ]
+        },
+        "VariableName": "Boot0010",
+        "VariableData": "AAEAACwATgBlAHQAdwBvAHIAawAgAEIAbwBvAHQAAAAEBxQANXu7zTNo1k6aslfSrN328AQGFADoQ4KdgYM9Razrw1Dud1fKf/8EABIPAAAAAElTUEg=",
+        "Description": "Network Boot\u0000",
+        "DevicePath": "Fv(cdbb7b35-6833-4ed6-9ab2-57d2acddf6f0)/FvFile(9d8243e8-8381-453d-aceb-c350ee7757ca),",
+        "DevicePathRaw": "BAcUADV7u80zaNZOmrJX0qzd9vAEBhQA6EOCnYGDPUWs68NQ7ndXyn//BAA=",
+        "OptionalData": "Eg8AAAAASVNQSA=="
+    },
+    {
+        "Index": 5,
+        "Type": 2147483655,
+        "Data": "Q2FsbGluZyBFRkkgQXBwbGljYXRpb24gZnJvbSBCb290IE9wdGlvbg==",
+        "Digest": null,
+        "Err": null,
+        "Message": "Calling EFI Application from Boot Option"
+    },
+    {
+        "Index": 0,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 1,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 2,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 3,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 4,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 5,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 6,
+        "Type": 4,
+        "Data": "AAAAAA==",
+        "Digest": null,
+        "Err": null
+    },
+    {
+        "Index": 4,
+        "Type": 5,
+        "Data": "UmV0dXJuZWQgSU5UIDE5aA==",
+        "Digest": null,
+        "Err": null,
+        "Message": "Returned INT 19h"
+    },
+    {
+        "Index": 4,
+        "Type": 13,
+        "Data": "SVBMIGNvZGU=",
+        "Digest": null,
+        "Err": null,
+        "Message": "IPL code"
+    },
+    {
+        "Index": 5,
+        "Type": 14,
+        "Data": "r3QDAAAAgCAhAIM1Nz4ACAAAADgPAABWFz4F/v///kcPAALIjjsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFWq",
+        "Digest": null,
+        "Err": null
+    }
+]

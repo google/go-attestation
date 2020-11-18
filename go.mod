@@ -8,6 +8,7 @@ require (
 	github.com/google/go-tpm v0.3.0
 	github.com/google/go-tpm-tools v0.1.3-0.20200626093744-11f284793aa8
 	github.com/google/go-tspi v0.2.1-0.20190423175329-115dea689aad
+	github.com/google/uuid v1.1.1
 	golang.org/x/crypto v0.0.0-20190911031432-227b76d455e7 // indirect
 	golang.org/x/sys v0.0.0-20200501145240-bc7a7d42d5c3
 )
