@@ -13,15 +13,6 @@ Talks on this project:
 * _"Using TPMs to Cryptographically Verify Devices at Scale"_ - Open Source Summit North America - September 2019 - ([Video](https://www.youtube.com/watch?v=EmEymlA5Q5Q) 39min)
 * _"Making Remote Attestation Useful on Linux"_ - Linux Security Summit - September 2019 - ([Video](https://www.youtube.com/watch?v=TKva_h66Ptc) 26min)
 
-## Building
-
-This package requires libtspi to communicate to the TrouSerS daemon for TPM 1.2 support. On
-Debian, install libtspi-dev before building:
-
-```
-sudo apt-get install -y libtspi-dev
-```
-
 ## Status
 
 Go-Attestation is under active development and **is not** ready for production use. Expect
