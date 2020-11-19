@@ -35,6 +35,16 @@ const (
 // This will be initialized if we build with CGO (needed for TPM 1.2 support).
 var getTPM12Impl func() (*TPM, error)
 
+// InjectSimulatedTPMForTest returns a fake TPM that interfaces with
+// the provided simulated TPM. This method should be used for testing
+// only.
+func InjectSimulatedTPMForTest(rwc io.ReadWriteCloser) *TPM {
+	return &TPM{tpm: &wrappedTPM20{
+		interf: TPMInterfaceCommandChannel,
+		rwc:    &fakeCmdChannel{rwc},
+	}}
+}
+
 func probeSystemTPMs() ([]probedTPM, error) {
 	var tpms []probedTPM
 
