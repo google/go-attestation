@@ -636,7 +636,7 @@ func (w *WinEvents) parseUTF16(header microsoftEventHeader, r io.Reader) (string
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
 		return "", err
 	}
-	return strings.TrimSuffix(string(utf16.Decode(data)), string(0x00)), nil
+	return strings.TrimSuffix(string(utf16.Decode(data)), "\x00"), nil
 }
 
 func (w *WinEvents) readELAMAggregation(rdr *bytes.Reader, header microsoftEventHeader) error {
