@@ -38,6 +38,7 @@ import (
 // a particular PCR.
 type ReplayError struct {
 	Events      []Event
+	// InvalidPCRs reports the set of PCRs where the event log replay failed.
 	InvalidPCRs []int
 }
 
