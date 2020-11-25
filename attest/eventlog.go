@@ -38,11 +38,11 @@ import (
 // a particular PCR.
 type ReplayError struct {
 	Events      []Event
-	invalidPCRs []int
+	InvalidPCRs []int
 }
 
 func (e ReplayError) affected(pcr int) bool {
-	for _, p := range e.invalidPCRs {
+	for _, p := range e.InvalidPCRs {
 		if p == pcr {
 			return true
 		}
@@ -52,7 +52,7 @@ func (e ReplayError) affected(pcr int) bool {
 
 // Error returns a human-friendly description of replay failures.
 func (e ReplayError) Error() string {
-	return fmt.Sprintf("event log failed to verify: the following registers failed to replay: %v", e.invalidPCRs)
+	return fmt.Sprintf("event log failed to verify: the following registers failed to replay: %v", e.InvalidPCRs)
 }
 
 // TPM algorithms. See the TPM 2.0 specification section 6.3.
@@ -393,7 +393,7 @@ pcrLoop:
 		}
 		return nil, ReplayError{
 			Events:      events,
-			invalidPCRs: invalidReplays,
+			InvalidPCRs: invalidReplays,
 		}
 	}
 
