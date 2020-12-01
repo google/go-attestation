@@ -43,7 +43,9 @@ func (*windowsTPM) isTPMBase() {}
 
 func probeSystemTPMs() ([]probedTPM, error) {
 	// Initialize Tbs.dll here so that it's linked only when TPM support is required.
-	tbs = windows.MustLoadDLL("Tbs.dll")
+	if tbs == nil {
+		tbs = windows.MustLoadDLL("Tbs.dll")
+	}
 	tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
 	
 	// Windows systems appear to only support a single abstracted TPM.
