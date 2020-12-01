@@ -58,8 +58,8 @@ var (
 	crypt32CertEnumCertificatesInStore = crypt32.MustFindProc("CertEnumCertificatesInStore")
 	crypt32CertCloseStore              = crypt32.MustFindProc("CertCloseStore")
 
-	tbs              = windows.MustLoadDLL("Tbs.dll")
-	tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
+	tbs              *windows.DLL
+	tbsGetDeviceInfo *windows.Proc
 )
 
 // Error codes.
