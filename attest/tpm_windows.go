@@ -42,6 +42,10 @@ type windowsTPM struct {
 func (*windowsTPM) isTPMBase() {}
 
 func probeSystemTPMs() ([]probedTPM, error) {
+	// Initialize Tbs.dll here so that it's linked only when TPM support is required.
+	tbs = windows.MustLoadDLL("Tbs.dll")
+	tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
+	
 	// Windows systems appear to only support a single abstracted TPM.
 	// If we fail to initialize the Platform Crypto Provider, we assume
 	// a TPM is not present.
