@@ -246,6 +246,15 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
 
+	if len(in.Credential) < 2 {
+		return nil, fmt.Errorf("malformed credential blob")
+	}
+	credential := in.Credential[2:]
+	if len(in.Secret) < 2 {
+		return nil, fmt.Errorf("malformed encrypted secret")
+	}
+	secret := in.Secret[2:]
+
 	ekHnd, _, err := t.getPrimaryKeyHandle(commonEkEquivalentHandle)
 	if err != nil {
 		return nil, err
@@ -272,7 +281,7 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	return tpm2.ActivateCredentialUsingAuth(t.rwc, []tpm2.AuthCommand{
 		{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
 		{Session: sessHandle, Attributes: tpm2.AttrContinueSession},
-	}, k.hnd, ekHnd, in.Credential[2:], in.Secret[2:])
+	}, k.hnd, ekHnd, credential, secret)
 }
 
 func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
