@@ -164,7 +164,7 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 					// https://github.com/rhboot/shim/commit/8a27a4809a6a2b40fb6a4049071bf96d6ad71b50
 					// have an erroneous additional byte in the event, which breaks digest
 					// verification. If verification failed, we try removing the last byte.
-					if digestVerify != nil {
+					if digestVerify != nil && len(e.Data) > 0 {
 						digestVerify = e.digestEquals(e.Data[:len(e.Data)-1])
 					}
 				} else {

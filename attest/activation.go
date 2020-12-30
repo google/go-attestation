@@ -233,6 +233,12 @@ func (p *ActivationParameters) generateChallengeTPM20(secret []byte) (*Encrypted
 	if err != nil {
 		return nil, fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
+	if att.AttestedCreationInfo == nil {
+		return nil, fmt.Errorf("attestation was not for a creation event")
+	}
+	if att.AttestedCreationInfo.Name.Digest == nil {
+		return nil, fmt.Errorf("attestation creation info name has no digest")
+	}
 	cred, encSecret, err := credactivation.Generate(att.AttestedCreationInfo.Name.Digest, p.EK, symBlockSize, secret)
 	if err != nil {
 		return nil, fmt.Errorf("credactivation.Generate() failed: %v", err)
