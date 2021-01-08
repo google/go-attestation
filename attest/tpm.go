@@ -353,6 +353,17 @@ func (t *TPM) attestPCRs(ak *AK, nonce []byte, alg HashAlg) (*Quote, []PCR, erro
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to quote using %v: %v", alg, err)
 	}
+
+	// Make sure that the pcrs and quote values are consistent. See details in Section 17.6.2 of
+	// https://trustedcomputinggroup.org/wp-content/uploads/TCG_TPM2_r1p59_Part1_Architecture_pub.pdf
+	pub, err := ParseAKPublic(t.Version(), ak.AttestationParameters().Public)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse AK public: %v", err)
+	}
+	if err := pub.Verify(*quote, pcrs, nonce); err != nil {
+		return nil, nil, fmt.Errorf("local quote verification failed: %v", err)
+	}
+
 	return quote, pcrs, nil
 }
 
