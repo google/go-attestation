@@ -89,19 +89,28 @@ func (p *ActivationParameters) checkTPM12AKParameters() error {
 }
 
 func (p *ActivationParameters) checkTPM20AKParameters() error {
-	if len(p.AK.CreateSignature) < 8 {
-		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.AK.CreateSignature))
+	// AK must be restricted and its attestation is self-signed
+	return p.AK.checkTPM20AttestationParameters(p.AK.Public, true)
+}
+
+func (p *AttestationParameters) checkTPM20AttestationParameters(verifyingKey []byte, mustRestrict bool) error {
+	if len(p.CreateSignature) < 8 {
+		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.CreateSignature))
 	}
 
-	pub, err := tpm2.DecodePublic(p.AK.Public)
+	pub, err := tpm2.DecodePublic(p.Public)
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	_, err = tpm2.DecodeCreationData(p.AK.CreateData)
+	vrfy, err := tpm2.DecodePublic(verifyingKey)
+	if err != nil {
+		return fmt.Errorf("DecodePublic() failed: %v", err)
+	}
+	_, err = tpm2.DecodeCreationData(p.CreateData)
 	if err != nil {
 		return fmt.Errorf("DecodeCreationData() failed: %v", err)
 	}
-	att, err := tpm2.DecodeAttestationData(p.AK.CreateAttestation)
+	att, err := tpm2.DecodeAttestationData(p.CreateAttestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
@@ -110,13 +119,13 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 	}
 
 	// TODO: Support ECC AKs.
-	switch pub.Type {
+	switch vrfy.Type {
 	case tpm2.AlgRSA:
-		if pub.RSAParameters.KeyBits < minRSABits {
-			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minRSABits, pub.RSAParameters.KeyBits)
+		if vrfy.RSAParameters.KeyBits < minRSABits {
+			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minRSABits, vrfy.RSAParameters.KeyBits)
 		}
 	default:
-		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
+		return fmt.Errorf("public key of alg 0x%x not supported", vrfy.Type)
 	}
 
 	// Compute & verify that the creation data matches the digest in the
@@ -126,7 +135,7 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 		return fmt.Errorf("HashConstructor() failed: %v", err)
 	}
 	h := nameHash.New()
-	h.Write(p.AK.CreateData)
+	h.Write(p.CreateData)
 	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
 		return errors.New("attestation refers to different public key")
 	}
@@ -143,10 +152,16 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 		return errors.New("creation attestation was not produced by a TPM")
 	}
 	if (pub.Attributes & tpm2.FlagFixedTPM) == 0 {
-		return errors.New("AK is exportable")
+		return errors.New("provided key is exportable")
 	}
-	if ((pub.Attributes & tpm2.FlagRestricted) == 0) || ((pub.Attributes & tpm2.FlagFixedParent) == 0) || ((pub.Attributes & tpm2.FlagSensitiveDataOrigin) == 0) {
+	if mustRestrict && ((pub.Attributes & tpm2.FlagRestricted) == 0) {
 		return errors.New("provided key is not limited to attestation")
+	}
+	if (pub.Attributes & tpm2.FlagFixedParent) == 0 {
+		return errors.New("provided key can be duplicated to a different parent")
+	}
+	if (pub.Attributes & tpm2.FlagSensitiveDataOrigin) == 0 {
+		return errors.New("provided key is not created by TPM")
 	}
 
 	// Verify the attested creation name matches what is computed from
@@ -160,23 +175,23 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 	}
 
 	// Check the signature over the attestation data verifies correctly.
-	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
-	signHash, err := pub.RSAParameters.Sign.Hash.Hash()
+	pk := rsa.PublicKey{E: int(vrfy.RSAParameters.Exponent()), N: vrfy.RSAParameters.Modulus()}
+	signHash, err := vrfy.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
 		return err
 	}
 	hsh := signHash.New()
-	hsh.Write(p.AK.CreateAttestation)
-	verifyHash, err := pub.RSAParameters.Sign.Hash.Hash()
+	hsh.Write(p.CreateAttestation)
+	verifyHash, err := vrfy.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
 		return err
 	}
 
-	if len(p.AK.CreateSignature) < 8 {
-		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.AK.CreateSignature))
+	if len(p.CreateSignature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.CreateSignature))
 	}
 
-	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AK.CreateSignature))
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.CreateSignature))
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}

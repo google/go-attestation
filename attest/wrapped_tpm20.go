@@ -300,3 +300,7 @@ func (k *wrappedKey20) attestationParameters() AttestationParameters {
 		CreateSignature:   k.createSignature,
 	}
 }
+
+func (k *wrappedKey20) handle() (tpmutil.Handle, error) {
+	return k.hnd, nil
+}

@@ -103,6 +103,14 @@ func (t *trousersTPM) eks() ([]EK, error) {
 	}, nil
 }
 
+func (t *trousersTPM) newSK(*AK, *SKConfig) (*SK, crypto.Signer, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
+func (t *trousersTPM) loadSK(opaqueBlob []byte) (*SK, crypto.Signer, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
 func (t *trousersTPM) newAK(opts *AKConfig) (*AK, error) {
 	pub, blob, err := attestation.CreateAIK(t.ctx)
 	if err != nil {
