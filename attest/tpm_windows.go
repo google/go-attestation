@@ -18,6 +18,7 @@ package attest
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -29,6 +30,7 @@ import (
 	"math/big"
 
 	tpm1 "github.com/google/go-tpm/tpm"
+	"github.com/google/go-tpm/tpmutil"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 	"golang.org/x/sys/windows"
 )
@@ -48,7 +50,7 @@ func probeSystemTPMs() ([]probedTPM, error) {
 		tbs = windows.MustLoadDLL("Tbs.dll")
 		tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
 	}
-	
+
 	// Windows systems appear to only support a single abstracted TPM.
 	// If we fail to initialize the Platform Crypto Provider, we assume
 	// a TPM is not present.
@@ -322,6 +324,14 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
+}
+
+func (t *windowsTPM) newSK(tpmutil.Handle, *SKConfig) (*SK, crypto.Signer, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
+func (t *windowsTPM) loadSK(opaqueBlob []byte) (*SK, crypto.Signer, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
