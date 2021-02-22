@@ -103,12 +103,12 @@ func (t *trousersTPM) eks() ([]EK, error) {
 	}, nil
 }
 
-func (t *trousersTPM) newSK(*AK, *SKConfig) (*SK, crypto.Signer, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+func (t *trousersTPM) newSK(*AK, *SKConfig) (*SK, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
-func (t *trousersTPM) loadSK(opaqueBlob []byte) (*SK, crypto.Signer, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+func (t *trousersTPM) loadSK(opaqueBlob []byte) (*SK, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (t *trousersTPM) newAK(opts *AKConfig) (*AK, error) {

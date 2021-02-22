@@ -32,7 +32,7 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
-	sk, signer, err := tpm.NewSK(ak, nil)
+	sk, err := tpm.NewSK(ak, nil)
 	if err != nil {
 		t.Fatalf("NewSK() failed: %v", err)
 	}
@@ -46,13 +46,13 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 		t.Fatalf("sk.Close() failed: %v", err)
 	}
 
-	loaded, loadedSigner, err := tpm.LoadSK(enc)
+	loaded, err := tpm.LoadSK(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close(tpm)
 
-	k1, k2 := sk.ak.(*wrappedKey20), loaded.ak.(*wrappedKey20)
+	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
 
 	if !bytes.Equal(k1.public, k2.public) {
 		t.Error("Original & loaded SK public blobs did not match.")
@@ -60,11 +60,11 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 		t.Logf("Loaded   = %v", k2.public)
 	}
 
-	pk1, err := x509.MarshalPKIXPublicKey(signer.Public())
+	pk1, err := x509.MarshalPKIXPublicKey(sk.signer.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
-	pk2, err := x509.MarshalPKIXPublicKey(loadedSigner.Public())
+	pk2, err := x509.MarshalPKIXPublicKey(loaded.signer.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
-	sk, signer, err := tpm.NewSK(ak, nil)
+	sk, err := tpm.NewSK(ak, nil)
 	if err != nil {
 		t.Fatalf("NewSK() failed: %v", err)
 	}
@@ -101,24 +101,24 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 		t.Fatalf("sk.Close() failed: %v", err)
 	}
 
-	loaded, loadedSigner, err := tpm.LoadSK(enc)
+	loaded, err := tpm.LoadSK(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close(tpm)
 
-	k1, k2 := sk.ak.(*wrappedKey20), loaded.ak.(*wrappedKey20)
+	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
 	if !bytes.Equal(k1.public, k2.public) {
 		t.Error("Original & loaded SK public blobs did not match.")
 		t.Logf("Original = %v", k1.public)
 		t.Logf("Loaded   = %v", k2.public)
 	}
 
-	pk1, err := x509.MarshalPKIXPublicKey(signer.Public())
+	pk1, err := x509.MarshalPKIXPublicKey(sk.signer.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
-	pk2, err := x509.MarshalPKIXPublicKey(loadedSigner.Public())
+	pk2, err := x509.MarshalPKIXPublicKey(loaded.signer.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}

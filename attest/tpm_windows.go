@@ -18,7 +18,6 @@ package attest
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -326,12 +325,12 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	}
 }
 
-func (t *windowsTPM) newSK(tpmutil.Handle, *SKConfig) (*SK, crypto.Signer, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+func (t *windowsTPM) newSK(tpmutil.Handle, *SKConfig) (*SK, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
-func (t *windowsTPM) loadSK(opaqueBlob []byte) (*SK, crypto.Signer, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+func (t *windowsTPM) loadSK(opaqueBlob []byte) (*SK, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
