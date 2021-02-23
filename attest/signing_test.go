@@ -20,14 +20,32 @@ package attest
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/x509"
+	"encoding/asn1"
+	"math/big"
 	"testing"
 )
 
 func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
+	testCreateAndLoad(t, tpm)
+}
 
+func TestTPM20SKCreateAndLoad(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	tpm, err := OpenTPM(nil)
+	if err != nil {
+		t.Fatalf("OpenTPM() failed: %v", err)
+	}
+	defer tpm.Close()
+	testCreateAndLoad(t, tpm)
+}
+
+func testCreateAndLoad(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
@@ -53,7 +71,6 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 	defer loaded.Close()
 
 	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
-
 	if !bytes.Equal(k1.public, k2.public) {
 		t.Error("Original & loaded SK public blobs did not match.")
 		t.Logf("Original = %v", k1.public)
@@ -73,7 +90,13 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 	}
 }
 
-func TestTPM20SKCreateAndLoad(t *testing.T) {
+func TestSimTPM20SKSigning(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testSKSigning(t, tpm)
+}
+
+func TestTPM20SKSigning(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -82,7 +105,10 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
+	testSKSigning(t, tpm)
+}
 
+func testSKSigning(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
@@ -91,38 +117,22 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSK() failed: %v", err)
 	}
-
-	enc, err := sk.Marshal()
+	digest := []byte("01234567890123456789012345678901")
+	sigRaw, err := sk.Sign(nil, digest, nil)
 	if err != nil {
-		sk.Close()
-		t.Fatalf("sk.Marshal() failed: %v", err)
+		t.Fatalf("Sign() failed: %v", err)
 	}
-	if err := sk.Close(); err != nil {
-		t.Fatalf("sk.Close() failed: %v", err)
+	var sig struct {
+		R, S *big.Int
 	}
-
-	loaded, err := tpm.LoadSK(enc)
-	if err != nil {
-		t.Fatalf("LoadKey() failed: %v", err)
+	if _, err := asn1.Unmarshal(sigRaw, &sig); err != nil {
+		t.Fatalf("incorrect signature format")
 	}
-	defer loaded.Close()
-
-	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
-	if !bytes.Equal(k1.public, k2.public) {
-		t.Error("Original & loaded SK public blobs did not match.")
-		t.Logf("Original = %v", k1.public)
-		t.Logf("Loaded   = %v", k2.public)
+	pub, ok := sk.Public().(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatalf("non-ECDSA public key")
 	}
-
-	pk1, err := x509.MarshalPKIXPublicKey(sk.Public())
-	if err != nil {
-		t.Fatalf("cannot marshal public key: %v", err)
-	}
-	pk2, err := x509.MarshalPKIXPublicKey(loaded.Public())
-	if err != nil {
-		t.Fatalf("cannot marshal public key: %v", err)
-	}
-	if !bytes.Equal(pk1, pk2) {
-		t.Errorf("public keys do noy match")
+	if !ecdsa.Verify(pub, digest, sig.R, sig.S) {
+		t.Fatalf("signature verification failed")
 	}
 }
