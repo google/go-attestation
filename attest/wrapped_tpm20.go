@@ -19,7 +19,9 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"math/big"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 )
@@ -193,12 +195,15 @@ func (t *wrappedTPM20) newSK(ak *AK, opts *SKConfig) (*SK, error) {
 		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 	}
 
-	// Create a signer
-	signer, err := NewSKSigner(t.rwc, keyHandle)
+	tpmPub, _, _, err := tpm2.ReadPublic(t.rwc, keyHandle)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create signer for SK: %v", err)
+		return nil, fmt.Errorf("read public blob: %v", err)
 	}
-	return &SK{sk: newWrappedKey20(keyHandle, blob, pub, creationData, attestation, signature), signer: signer}, nil
+	pubKey, err := tpmPub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %v", err)
+	}
+	return &SK{sk: newWrappedSigningKey20(keyHandle, blob, pub, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
@@ -234,11 +239,15 @@ func (t *wrappedTPM20) loadSK(opaqueBlob []byte) (*SK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot load signing key: %v", err)
 	}
-	signer, err := NewSKSigner(t.rwc, hnd)
+	tpmPub, _, _, err := tpm2.ReadPublic(t.rwc, hnd)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create signing key's signer: %v", err)
+		return nil, fmt.Errorf("read public blob: %v", err)
 	}
-	return &SK{sk: newWrappedKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), signer: signer}, nil
+	pub, err := tpmPub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %v", err)
+	}
+	return &SK{sk: newWrappedSigningKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
@@ -275,6 +284,17 @@ type wrappedKey20 struct {
 }
 
 func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) ak {
+	return &wrappedKey20{
+		hnd:               hnd,
+		blob:              blob,
+		public:            public,
+		createData:        createData,
+		createAttestation: createAttestation,
+		createSignature:   createSig,
+	}
+}
+
+func newWrappedSigningKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) sk {
 	return &wrappedKey20{
 		hnd:               hnd,
 		blob:              blob,
@@ -369,4 +389,25 @@ func (k *wrappedKey20) attestationParameters() AttestationParameters {
 
 func (k *wrappedKey20) handle() (tpmutil.Handle, error) {
 	return k.hnd, nil
+}
+
+func (k *wrappedKey20) sign(tb tpmBase, digest []byte) ([]byte, error) {
+	t, ok := tb.(*wrappedTPM20)
+	if !ok {
+		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
+	}
+	sig, err := tpm2.Sign(t.rwc, k.hnd, "", digest, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("signing data: %v", err)
+	}
+	if sig.RSA != nil {
+		return sig.RSA.Signature, nil
+	}
+	if sig.ECC != nil {
+		return asn1.Marshal(struct {
+			R *big.Int
+			S *big.Int
+		}{sig.ECC.R, sig.ECC.S})
+	}
+	return nil, fmt.Errorf("unsupported signature type: %v", sig.Alg)
 }

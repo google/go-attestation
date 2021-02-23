@@ -39,10 +39,10 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 
 	enc, err := sk.Marshal()
 	if err != nil {
-		sk.Close(tpm)
+		sk.Close()
 		t.Fatalf("sk.Marshal() failed: %v", err)
 	}
-	if err := sk.Close(tpm); err != nil {
+	if err := sk.Close(); err != nil {
 		t.Fatalf("sk.Close() failed: %v", err)
 	}
 
@@ -50,7 +50,7 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
-	defer loaded.Close(tpm)
+	defer loaded.Close()
 
 	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
 
@@ -60,11 +60,11 @@ func TestSimTPM20SKCreateAndLoad(t *testing.T) {
 		t.Logf("Loaded   = %v", k2.public)
 	}
 
-	pk1, err := x509.MarshalPKIXPublicKey(sk.signer.Public())
+	pk1, err := x509.MarshalPKIXPublicKey(sk.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
-	pk2, err := x509.MarshalPKIXPublicKey(loaded.signer.Public())
+	pk2, err := x509.MarshalPKIXPublicKey(loaded.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
@@ -94,10 +94,10 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 
 	enc, err := sk.Marshal()
 	if err != nil {
-		sk.Close(tpm)
+		sk.Close()
 		t.Fatalf("sk.Marshal() failed: %v", err)
 	}
-	if err := sk.Close(tpm); err != nil {
+	if err := sk.Close(); err != nil {
 		t.Fatalf("sk.Close() failed: %v", err)
 	}
 
@@ -105,7 +105,7 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
-	defer loaded.Close(tpm)
+	defer loaded.Close()
 
 	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
 	if !bytes.Equal(k1.public, k2.public) {
@@ -114,11 +114,11 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 		t.Logf("Loaded   = %v", k2.public)
 	}
 
-	pk1, err := x509.MarshalPKIXPublicKey(sk.signer.Public())
+	pk1, err := x509.MarshalPKIXPublicKey(sk.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
-	pk2, err := x509.MarshalPKIXPublicKey(loaded.signer.Public())
+	pk2, err := x509.MarshalPKIXPublicKey(loaded.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
