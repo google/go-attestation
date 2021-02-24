@@ -29,7 +29,6 @@ import (
 	"math/big"
 
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpmutil"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 	"golang.org/x/sys/windows"
 )
@@ -325,7 +324,7 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	}
 }
 
-func (t *windowsTPM) newSK(tpmutil.Handle, *SKConfig) (*SK, error) {
+func (t *windowsTPM) newSK(*AK, *SKConfig) (*SK, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
