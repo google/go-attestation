@@ -90,10 +90,13 @@ func (p *ActivationParameters) checkTPM12AKParameters() error {
 
 func (p *ActivationParameters) checkTPM20AKParameters() error {
 	// AK must be restricted and its attestation is self-signed
-	return p.AK.checkTPM20AttestationParameters(p.AK.Public, true)
+	if !bytes.Equal(p.AK.Public, p.AK.CertifyingKey) {
+		return fmt.Errorf("not self-signed attestation")
+	}
+	return p.AK.checkTPM20AttestationParameters(true)
 }
 
-func (p *AttestationParameters) checkTPM20AttestationParameters(verifyingKey []byte, mustRestrict bool) error {
+func (p *AttestationParameters) checkTPM20AttestationParameters(mustRestrict bool) error {
 	if len(p.CreateSignature) < 8 {
 		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.CreateSignature))
 	}
@@ -102,7 +105,7 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(verifyingKey []b
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	vrfy, err := tpm2.DecodePublic(verifyingKey)
+	vrfy, err := tpm2.DecodePublic(p.CertifyingKey)
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
@@ -182,10 +185,6 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(verifyingKey []b
 	}
 	hsh := signHash.New()
 	hsh.Write(p.CreateAttestation)
-	verifyHash, err := vrfy.RSAParameters.Sign.Hash.Hash()
-	if err != nil {
-		return err
-	}
 
 	if len(p.CreateSignature) < 8 {
 		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.CreateSignature))
@@ -196,7 +195,7 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(verifyingKey []b
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
 
-	if err := rsa.VerifyPKCS1v15(&pk, verifyHash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
+	if err := rsa.VerifyPKCS1v15(&pk, signHash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
 		return fmt.Errorf("could not verify attestation: %v", err)
 	}
 

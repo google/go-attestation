@@ -203,7 +203,8 @@ func (t *wrappedTPM20) newSK(ak *AK, opts *SKConfig) (*SK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
-	return &SK{sk: newWrappedSigningKey20(keyHandle, blob, pub, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
+	certifyingKey := ak.AttestationParameters().Public
+	return &SK{sk: newWrappedSigningKey20(keyHandle, blob, pub, certifyingKey, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
@@ -247,7 +248,7 @@ func (t *wrappedTPM20) loadSK(opaqueBlob []byte) (*SK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
-	return &SK{sk: newWrappedSigningKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
+	return &SK{sk: newWrappedSigningKey20(hnd, sKey.Blob, sKey.Public, sKey.CertifyingKey, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
@@ -278,6 +279,7 @@ type wrappedKey20 struct {
 
 	blob              []byte
 	public            []byte // used by both TPM1.2 and 2.0
+	certifyingKey     []byte // used only for key certification
 	createData        []byte
 	createAttestation []byte
 	createSignature   []byte
@@ -288,17 +290,19 @@ func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttesta
 		hnd:               hnd,
 		blob:              blob,
 		public:            public,
+		certifyingKey:     public,
 		createData:        createData,
 		createAttestation: createAttestation,
 		createSignature:   createSig,
 	}
 }
 
-func newWrappedSigningKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) sk {
+func newWrappedSigningKey20(hnd tpmutil.Handle, blob, public, certifyingKey, createData, createAttestation, createSig []byte) sk {
 	return &wrappedKey20{
 		hnd:               hnd,
 		blob:              blob,
 		public:            public,
+		certifyingKey:     certifyingKey,
 		createData:        createData,
 		createAttestation: createAttestation,
 		createSignature:   createSig,
@@ -312,6 +316,7 @@ func (k *wrappedKey20) marshal() ([]byte, error) {
 
 		Blob:              k.blob,
 		Public:            k.public,
+		CertifyingKey:     k.certifyingKey,
 		CreateData:        k.createData,
 		CreateAttestation: k.createAttestation,
 		CreateSignature:   k.createSignature,
@@ -381,6 +386,7 @@ func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, err
 func (k *wrappedKey20) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public:            k.public,
+		CertifyingKey:     k.certifyingKey,
 		CreateData:        k.createData,
 		CreateAttestation: k.createAttestation,
 		CreateSignature:   k.createSignature,

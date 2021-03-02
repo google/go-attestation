@@ -68,6 +68,6 @@ func (s *SK) AttestationParameters() AttestationParameters {
 }
 
 // VerifySKAttestation uses verifyingKey to verify attested key certification.
-func (p *AttestationParameters) VerifySKAttestation(verifyingKey []byte) error {
-	return p.checkTPM20AttestationParameters(verifyingKey, false)
+func (p *AttestationParameters) VerifySKAttestation() error {
+	return p.checkTPM20AttestationParameters(false)
 }
