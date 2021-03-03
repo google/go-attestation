@@ -7,6 +7,9 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func decodeBase10(base10 string, t *testing.T) *big.Int {
@@ -66,5 +69,169 @@ func TestActivationTPM20(t *testing.T) {
 	}
 	if got, want := secret, decodeBase64("0vhS7HtORX9uf/iyQ8Sf9WkpJuoJ1olCfTjSZuyNNxY=", t); !bytes.Equal(got, want) {
 		t.Fatalf("secret = %v, want %v", got, want)
+	}
+}
+
+func TestAttestationParametersTPM20(t *testing.T) {
+	s, tpm := setupSimulatedTPM(t)
+	defer s.Close()
+
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	akParams := ak.AttestationParameters()
+
+	sk, err := tpm.NewSK(ak, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	skParams := sk.AttestationParameters()
+
+	for _, test := range []struct {
+		name string
+		p    *AttestationParameters
+		opts VerifyOpts
+		err  error
+	}{
+		{
+			name: "AK OK",
+			p:    &akParams,
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   true,
+			},
+			err: nil,
+		},
+		{
+			name: "SK OK",
+			p:    &skParams,
+			opts: VerifyOpts{
+				SelfAttested: false,
+				Restricted:   false,
+			},
+			err: nil,
+		},
+		{
+			name: "not self-attested AK",
+			p:    &akParams,
+			opts: VerifyOpts{
+				SelfAttested: false,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "not restricted AK",
+			p:    &akParams,
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   false,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "self-attested SK",
+			p:    &skParams,
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   false,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "restricted SK",
+			p:    &skParams,
+			opts: VerifyOpts{
+				SelfAttested: false,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "modified Public",
+			p: &AttestationParameters{
+				Public:            skParams.Public,
+				CertifyingKey:     akParams.CertifyingKey,
+				CreateData:        akParams.CreateData,
+				CreateAttestation: akParams.CreateAttestation,
+				CreateSignature:   akParams.CreateSignature,
+			},
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "modified CertifyingKey",
+			p: &AttestationParameters{
+				Public:            akParams.Public,
+				CertifyingKey:     skParams.Public,
+				CreateData:        akParams.CreateData,
+				CreateAttestation: akParams.CreateAttestation,
+				CreateSignature:   akParams.CreateSignature,
+			},
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "modified CreateData",
+			p: &AttestationParameters{
+				Public:            akParams.Public,
+				CertifyingKey:     akParams.CertifyingKey,
+				CreateData:        []byte("unparsable"),
+				CreateAttestation: akParams.CreateAttestation,
+				CreateSignature:   akParams.CreateSignature,
+			},
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "modified CreateAttestation",
+			p: &AttestationParameters{
+				Public:            akParams.Public,
+				CertifyingKey:     akParams.CertifyingKey,
+				CreateData:        akParams.CreateData,
+				CreateAttestation: skParams.CreateAttestation,
+				CreateSignature:   akParams.CreateSignature,
+			},
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "modified CreateSignature",
+			p: &AttestationParameters{
+				Public:            akParams.Public,
+				CertifyingKey:     akParams.CertifyingKey,
+				CreateData:        akParams.CreateData,
+				CreateAttestation: akParams.CreateAttestation,
+				CreateSignature:   skParams.CreateSignature,
+			},
+			opts: VerifyOpts{
+				SelfAttested: true,
+				Restricted:   true,
+			},
+			err: cmpopts.AnyError,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.p.Verify(test.opts)
+			if test.err == nil && err == nil {
+				return
+			}
+			if got, want := err, test.err; !cmp.Equal(got, want, cmpopts.EquateErrors()) {
+				t.Errorf("p.Verify() err = %v, want = %v", got, want)
+			}
+		})
 	}
 }

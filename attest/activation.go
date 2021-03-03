@@ -101,18 +101,19 @@ func (p *ActivationParameters) checkTPM12AKParameters() error {
 
 // VerifyOpts specifies options passed to (*AttestationParameters).Verify()
 type VerifyOpts struct {
-	// SelfAttested set to true ensures that the attestation is self-signed
+	// SelfAttested set to true ensures that the attestation is self-signed,
+	// set to false ensures that the attestation is not self-signed.
 	SelfAttested bool
-	// MustRestrict set to true ensures that the verified key was created by TPM
+	// Restricted set to true ensures that the verified key was created by TPM
 	// with the restricted flag; set to false ensures that the flag was not set.
-	MustRestrict bool
+	Restricted bool
 }
 
 func (p *ActivationParameters) checkTPM20AKParameters() error {
 	// AK must be restricted and its attestation is self-signed
 	opts := VerifyOpts{
 		SelfAttested: true,
-		MustRestrict: true,
+		Restricted:   true,
 	}
 	return p.AK.Verify(opts)
 }
@@ -128,9 +129,8 @@ func (p *AttestationParameters) Verify(opts VerifyOpts) error {
 	if opts.SelfAttested && !bytes.Equal(p.Public, p.CertifyingKey) {
 		return fmt.Errorf("not self-signed attestation")
 	}
-
-	if len(p.CreateSignature) < 8 {
-		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.CreateSignature))
+	if !opts.SelfAttested && bytes.Equal(p.Public, p.CertifyingKey) {
+		return fmt.Errorf("self-signed attestation")
 	}
 
 	pub, err := tpm2.DecodePublic(p.Public)
@@ -192,8 +192,11 @@ func (p *AttestationParameters) Verify(opts VerifyOpts) error {
 	if (pub.Attributes & tpm2.FlagFixedTPM) == 0 {
 		return errors.New("provided key is exportable")
 	}
-	if opts.MustRestrict && ((pub.Attributes & tpm2.FlagRestricted) == 0) {
-		return errors.New("provided key is not limited to attestation")
+	if opts.Restricted && ((pub.Attributes & tpm2.FlagRestricted) == 0) {
+		return errors.New("provided key is not restricted")
+	}
+	if !opts.Restricted && ((pub.Attributes & tpm2.FlagRestricted) != 0) {
+		return errors.New("provided key is restricted")
 	}
 	if (pub.Attributes & tpm2.FlagFixedParent) == 0 {
 		return errors.New("provided key can be duplicated to a different parent")
