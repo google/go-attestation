@@ -31,6 +31,17 @@ const (
 	tpm20GeneratedMagic = 0xff544347
 )
 
+// secureCurves represents a set of secure elliptic curves. For now,
+// the selection is based on the key size only.
+var secureCurves = map[tpm2.EllipticCurve]bool{
+	tpm2.CurveNISTP256: true,
+	tpm2.CurveNISTP384: true,
+	tpm2.CurveNISTP521: true,
+	tpm2.CurveBNP256:   true,
+	tpm2.CurveBNP638:   true,
+	tpm2.CurveSM2P256:  true,
+}
+
 // ActivationParameters encapsulates the inputs for activating an AK.
 type ActivationParameters struct {
 	// TPMVersion holds the version of the TPM, either 1.2 or 2.0.
@@ -88,15 +99,36 @@ func (p *ActivationParameters) checkTPM12AKParameters() error {
 	return nil
 }
 
-func (p *ActivationParameters) checkTPM20AKParameters() error {
-	// AK must be restricted and its attestation is self-signed
-	if !bytes.Equal(p.AK.Public, p.AK.CertifyingKey) {
-		return fmt.Errorf("not self-signed attestation")
-	}
-	return p.AK.checkTPM20AttestationParameters(true)
+// VerifyOpts specifies options passed to (*AttestationParameters).Verify()
+type VerifyOpts struct {
+	// SelfAttested set to true ensures that the attestation is self-signed
+	SelfAttested bool
+	// MustRestrict set to true ensures that the verified key was created by TPM
+	// with the restricted flag; set to false ensures that the flag was not set.
+	MustRestrict bool
 }
 
-func (p *AttestationParameters) checkTPM20AttestationParameters(mustRestrict bool) error {
+func (p *ActivationParameters) checkTPM20AKParameters() error {
+	// AK must be restricted and its attestation is self-signed
+	opts := VerifyOpts{
+		SelfAttested: true,
+		MustRestrict: true,
+	}
+	return p.AK.Verify(opts)
+}
+
+// Verify verifies the TPM2-produced attestation parameters checking whether:
+// - the attestation is self-signed (specified by opts)
+// - the key length is secure
+// - the attestation parameters matched the attested key
+// - the key was TPM-generated and resides within TPM
+// - the key can or cannot sing outside TPM-objects (specified via opts)
+// - the signature is correct
+func (p *AttestationParameters) Verify(opts VerifyOpts) error {
+	if opts.SelfAttested && !bytes.Equal(p.Public, p.CertifyingKey) {
+		return fmt.Errorf("not self-signed attestation")
+	}
+
 	if len(p.CreateSignature) < 8 {
 		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.CreateSignature))
 	}
@@ -121,14 +153,17 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(mustRestrict boo
 		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
 	}
 
-	// TODO: Support ECC AKs.
-	switch vrfy.Type {
+	switch pub.Type {
 	case tpm2.AlgRSA:
-		if vrfy.RSAParameters.KeyBits < minRSABits {
-			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minRSABits, vrfy.RSAParameters.KeyBits)
+		if pub.RSAParameters.KeyBits < minRSABits {
+			return fmt.Errorf("attested key too small: must be at least %d bits but was %d bits", minRSABits, pub.RSAParameters.KeyBits)
+		}
+	case tpm2.AlgECC:
+		if !secureCurves[pub.ECCParameters.CurveID] {
+			return fmt.Errorf("attested key uses insecure curve")
 		}
 	default:
-		return fmt.Errorf("public key of alg 0x%x not supported", vrfy.Type)
+		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
 	}
 
 	// Compute & verify that the creation data matches the digest in the
@@ -143,7 +178,7 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(mustRestrict boo
 		return errors.New("attestation refers to different public key")
 	}
 
-	// Make sure the AK has sane key parameters (Attestation can be faked if an AK
+	// Make sure the key has sane parameters (e.g., attestation can be faked if an AK
 	// can be used for arbitrary signatures).
 	// We verify the following:
 	// - Key is TPM backed.
@@ -157,7 +192,7 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(mustRestrict boo
 	if (pub.Attributes & tpm2.FlagFixedTPM) == 0 {
 		return errors.New("provided key is exportable")
 	}
-	if mustRestrict && ((pub.Attributes & tpm2.FlagRestricted) == 0) {
+	if opts.MustRestrict && ((pub.Attributes & tpm2.FlagRestricted) == 0) {
 		return errors.New("provided key is not limited to attestation")
 	}
 	if (pub.Attributes & tpm2.FlagFixedParent) == 0 {
@@ -178,6 +213,7 @@ func (p *AttestationParameters) checkTPM20AttestationParameters(mustRestrict boo
 	}
 
 	// Check the signature over the attestation data verifies correctly.
+	// TODO: Support ECC certifying keys
 	pk := rsa.PublicKey{E: int(vrfy.RSAParameters.Exponent()), N: vrfy.RSAParameters.Modulus()}
 	signHash, err := vrfy.RSAParameters.Sign.Hash.Hash()
 	if err != nil {

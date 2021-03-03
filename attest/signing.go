@@ -66,8 +66,3 @@ func (s *SK) Marshal() ([]byte, error) {
 func (s *SK) AttestationParameters() AttestationParameters {
 	return s.sk.attestationParameters()
 }
-
-// VerifySKAttestation uses verifyingKey to verify attested key certification.
-func (p *AttestationParameters) VerifySKAttestation() error {
-	return p.checkTPM20AttestationParameters(false)
-}
