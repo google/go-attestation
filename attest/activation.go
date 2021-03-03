@@ -39,7 +39,6 @@ var secureCurves = map[tpm2.EllipticCurve]bool{
 	tpm2.CurveNISTP521: true,
 	tpm2.CurveBNP256:   true,
 	tpm2.CurveBNP638:   true,
-	tpm2.CurveSM2P256:  true,
 }
 
 // ActivationParameters encapsulates the inputs for activating an AK.

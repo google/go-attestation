@@ -324,11 +324,11 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	}
 }
 
-func (t *windowsTPM) newSK(*AK, *SKConfig) (*SK, error) {
+func (t *windowsTPM) newAppKey(*AK, *AppKeyConfig) (*ApplicationKey, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (t *windowsTPM) loadSK(opaqueBlob []byte) (*SK, error) {
+func (t *windowsTPM) loadAppKey(opaqueBlob []byte) (*ApplicationKey, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

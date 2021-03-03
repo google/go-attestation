@@ -103,11 +103,11 @@ func (t *trousersTPM) eks() ([]EK, error) {
 	}, nil
 }
 
-func (t *trousersTPM) newSK(*AK, *SKConfig) (*SK, error) {
+func (t *trousersTPM) newAppKey(*AK, *AppKeyConfig) (*ApplicationKey, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (t *trousersTPM) loadSK(opaqueBlob []byte) (*SK, error) {
+func (t *trousersTPM) loadAppKey(opaqueBlob []byte) (*ApplicationKey, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

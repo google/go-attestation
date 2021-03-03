@@ -20,20 +20,20 @@ package attest
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/x509"
-	"encoding/asn1"
-	"math/big"
 	"testing"
 )
 
-func TestSimTPM20SKCreateAndLoad(t *testing.T) {
+func TestSimTPM20AppKeyCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-	testCreateAndLoad(t, tpm)
+	testAppKeyCreateAndLoad(t, tpm)
 }
 
-func TestTPM20SKCreateAndLoad(t *testing.T) {
+func TestTPM20AppKeyCreateAndLoad(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -42,61 +42,79 @@ func TestTPM20SKCreateAndLoad(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	testCreateAndLoad(t, tpm)
+	testAppKeyCreateAndLoad(t, tpm)
 }
 
-func testCreateAndLoad(t *testing.T, tpm *TPM) {
+func testAppKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
-	sk, err := tpm.NewSK(ak, nil)
+	sk, err := tpm.NewAppKey(ak, nil)
 	if err != nil {
-		t.Fatalf("NewSK() failed: %v", err)
+		t.Fatalf("NewAppKey() failed: %v", err)
 	}
+	defer sk.Close()
 
 	enc, err := sk.Marshal()
 	if err != nil {
-		sk.Close()
 		t.Fatalf("sk.Marshal() failed: %v", err)
 	}
 	if err := sk.Close(); err != nil {
 		t.Fatalf("sk.Close() failed: %v", err)
 	}
 
-	loaded, err := tpm.LoadSK(enc)
+	loaded, err := tpm.LoadAppKey(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close()
 
-	k1, k2 := sk.sk.(*wrappedKey20), loaded.sk.(*wrappedKey20)
+	k1, k2 := sk.appKey.(*wrappedKey20), loaded.appKey.(*wrappedKey20)
 	if !bytes.Equal(k1.public, k2.public) {
-		t.Error("Original & loaded SK public blobs did not match.")
+		t.Error("Original & loaded AppKey public blobs did not match.")
 		t.Logf("Original = %v", k1.public)
 		t.Logf("Loaded   = %v", k2.public)
 	}
 
-	pk1, err := x509.MarshalPKIXPublicKey(sk.Public())
+	priv1, err := sk.Private(sk.Public())
+	if err != nil {
+		t.Fatalf("sk.Private() failed: %v", err)
+	}
+	signer1, ok := priv1.(crypto.Signer)
+	if !ok {
+		t.Fatalf("want crypto.Signer, got %T", priv1)
+	}
+	pk1, err := x509.MarshalPKIXPublicKey(signer1.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
-	pk2, err := x509.MarshalPKIXPublicKey(loaded.Public())
+
+	priv2, err := loaded.Private(loaded.Public())
+	if err != nil {
+		t.Fatalf("loaded.Private() failed: %v", err)
+	}
+	signer2, ok := priv2.(crypto.Signer)
+	if !ok {
+		t.Fatalf("want crypto.Signer, got %T", priv2)
+	}
+	pk2, err := x509.MarshalPKIXPublicKey(signer2.Public())
 	if err != nil {
 		t.Fatalf("cannot marshal public key: %v", err)
 	}
+
 	if !bytes.Equal(pk1, pk2) {
-		t.Errorf("public keys do noy match")
+		t.Error("public keys do noy match")
 	}
 }
 
-func TestSimTPM20SKSigning(t *testing.T) {
+func TestSimTPM20AppKeySign(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-	testSKSigning(t, tpm)
+	testAppKeySign(t, tpm)
 }
 
-func TestTPM20SKSigning(t *testing.T) {
+func TestTPM20AppKeySign(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -105,34 +123,40 @@ func TestTPM20SKSigning(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	testSKSigning(t, tpm)
+	testAppKeySign(t, tpm)
 }
 
-func testSKSigning(t *testing.T, tpm *TPM) {
+func testAppKeySign(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
-	sk, err := tpm.NewSK(ak, nil)
+	sk, err := tpm.NewAppKey(ak, nil)
 	if err != nil {
-		t.Fatalf("NewSK() failed: %v", err)
+		t.Fatalf("NewAppKey() failed: %v", err)
 	}
-	digest := []byte("01234567890123456789012345678901")
-	sigRaw, err := sk.Sign(nil, digest, nil)
+	defer sk.Close()
+
+	pub := sk.Public()
+	priv, err := sk.Private(pub)
 	if err != nil {
-		t.Fatalf("Sign() failed: %v", err)
+		t.Fatalf("sk.Private() failed: %v", err)
 	}
-	var sig struct {
-		R, S *big.Int
-	}
-	if _, err := asn1.Unmarshal(sigRaw, &sig); err != nil {
-		t.Fatalf("incorrect signature format")
-	}
-	pub, ok := sk.Public().(*ecdsa.PublicKey)
+	signer, ok := priv.(crypto.Signer)
 	if !ok {
-		t.Fatalf("non-ECDSA public key")
+		t.Fatalf("want crypto.Signer, got %T", priv)
 	}
-	if !ecdsa.Verify(pub, digest, sig.R, sig.S) {
-		t.Fatalf("signature verification failed")
+	digest := []byte("12345678901234567890123456789012")
+	sig, err := signer.Sign(rand.Reader, digest, nil)
+	if !ok {
+		t.Fatalf("signer.Sign() failed: %v", err)
+	}
+
+	pubECDSA, ok := pub.(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatalf("want *ecdsa.PublicKey, got %T", pub)
+	}
+	if !ecdsa.VerifyASN1(pubECDSA, digest, sig) {
+		t.Fatalf("ecdsa.Verify() failed")
 	}
 }

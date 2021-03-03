@@ -157,7 +157,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	return &AK{ak: newWrappedKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
 }
 
-func (t *wrappedTPM20) newSK(ak *AK, opts *SKConfig) (*SK, error) {
+func (t *wrappedTPM20) newAppKey(ak *AK, opts *AppKeyConfig) (*ApplicationKey, error) {
 	// TODO(szp): TODO(jsonp): Abstract choice of hierarchy & parent.
 	certifierHandle, err := ak.ak.handle()
 	if err != nil {
@@ -169,7 +169,7 @@ func (t *wrappedTPM20) newSK(ak *AK, opts *SKConfig) (*SK, error) {
 		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
 
-	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccSKTemplate)
+	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccAppKeyTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("CreateKey() failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func (t *wrappedTPM20) newSK(ak *AK, opts *SKConfig) (*SK, error) {
 		}
 	}()
 
-	// Certify SK by AK
+	// Certify application key by AK
 	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, certifierHandle, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, tix)
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
@@ -204,7 +204,7 @@ func (t *wrappedTPM20) newSK(ak *AK, opts *SKConfig) (*SK, error) {
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
 	certifyingKey := ak.AttestationParameters().Public
-	return &SK{sk: newWrappedSigningKey20(keyHandle, blob, pub, certifyingKey, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
+	return &ApplicationKey{appKey: newWrappedAppKey20(keyHandle, blob, pub, certifyingKey, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
@@ -235,7 +235,7 @@ func (t *wrappedTPM20) loadAK(opaqueBlob []byte) (*AK, error) {
 	return &AK{ak: newWrappedKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 }
 
-func (t *wrappedTPM20) loadSK(opaqueBlob []byte) (*SK, error) {
+func (t *wrappedTPM20) loadAppKey(opaqueBlob []byte) (*ApplicationKey, error) {
 	hnd, sKey, err := t.loadKey(opaqueBlob)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load signing key: %v", err)
@@ -248,7 +248,7 @@ func (t *wrappedTPM20) loadSK(opaqueBlob []byte) (*SK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
-	return &SK{sk: newWrappedSigningKey20(hnd, sKey.Blob, sKey.Public, sKey.CertifyingKey, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
+	return &ApplicationKey{appKey: newWrappedAppKey20(hnd, sKey.Blob, sKey.Public, sKey.CertifyingKey, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
@@ -297,7 +297,7 @@ func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttesta
 	}
 }
 
-func newWrappedSigningKey20(hnd tpmutil.Handle, blob, public, certifyingKey, createData, createAttestation, createSig []byte) sk {
+func newWrappedAppKey20(hnd tpmutil.Handle, blob, public, certifyingKey, createData, createAttestation, createSig []byte) appKey {
 	return &wrappedKey20{
 		hnd:               hnd,
 		blob:              blob,
@@ -416,4 +416,8 @@ func (k *wrappedKey20) sign(tb tpmBase, digest []byte) ([]byte, error) {
 		}{sig.ECC.R, sig.ECC.S})
 	}
 	return nil, fmt.Errorf("unsupported signature type: %v", sig.Alg)
+}
+
+func (k *wrappedKey20) decrypt(tb tpmBase, ctxt []byte) ([]byte, error) {
+	return nil, fmt.Errorf("not implemented")
 }

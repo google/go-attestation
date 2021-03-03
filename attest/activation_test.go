@@ -82,7 +82,7 @@ func TestAttestationParametersTPM20(t *testing.T) {
 	}
 	akParams := ak.AttestationParameters()
 
-	sk, err := tpm.NewSK(ak, nil)
+	sk, err := tpm.NewAppKey(ak, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestAttestationParametersTPM20(t *testing.T) {
 			err: nil,
 		},
 		{
-			name: "SK OK",
+			name: "AppKey OK",
 			p:    &skParams,
 			opts: VerifyOpts{
 				SelfAttested: false,
@@ -131,7 +131,7 @@ func TestAttestationParametersTPM20(t *testing.T) {
 			err: cmpopts.AnyError,
 		},
 		{
-			name: "self-attested SK",
+			name: "self-attested AppKey",
 			p:    &skParams,
 			opts: VerifyOpts{
 				SelfAttested: true,
@@ -140,7 +140,7 @@ func TestAttestationParametersTPM20(t *testing.T) {
 			err: cmpopts.AnyError,
 		},
 		{
-			name: "restricted SK",
+			name: "restricted AppKey",
 			p:    &skParams,
 			opts: VerifyOpts{
 				SelfAttested: false,
