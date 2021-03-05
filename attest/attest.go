@@ -203,10 +203,6 @@ type AttestationParameters struct {
 	// the TPM Part 2 Structures specification, available at
 	// https://trustedcomputinggroup.org/wp-content/uploads/TPM-Main-Part-2-TPM-Structures_v1.2_rev116_01032011.pdf
 
-	// CertifyingKey is a public key used for the certification of Public. Only
-	// TPM 2.0 is supported and the key is encoded as a TPMT_PUBLIC structure.
-	CertifyingKey []byte
-
 	// UseTCSDActivationFormat is set when tcsd (trousers daemon) is operating
 	// as an intermediary between this library and the TPM. A value of true
 	// indicates that activation challenges should use the TCSD-specific format.

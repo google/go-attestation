@@ -7,9 +7,6 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func decodeBase10(base10 string, t *testing.T) *big.Int {
@@ -52,7 +49,6 @@ func TestActivationTPM20(t *testing.T) {
 		AK: AttestationParameters{
 			Public:            decodeBase64("AAEACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAFAAECAAAAAAAAQC/08gj/04z4xGMIVTmr02lzhI5epufXgU831xEpf2qpXfvtNGUfqTcgWF2EUux2HDPqgcj59dtXRobQdlr4uCGNzfZIGAej4JusLa4MjpG6W2DtJPot6F1Mry63talzJ36U47niy9Iesd34CO2p9Xk3+86ZmBnQ6PQ2roUNK3l7bKz6cFLM9drOLwCqU0AUl6pHvzYPPz+xXsPl3iaA2cM97oneUiJNmJM7wtR9OcaKyIA4wVlX5TndB9NwWq5Iuj8q2Sp40Dg0noXXGSPliAtVD8flkXtAcuI9UHkQbzu9cGPRdSJPMn743GONg3bYalFtcgh2VpACXkPbXB32J7B", t),
 			CreateData:        decodeBase64("AAAAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUBAAsAIgALWI9hwDRB3zYSkannqM5z0J1coQNA1Jz/oCRxJQwTaNwAIgALmyFYBhHeIU3FUKIAPgXFD3NXyasP3siQviDEyH7avu4AAA==", t),
-			CertifyingKey:     decodeBase64("AAEACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAFAAECAAAAAAAAQC/08gj/04z4xGMIVTmr02lzhI5epufXgU831xEpf2qpXfvtNGUfqTcgWF2EUux2HDPqgcj59dtXRobQdlr4uCGNzfZIGAej4JusLa4MjpG6W2DtJPot6F1Mry63talzJ36U47niy9Iesd34CO2p9Xk3+86ZmBnQ6PQ2roUNK3l7bKz6cFLM9drOLwCqU0AUl6pHvzYPPz+xXsPl3iaA2cM97oneUiJNmJM7wtR9OcaKyIA4wVlX5TndB9NwWq5Iuj8q2Sp40Dg0noXXGSPliAtVD8flkXtAcuI9UHkQbzu9cGPRdSJPMn743GONg3bYalFtcgh2VpACXkPbXB32J7B", t),
 			CreateAttestation: decodeBase64("/1RDR4AaACIAC41+jhmEOue1MZhJjIk79ENar6i15rBvamXLpQnGTBCOAAAAAAAAD3GRNfU4syzJ1jQGATDCDteFC5C4ACIAC3ToMYGy9GXxcf8A0HvOuLOHbU7HPEppM47C7CMcU8TtACBDmJFUFO1f5+BYevaYdd3VtfMCsxIuHhoTZJczzLP2BA==", t),
 			CreateSignature:   decodeBase64("ABQABAEALVzJSnKRJU39gHjETaI89/sM1L6HwBPGNekw6NojSW8bwD5/W1cLRDakCsYKUQu68mmbjs8xaIVBRvVM2YWP10tbTWNB0iJc9b8rERhkk3QIIFm/XsiVZsb0mysTxfeh8zygaAKQ/50sYyzp+raD0Ho0mYIRKJOEdQ6chsBflM3eB8mCXGTugUfrET80q3iu0gncaKWbfxQaQUb9ZTPSJrTN64HQ9tlOfnGT+8++WA3hV0NqKMnoAqiI9GZnI5MPXs6XxEncu/GJLJpAYZakBiS74Jvlr34Pur32B4xjm1M25AUGHEIgb6r49S0sV+hzaKu45858lQRMXj01GcyBhw==", t),
 		},
@@ -69,169 +65,5 @@ func TestActivationTPM20(t *testing.T) {
 	}
 	if got, want := secret, decodeBase64("0vhS7HtORX9uf/iyQ8Sf9WkpJuoJ1olCfTjSZuyNNxY=", t); !bytes.Equal(got, want) {
 		t.Fatalf("secret = %v, want %v", got, want)
-	}
-}
-
-func TestAttestationParametersTPM20(t *testing.T) {
-	s, tpm := setupSimulatedTPM(t)
-	defer s.Close()
-
-	ak, err := tpm.NewAK(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	akParams := ak.AttestationParameters()
-
-	sk, err := tpm.NewAppKey(ak, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	skParams := sk.AttestationParameters()
-
-	for _, test := range []struct {
-		name string
-		p    *AttestationParameters
-		opts VerifyOpts
-		err  error
-	}{
-		{
-			name: "AK OK",
-			p:    &akParams,
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   true,
-			},
-			err: nil,
-		},
-		{
-			name: "AppKey OK",
-			p:    &skParams,
-			opts: VerifyOpts{
-				SelfAttested: false,
-				Restricted:   false,
-			},
-			err: nil,
-		},
-		{
-			name: "not self-attested AK",
-			p:    &akParams,
-			opts: VerifyOpts{
-				SelfAttested: false,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "not restricted AK",
-			p:    &akParams,
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   false,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "self-attested AppKey",
-			p:    &skParams,
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   false,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "restricted AppKey",
-			p:    &skParams,
-			opts: VerifyOpts{
-				SelfAttested: false,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "modified Public",
-			p: &AttestationParameters{
-				Public:            skParams.Public,
-				CertifyingKey:     akParams.CertifyingKey,
-				CreateData:        akParams.CreateData,
-				CreateAttestation: akParams.CreateAttestation,
-				CreateSignature:   akParams.CreateSignature,
-			},
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "modified CertifyingKey",
-			p: &AttestationParameters{
-				Public:            akParams.Public,
-				CertifyingKey:     skParams.Public,
-				CreateData:        akParams.CreateData,
-				CreateAttestation: akParams.CreateAttestation,
-				CreateSignature:   akParams.CreateSignature,
-			},
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "modified CreateData",
-			p: &AttestationParameters{
-				Public:            akParams.Public,
-				CertifyingKey:     akParams.CertifyingKey,
-				CreateData:        []byte("unparsable"),
-				CreateAttestation: akParams.CreateAttestation,
-				CreateSignature:   akParams.CreateSignature,
-			},
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "modified CreateAttestation",
-			p: &AttestationParameters{
-				Public:            akParams.Public,
-				CertifyingKey:     akParams.CertifyingKey,
-				CreateData:        akParams.CreateData,
-				CreateAttestation: skParams.CreateAttestation,
-				CreateSignature:   akParams.CreateSignature,
-			},
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-		{
-			name: "modified CreateSignature",
-			p: &AttestationParameters{
-				Public:            akParams.Public,
-				CertifyingKey:     akParams.CertifyingKey,
-				CreateData:        akParams.CreateData,
-				CreateAttestation: akParams.CreateAttestation,
-				CreateSignature:   skParams.CreateSignature,
-			},
-			opts: VerifyOpts{
-				SelfAttested: true,
-				Restricted:   true,
-			},
-			err: cmpopts.AnyError,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			err := test.p.Verify(test.opts)
-			if test.err == nil && err == nil {
-				return
-			}
-			if got, want := err, test.err; !cmp.Equal(got, want, cmpopts.EquateErrors()) {
-				t.Errorf("p.Verify() err = %v, want = %v", got, want)
-			}
-		})
 	}
 }

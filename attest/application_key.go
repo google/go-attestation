@@ -25,7 +25,7 @@ import (
 type appKey interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
-	attestationParameters() AttestationParameters
+	certificationParameters() CertificationParameters
 	sign(tpmBase, []byte) ([]byte, error)
 	decrypt(tpmBase, []byte) ([]byte, error)
 }
@@ -96,8 +96,8 @@ func (a *ApplicationKey) Marshal() ([]byte, error) {
 	return a.appKey.marshal()
 }
 
-// AttestationParameters returns information about the key, typically used to
-// prove key certification.
-func (a *ApplicationKey) AttestationParameters() AttestationParameters {
-	return a.appKey.attestationParameters()
+// CertificationParameters returns information about the key required to
+// verify key certification.
+func (a *ApplicationKey) CertificationParameters() CertificationParameters {
+	return a.appKey.certificationParameters()
 }

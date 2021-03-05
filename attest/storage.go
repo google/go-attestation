@@ -32,9 +32,6 @@ type serializedKey struct {
 	// Public represents the public key, in a TPM-specific format. This
 	// field is populated on all platforms and TPM versions.
 	Public []byte
-	// CertifyingKey is a public key used for the certification of Public. Only
-	// TPM 2.0 is supported and the key is encoded as a TPMT_PUBLIC structure.
-	CertifyingKey []byte
 	// The following fields are only valid for TPM 2.0 hardware, holding
 	// information returned as the result to a TPM2_CertifyCreation command.
 	// These are stored alongside the key for later use, as the certification

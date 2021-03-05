@@ -31,16 +31,6 @@ const (
 	tpm20GeneratedMagic = 0xff544347
 )
 
-// secureCurves represents a set of secure elliptic curves. For now,
-// the selection is based on the key size only.
-var secureCurves = map[tpm2.EllipticCurve]bool{
-	tpm2.CurveNISTP256: true,
-	tpm2.CurveNISTP384: true,
-	tpm2.CurveNISTP521: true,
-	tpm2.CurveBNP256:   true,
-	tpm2.CurveBNP638:   true,
-}
-
 // ActivationParameters encapsulates the inputs for activating an AK.
 type ActivationParameters struct {
 	// TPMVersion holds the version of the TPM, either 1.2 or 2.0.
@@ -98,53 +88,20 @@ func (p *ActivationParameters) checkTPM12AKParameters() error {
 	return nil
 }
 
-// VerifyOpts specifies options passed to (*AttestationParameters).Verify()
-type VerifyOpts struct {
-	// SelfAttested set to true ensures that the attestation is self-signed,
-	// set to false ensures that the attestation is not self-signed.
-	SelfAttested bool
-	// Restricted set to true ensures that the verified key was created by TPM
-	// with the restricted flag; set to false ensures that the flag was not set.
-	Restricted bool
-}
-
 func (p *ActivationParameters) checkTPM20AKParameters() error {
-	// AK must be restricted and its attestation is self-signed
-	opts := VerifyOpts{
-		SelfAttested: true,
-		Restricted:   true,
-	}
-	return p.AK.Verify(opts)
-}
-
-// Verify verifies the TPM2-produced attestation parameters checking whether:
-// - the attestation is self-signed (specified by opts)
-// - the key length is secure
-// - the attestation parameters matched the attested key
-// - the key was TPM-generated and resides within TPM
-// - the key can or cannot sing outside TPM-objects (specified via opts)
-// - the signature is correct
-func (p *AttestationParameters) Verify(opts VerifyOpts) error {
-	if opts.SelfAttested && !bytes.Equal(p.Public, p.CertifyingKey) {
-		return fmt.Errorf("not self-signed attestation")
-	}
-	if !opts.SelfAttested && bytes.Equal(p.Public, p.CertifyingKey) {
-		return fmt.Errorf("self-signed attestation")
+	if len(p.AK.CreateSignature) < 8 {
+		return fmt.Errorf("signature is too short to be valid: only %d bytes", len(p.AK.CreateSignature))
 	}
 
-	pub, err := tpm2.DecodePublic(p.Public)
+	pub, err := tpm2.DecodePublic(p.AK.Public)
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	vrfy, err := tpm2.DecodePublic(p.CertifyingKey)
-	if err != nil {
-		return fmt.Errorf("DecodePublic() failed: %v", err)
-	}
-	_, err = tpm2.DecodeCreationData(p.CreateData)
+	_, err = tpm2.DecodeCreationData(p.AK.CreateData)
 	if err != nil {
 		return fmt.Errorf("DecodeCreationData() failed: %v", err)
 	}
-	att, err := tpm2.DecodeAttestationData(p.CreateAttestation)
+	att, err := tpm2.DecodeAttestationData(p.AK.CreateAttestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
@@ -152,14 +109,11 @@ func (p *AttestationParameters) Verify(opts VerifyOpts) error {
 		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
 	}
 
+	// TODO: Support ECC AKs.
 	switch pub.Type {
 	case tpm2.AlgRSA:
 		if pub.RSAParameters.KeyBits < minRSABits {
-			return fmt.Errorf("attested key too small: must be at least %d bits but was %d bits", minRSABits, pub.RSAParameters.KeyBits)
-		}
-	case tpm2.AlgECC:
-		if !secureCurves[pub.ECCParameters.CurveID] {
-			return fmt.Errorf("attested key uses insecure curve")
+			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minRSABits, pub.RSAParameters.KeyBits)
 		}
 	default:
 		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
@@ -172,12 +126,12 @@ func (p *AttestationParameters) Verify(opts VerifyOpts) error {
 		return fmt.Errorf("HashConstructor() failed: %v", err)
 	}
 	h := nameHash.New()
-	h.Write(p.CreateData)
+	h.Write(p.AK.CreateData)
 	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
 		return errors.New("attestation refers to different public key")
 	}
 
-	// Make sure the key has sane parameters (e.g., attestation can be faked if an AK
+	// Make sure the AK has sane key parameters (Attestation can be faked if an AK
 	// can be used for arbitrary signatures).
 	// We verify the following:
 	// - Key is TPM backed.
@@ -189,19 +143,10 @@ func (p *AttestationParameters) Verify(opts VerifyOpts) error {
 		return errors.New("creation attestation was not produced by a TPM")
 	}
 	if (pub.Attributes & tpm2.FlagFixedTPM) == 0 {
-		return errors.New("provided key is exportable")
+		return errors.New("AK is exportable")
 	}
-	if opts.Restricted && ((pub.Attributes & tpm2.FlagRestricted) == 0) {
-		return errors.New("provided key is not restricted")
-	}
-	if !opts.Restricted && ((pub.Attributes & tpm2.FlagRestricted) != 0) {
-		return errors.New("provided key is restricted")
-	}
-	if (pub.Attributes & tpm2.FlagFixedParent) == 0 {
-		return errors.New("provided key can be duplicated to a different parent")
-	}
-	if (pub.Attributes & tpm2.FlagSensitiveDataOrigin) == 0 {
-		return errors.New("provided key is not created by TPM")
+	if ((pub.Attributes & tpm2.FlagRestricted) == 0) || ((pub.Attributes & tpm2.FlagFixedParent) == 0) || ((pub.Attributes & tpm2.FlagSensitiveDataOrigin) == 0) {
+		return errors.New("provided key is not limited to attestation")
 	}
 
 	// Verify the attested creation name matches what is computed from
@@ -215,25 +160,28 @@ func (p *AttestationParameters) Verify(opts VerifyOpts) error {
 	}
 
 	// Check the signature over the attestation data verifies correctly.
-	// TODO: Support ECC certifying keys
-	pk := rsa.PublicKey{E: int(vrfy.RSAParameters.Exponent()), N: vrfy.RSAParameters.Modulus()}
-	signHash, err := vrfy.RSAParameters.Sign.Hash.Hash()
+	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
+	signHash, err := pub.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
 		return err
 	}
 	hsh := signHash.New()
-	hsh.Write(p.CreateAttestation)
-
-	if len(p.CreateSignature) < 8 {
-		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.CreateSignature))
+	hsh.Write(p.AK.CreateAttestation)
+	verifyHash, err := pub.RSAParameters.Sign.Hash.Hash()
+	if err != nil {
+		return err
 	}
 
-	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.CreateSignature))
+	if len(p.AK.CreateSignature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.AK.CreateSignature))
+	}
+
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AK.CreateSignature))
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
 
-	if err := rsa.VerifyPKCS1v15(&pk, signHash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
+	if err := rsa.VerifyPKCS1v15(&pk, verifyHash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
 		return fmt.Errorf("could not verify attestation: %v", err)
 	}
 
