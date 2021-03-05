@@ -105,7 +105,7 @@ func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 	}
 
 	if !bytes.Equal(pk1, pk2) {
-		t.Error("public keys do noy match")
+		t.Error("public keys do not match")
 	}
 }
 
