@@ -354,7 +354,7 @@ func (t *TPM) NewAK(opts *AKConfig) (*AK, error) {
 	return t.tpm.newAK(opts)
 }
 
-// NewKey creates an application key certified by the attestation key ak.
+// NewKey creates an application key certified by the attestation key.
 func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	return t.tpm.newKey(ak, opts)
 }
