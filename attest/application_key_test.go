@@ -16,6 +16,7 @@
 // +build cgo
 
 // NOTE: simulator requires cgo, hence the build tag.
+
 package attest
 
 import (
@@ -27,13 +28,13 @@ import (
 	"testing"
 )
 
-func TestSimTPM20AppKeyCreateAndLoad(t *testing.T) {
+func TestSimTPM20KeyCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-	testAppKeyCreateAndLoad(t, tpm)
+	testKeyCreateAndLoad(t, tpm)
 }
 
-func TestTPM20AppKeyCreateAndLoad(t *testing.T) {
+func TestTPM20KeyCreateAndLoad(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -42,17 +43,17 @@ func TestTPM20AppKeyCreateAndLoad(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	testAppKeyCreateAndLoad(t, tpm)
+	testKeyCreateAndLoad(t, tpm)
 }
 
-func testAppKeyCreateAndLoad(t *testing.T, tpm *TPM) {
+func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
-	sk, err := tpm.NewAppKey(ak, nil)
+	sk, err := tpm.NewKey(ak, nil)
 	if err != nil {
-		t.Fatalf("NewAppKey() failed: %v", err)
+		t.Fatalf("NewKey() failed: %v", err)
 	}
 	defer sk.Close()
 
@@ -64,15 +65,15 @@ func testAppKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 		t.Fatalf("sk.Close() failed: %v", err)
 	}
 
-	loaded, err := tpm.LoadAppKey(enc)
+	loaded, err := tpm.LoadKey(enc)
 	if err != nil {
 		t.Fatalf("LoadKey() failed: %v", err)
 	}
 	defer loaded.Close()
 
-	k1, k2 := sk.appKey.(*wrappedKey20), loaded.appKey.(*wrappedKey20)
+	k1, k2 := sk.key.(*wrappedKey20), loaded.key.(*wrappedKey20)
 	if !bytes.Equal(k1.public, k2.public) {
-		t.Error("Original & loaded AppKey public blobs did not match.")
+		t.Error("Original & loaded Key public blobs did not match.")
 		t.Logf("Original = %v", k1.public)
 		t.Logf("Loaded   = %v", k2.public)
 	}
@@ -108,13 +109,13 @@ func testAppKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 	}
 }
 
-func TestSimTPM20AppKeySign(t *testing.T) {
+func TestSimTPM20KeySign(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-	testAppKeySign(t, tpm)
+	testKeySign(t, tpm)
 }
 
-func TestTPM20AppKeySign(t *testing.T) {
+func TestTPM20KeySign(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -123,17 +124,17 @@ func TestTPM20AppKeySign(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	testAppKeySign(t, tpm)
+	testKeySign(t, tpm)
 }
 
-func testAppKeySign(t *testing.T, tpm *TPM) {
+func testKeySign(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
-	sk, err := tpm.NewAppKey(ak, nil)
+	sk, err := tpm.NewKey(ak, nil)
 	if err != nil {
-		t.Fatalf("NewAppKey() failed: %v", err)
+		t.Fatalf("NewKey() failed: %v", err)
 	}
 	defer sk.Close()
 

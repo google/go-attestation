@@ -154,10 +154,10 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 	}
-	return &AK{ak: newWrappedKey20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
+	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
 }
 
-func (t *wrappedTPM20) newAppKey(ak *AK, opts *AppKeyConfig) (*ApplicationKey, error) {
+func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	// TODO(szp): TODO(jsonp): Abstract choice of hierarchy & parent.
 	certifierHandle, err := ak.ak.handle()
 	if err != nil {
@@ -169,7 +169,7 @@ func (t *wrappedTPM20) newAppKey(ak *AK, opts *AppKeyConfig) (*ApplicationKey, e
 		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
 
-	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccAppKeyTemplate)
+	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccKeyTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("CreateKey() failed: %v", err)
 	}
@@ -203,10 +203,10 @@ func (t *wrappedTPM20) newAppKey(ak *AK, opts *AppKeyConfig) (*ApplicationKey, e
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
-	return &ApplicationKey{appKey: newWrappedAppKey20(keyHandle, blob, pub, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
+	return &Key{key: newWrappedKey20(keyHandle, blob, pub, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
 }
 
-func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
+func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
 	sKey, err := deserializeKey(opaqueBlob, TPMVersion20)
 	if err != nil {
 		return 0, nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -227,15 +227,15 @@ func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (tpmutil.Handle, *serializedKe
 }
 
 func (t *wrappedTPM20) loadAK(opaqueBlob []byte) (*AK, error) {
-	hnd, sKey, err := t.loadKey(opaqueBlob)
+	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load attestation key: %v", err)
 	}
-	return &AK{ak: newWrappedKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+	return &AK{ak: newWrappedAK20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 }
 
-func (t *wrappedTPM20) loadAppKey(opaqueBlob []byte) (*ApplicationKey, error) {
-	hnd, sKey, err := t.loadKey(opaqueBlob)
+func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (*Key, error) {
+	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load signing key: %v", err)
 	}
@@ -247,7 +247,7 @@ func (t *wrappedTPM20) loadAppKey(opaqueBlob []byte) (*ApplicationKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
-	return &ApplicationKey{appKey: newWrappedAppKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
+	return &Key{key: newWrappedKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
@@ -283,7 +283,7 @@ type wrappedKey20 struct {
 	createSignature   []byte
 }
 
-func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) ak {
+func newWrappedAK20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) ak {
 	return &wrappedKey20{
 		hnd:               hnd,
 		blob:              blob,
@@ -294,7 +294,7 @@ func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttesta
 	}
 }
 
-func newWrappedAppKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) appKey {
+func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttestation, createSig []byte) key {
 	return &wrappedKey20{
 		hnd:               hnd,
 		blob:              blob,

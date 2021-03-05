@@ -61,7 +61,7 @@ func TestCertificationParametersTPM20(t *testing.T) {
 		wrongHash = crypto.SHA256
 	}
 
-	sk, err := tpm.NewAppKey(ak, nil)
+	sk, err := tpm.NewKey(ak, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

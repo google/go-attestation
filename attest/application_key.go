@@ -22,7 +22,7 @@ import (
 	"io"
 )
 
-type appKey interface {
+type key interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
 	certificationParameters() CertificationParameters
@@ -30,24 +30,24 @@ type appKey interface {
 	decrypt(tpmBase, []byte) ([]byte, error)
 }
 
-// ApplicationKey represents a key which can be used for signing and decrypting
+// Key represents a key which can be used for signing and decrypting
 // outside-TPM objects.
-type ApplicationKey struct {
-	appKey appKey
-	pub    crypto.PublicKey
-	tpm    tpmBase
+type Key struct {
+	key key
+	pub crypto.PublicKey
+	tpm tpmBase
 }
 
-// signer implements crypto.Signer returned by ApplicationKey.Private().
+// signer implements crypto.Signer returned by Key.Private().
 type signer struct {
-	appKey appKey
-	pub    crypto.PublicKey
-	tpm    tpmBase
+	key key
+	pub crypto.PublicKey
+	tpm tpmBase
 }
 
 // Sign signs digest with the TPM-stored private signing key.
 func (s *signer) Sign(r io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	return s.appKey.sign(s.tpm, digest)
+	return s.key.sign(s.tpm, digest)
 }
 
 // Public returns the public key corresponding to the private signing key.
@@ -55,49 +55,49 @@ func (s *signer) Public() crypto.PublicKey {
 	return s.pub
 }
 
-// AppKeyConfig encapsulates parameters for minting keys. This type is defined
+// KeyConfig encapsulates parameters for minting keys. This type is defined
 // now (despite being empty) for future interface compatibility.
-type AppKeyConfig struct {
+type KeyConfig struct {
 }
 
 // Public returns the public key corresponding to the private key.
-func (a *ApplicationKey) Public() crypto.PublicKey {
-	return a.pub
+func (k *Key) Public() crypto.PublicKey {
+	return k.pub
 }
 
 // Private returns an object allowing to use the TPM-backed private key.
 // For now it implements only crypto.Signer.
-func (a *ApplicationKey) Private(pub crypto.PublicKey) (crypto.PrivateKey, error) {
+func (k *Key) Private(pub crypto.PublicKey) (crypto.PrivateKey, error) {
 	switch pub.(type) {
 	case *rsa.PublicKey:
-		if _, ok := a.pub.(*rsa.PublicKey); !ok {
-			return nil, fmt.Errorf("incompatible public key types: %T != %T", pub, a.pub)
+		if _, ok := k.pub.(*rsa.PublicKey); !ok {
+			return nil, fmt.Errorf("incompatible public key types: %T != %T", pub, k.pub)
 		}
 	case *ecdsa.PublicKey:
-		if _, ok := a.pub.(*ecdsa.PublicKey); !ok {
-			return nil, fmt.Errorf("incompatible public key types: %T != %T", pub, a.pub)
+		if _, ok := k.pub.(*ecdsa.PublicKey); !ok {
+			return nil, fmt.Errorf("incompatible public key types: %T != %T", pub, k.pub)
 		}
 	default:
 		return nil, fmt.Errorf("unsupported public key type: %T", pub)
 	}
-	return &signer{a.appKey, a.pub, a.tpm}, nil
+	return &signer{k.key, k.pub, k.tpm}, nil
 }
 
 // Close unloads the key from the system.
-func (a *ApplicationKey) Close() error {
-	return a.appKey.close(a.tpm)
+func (k *Key) Close() error {
+	return k.key.close(k.tpm)
 }
 
-// Marshal encodes the key in a format that can be loaded with tpm.LoadAppKey().
+// Marshal encodes the key in a format that can be loaded with tpm.LoadKey().
 // This method exists to allow consumers to store the key persistently and load
 // it as a later time. Users SHOULD NOT attempt to interpret or extract values
 // from this blob.
-func (a *ApplicationKey) Marshal() ([]byte, error) {
-	return a.appKey.marshal()
+func (k *Key) Marshal() ([]byte, error) {
+	return k.key.marshal()
 }
 
 // CertificationParameters returns information about the key required to
 // verify key certification.
-func (a *ApplicationKey) CertificationParameters() CertificationParameters {
-	return a.appKey.certificationParameters()
+func (k *Key) CertificationParameters() CertificationParameters {
+	return k.key.certificationParameters()
 }

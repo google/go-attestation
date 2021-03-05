@@ -56,7 +56,8 @@ type CertificationParameters struct {
 type VerifyOpts struct {
 	// Public is the public key used to verify key ceritification.
 	Public crypto.PublicKey
-	// Has is the hash function used for signature verification.
+	// Hash is the hash function used for signature verification. It can be
+	// extracted from the properties of the certifying key.
 	Hash crypto.Hash
 }
 
