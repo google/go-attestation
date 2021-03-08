@@ -103,6 +103,14 @@ func (t *trousersTPM) eks() ([]EK, error) {
 	}, nil
 }
 
+func (t *trousersTPM) newKey(*AK, *KeyConfig) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (t *trousersTPM) loadKey(opaqueBlob []byte) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (t *trousersTPM) newAK(opts *AKConfig) (*AK, error) {
 	pub, blob, err := attestation.CreateAIK(t.ctx)
 	if err != nil {

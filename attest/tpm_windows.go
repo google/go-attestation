@@ -48,7 +48,7 @@ func probeSystemTPMs() ([]probedTPM, error) {
 		tbs = windows.MustLoadDLL("Tbs.dll")
 		tbsGetDeviceInfo = tbs.MustFindProc("Tbsi_GetDeviceInfo")
 	}
-	
+
 	// Windows systems appear to only support a single abstracted TPM.
 	// If we fail to initialize the Platform Crypto Provider, we assume
 	// a TPM is not present.
@@ -322,6 +322,14 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	default:
 		return nil, fmt.Errorf("cannot handle TPM version: %v", t.version)
 	}
+}
+
+func (t *windowsTPM) newKey(*AK, *KeyConfig) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (t *windowsTPM) loadKey(opaqueBlob []byte) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
