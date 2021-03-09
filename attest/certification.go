@@ -150,6 +150,9 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	if !ok {
 		return fmt.Errorf("Only RSA verification keys are supported")
 	}
+	if !opts.Hash.Available() {
+		return fmt.Errorf("hash function is unavailable")
+	}
 	hsh := opts.Hash.New()
 	hsh.Write(p.CreateAttestation)
 
