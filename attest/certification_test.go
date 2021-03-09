@@ -98,6 +98,15 @@ func TestCertificationParametersTPM20(t *testing.T) {
 			err: cmpopts.AnyError,
 		},
 		{
+			name: "unavailable hash function",
+			p:    &skCertParams,
+			opts: VerifyOpts{
+				Public: correctOpts.Public,
+				Hash:   crypto.BLAKE2b_384,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
 			name: "modified Public",
 			p: &CertificationParameters{
 				Public:            akAttestParams.Public,
