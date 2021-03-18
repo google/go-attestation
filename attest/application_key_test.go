@@ -151,7 +151,7 @@ func testKeySign(t *testing.T, tpm *TPM) {
 	}
 	digest := []byte("12345678901234567890123456789012")
 	sig, err := signer.Sign(rand.Reader, digest, nil)
-	if !ok {
+	if err != nil {
 		t.Fatalf("signer.Sign() failed: %v", err)
 	}
 
