@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpmutil"
 )
 
 // windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.
@@ -112,10 +111,6 @@ func (k *windowsKey12) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsKey12) handle() (tpmutil.Handle, error) {
-	return 0, fmt.Errorf("not implemented")
-}
-
 // windowsKey20 represents a key bound to a TPM 2.0.
 type windowsKey20 struct {
 	hnd uintptr
@@ -188,8 +183,4 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 		CreateAttestation: k.createAttestation,
 		CreateSignature:   k.createSignature,
 	}
-}
-
-func (k *windowsKey20) handle() (tpmutil.Handle, error) {
-	return 0, fmt.Errorf("not implemented")
 }

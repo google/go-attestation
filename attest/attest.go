@@ -24,7 +24,6 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
-	"github.com/google/go-tpm/tpmutil"
 )
 
 // TPMVersion is used to configure a preference in
@@ -104,7 +103,6 @@ type ak interface {
 	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
 	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
-	handle() (tpmutil.Handle, error)
 }
 
 // AK represents a key which can be used for attestation.
