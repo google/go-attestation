@@ -420,3 +420,7 @@ func (k *wrappedKey20) sign(tb tpmBase, digest []byte) ([]byte, error) {
 func (k *wrappedKey20) decrypt(tb tpmBase, ctxt []byte) ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
+func (k *wrappedKey20) blobs() ([]byte, []byte, error) {
+	return k.blob, k.public, nil
+}
