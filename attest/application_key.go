@@ -103,7 +103,7 @@ func (k *Key) CertificationParameters() CertificationParameters {
 	return k.key.certificationParameters()
 }
 
-// PrivPubBlobs returns private and public blobs to be used by tpm2.Load().
-func (k *Key) PrivPubBlobs() ([]byte, []byte, error) {
+// PubPrivBlobs returns private and public blobs to be used by tpm2.Load().
+func (k *Key) PubPrivBlobs() ([]byte, []byte, error) {
 	return k.key.blobs()
 }

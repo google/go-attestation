@@ -422,5 +422,5 @@ func (k *wrappedKey20) decrypt(tb tpmBase, ctxt []byte) ([]byte, error) {
 }
 
 func (k *wrappedKey20) blobs() ([]byte, []byte, error) {
-	return k.blob, k.public, nil
+	return k.public, k.blob, nil
 }
