@@ -19,7 +19,6 @@ package attest
 import (
 	"fmt"
 
-	"github.com/google/go-tpm/tpmutil"
 	"github.com/google/go-tspi/attestation"
 )
 
@@ -91,8 +90,4 @@ func (k *trousersKey12) attestationParameters() AttestationParameters {
 		Public:                  k.public,
 		UseTCSDActivationFormat: true,
 	}
-}
-
-func (k *trousersKey12) handle() (tpmutil.Handle, error) {
-	return 0, fmt.Errorf("not implemented")
 }

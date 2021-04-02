@@ -28,6 +28,7 @@ type key interface {
 	certificationParameters() CertificationParameters
 	sign(tpmBase, []byte) ([]byte, error)
 	decrypt(tpmBase, []byte) ([]byte, error)
+	blobs() ([]byte, []byte, error)
 }
 
 // Key represents a key which can be used for signing and decrypting
@@ -100,4 +101,9 @@ func (k *Key) Marshal() ([]byte, error) {
 // verify key certification.
 func (k *Key) CertificationParameters() CertificationParameters {
 	return k.key.certificationParameters()
+}
+
+// Blobs returns public and private blobs to be used by tpm2.Load().
+func (k *Key) Blobs() (pub, priv []byte, err error) {
+	return k.key.blobs()
 }
