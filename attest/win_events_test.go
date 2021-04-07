@@ -25,6 +25,7 @@ import (
 
 func TestParseWinEvents(t *testing.T) {
 	want := &WinEvents{
+		ColdBoot:             true,
 		BootCount:            4,
 		DEPEnabled:           true,
 		CodeIntegrityEnabled: true,
