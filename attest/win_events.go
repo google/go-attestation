@@ -149,6 +149,8 @@ const (
 // WinEvents describes information from the event log recorded during
 // bootup of Microsoft Windows.
 type WinEvents struct {
+	// ColdBoot is set to true if the system was not resuming from hibernation.
+	ColdBoot bool
 	// BootCount contains the value of the monotonic boot counter. This
 	// value is not set for TPM 1.2 devices and some TPMs with buggy
 	// implementations of monotonic counters.
@@ -406,6 +408,19 @@ func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader
 		return fmt.Errorf("conflicting values for boot counter: %d != %d", i, w.BootCount)
 	}
 	w.BootCount = int(i)
+	return nil
+}
+
+func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *bytes.Reader) error {
+	i, err := w.readUint(header, r)
+	if err != nil {
+		return fmt.Errorf("transfer control: %v", err)
+	}
+
+	// A transferControl event with a value of 1 indicates that bootmngr
+	// launched WinLoad. A different (unknown) value is set if WinResume
+	// is launched.
+	w.ColdBoot = i == 0x1
 	return nil
 }
 
@@ -721,6 +736,8 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
 		return w.readBootCounter(header, r)
 	case bitlockerUnlock:
 		return w.readBitlockerUnlock(header, r, pcr)
+	case transferControl:
+		return w.readTransferControl(header, r)
 
 	case osKernelDebug, codeIntegrity, bootDebugging, testSigning: // Parse boolean values.
 		return w.readBooleanByteEvent(header, r)
