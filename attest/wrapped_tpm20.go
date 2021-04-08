@@ -15,6 +15,7 @@
 package attest
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rsa"
 	"errors"
@@ -169,7 +170,7 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
 
-	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccKeyTemplate)
+	blob, pub, creationData, _, _, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccKeyTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("CreateKey() failed: %v", err)
 	}
@@ -185,16 +186,15 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	}()
 
 	// Certify application key by AK
-	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, k.hnd, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, tix)
+	cp, err := ak.Certify(t, keyHandle)
 	if err != nil {
-		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
+		return nil, fmt.Errorf("ak.Certify() failed: %v", err)
 	}
-	// Pack the raw structure into a TPMU_SIGNATURE.
-	signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, tpmutil.U16Bytes(sig))
-	if err != nil {
-		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
+	if !bytes.Equal(pub, cp.Public) {
+		return nil, fmt.Errorf("certified incorrect key, expected: %v, certified: %v", pub, cp.Public)
 	}
 
+	// Pack the raw structure into a TPMU_SIGNATURE.
 	tpmPub, err := tpm2.DecodePublic(pub)
 	if err != nil {
 		return nil, fmt.Errorf("decode public key: %v", err)
@@ -203,7 +203,7 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	if err != nil {
 		return nil, fmt.Errorf("access public key: %v", err)
 	}
-	return &Key{key: newWrappedKey20(keyHandle, blob, pub, creationData, attestation, signature), pub: pubKey, tpm: t}, nil
+	return &Key{key: newWrappedKey20(keyHandle, blob, pub, creationData, cp.Attestation, cp.Signature), pub: pubKey, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
@@ -370,6 +370,18 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	}, k.hnd, ekHnd, credential, secret)
 }
 
+func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+	t, ok := tb.(*wrappedTPM20)
+	if !ok {
+		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
+	}
+	hnd, ok := handle.(tpmutil.Handle)
+	if !ok {
+		return nil, fmt.Errorf("expected tpmutil.Handle, got %T", handle)
+	}
+	return certify(t.rwc, hnd, k.hnd)
+}
+
 func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
@@ -389,10 +401,9 @@ func (k *wrappedKey20) attestationParameters() AttestationParameters {
 
 func (k *wrappedKey20) certificationParameters() CertificationParameters {
 	return CertificationParameters{
-		Public:            k.public,
-		CreateData:        k.createData,
-		CreateAttestation: k.createAttestation,
-		CreateSignature:   k.createSignature,
+		Public:      k.public,
+		Attestation: k.createAttestation,
+		Signature:   k.createSignature,
 	}
 }
 

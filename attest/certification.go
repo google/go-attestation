@@ -20,8 +20,10 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // secureCurves represents a set of secure elliptic curves. For now,
@@ -41,15 +43,12 @@ type CertificationParameters struct {
 	// Public represents the key's canonical encoding (a TPMT_PUBLIC structure).
 	// It includes the public key and signing parameters.
 	Public []byte
-	// CreateData represents the properties of a TPM 2.0 key. It is encoded
-	// as a TPMS_CREATION_DATA structure.
-	CreateData []byte
-	// CreateAttestation represents an assertion as to the details of the key.
+	// Attestation represents an assertion as to the details of the key.
 	// It is encoded as a TPMS_ATTEST structure.
-	CreateAttestation []byte
-	// CreateSignature represents a signature of the CreateAttestation structure.
+	Attestation []byte
+	// Signature represents a signature of the Attestation structure.
 	// It is encoded as a TPMT_SIGNATURE structure.
-	CreateSignature []byte
+	Signature []byte
 }
 
 // VerifyOpts specifies options for the key certification's verification.
@@ -73,16 +72,12 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	_, err = tpm2.DecodeCreationData(p.CreateData)
-	if err != nil {
-		return fmt.Errorf("DecodeCreationData() failed: %v", err)
-	}
-	att, err := tpm2.DecodeAttestationData(p.CreateAttestation)
+	att, err := tpm2.DecodeAttestationData(p.Attestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
-	if att.Type != tpm2.TagAttestCreation {
-		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
+	if att.Type != tpm2.TagAttestCertify {
+		return fmt.Errorf("attestation does not apply to certification data, got tag %x", att.Type)
 	}
 
 	switch pub.Type {
@@ -104,10 +99,8 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	if err != nil {
 		return fmt.Errorf("HashConstructor() failed: %v", err)
 	}
-	h := nameHash.New()
-	h.Write(p.CreateData)
-	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
-		return errors.New("attestation refers to different public key")
+	if !nameHash.Available() {
+		return fmt.Errorf("hash function is unavailable")
 	}
 
 	// Make sure the key has sane parameters (e.g., attestation can be faked if an AK
@@ -136,31 +129,31 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 
 	// Verify the attested creation name matches what is computed from
 	// the public key.
-	match, err := att.AttestedCreationInfo.Name.MatchesPublic(pub)
+	match, err := att.AttestedCertifyInfo.Name.MatchesPublic(pub)
 	if err != nil {
 		return err
 	}
 	if !match {
-		return errors.New("creation attestation refers to a different key")
+		return errors.New("certification refers to a different key")
 	}
 
 	// Check the signature over the attestation data verifies correctly.
 	// TODO: Support ECC certifying keys
 	pk, ok := opts.Public.(*rsa.PublicKey)
 	if !ok {
-		return fmt.Errorf("Only RSA verification keys are supported")
+		return fmt.Errorf("only RSA verification keys are supported")
 	}
 	if !opts.Hash.Available() {
 		return fmt.Errorf("hash function is unavailable")
 	}
 	hsh := opts.Hash.New()
-	hsh.Write(p.CreateAttestation)
+	hsh.Write(p.Attestation)
 
-	if len(p.CreateSignature) < 8 {
-		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.CreateSignature))
+	if len(p.Signature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.Signature))
 	}
 
-	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.CreateSignature))
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.Signature))
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
@@ -170,4 +163,31 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	}
 
 	return nil
+}
+
+// certify is a low-level function which certifies a key with `hnd` by an
+// attestation key and returns certification parameters.
+func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle) (*CertificationParameters, error) {
+	pub, _, _, err := tpm2.ReadPublic(tpm, hnd)
+	if err != nil {
+		return nil, fmt.Errorf("tpm2.ReadPublic() failed: %v", err)
+	}
+	public, err := pub.Encode()
+	if err != nil {
+		return nil, fmt.Errorf("could not encode public key: %v", err)
+	}
+	att, sig, err := tpm2.Certify(tpm, "", "", hnd, akHnd, nil)
+	if err != nil {
+		return nil, fmt.Errorf("tpm2.Certify() failed: %v", err)
+	}
+	// TODO(szp): check if windows uses SHA256 for certification
+	signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, tpmutil.U16Bytes(sig))
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
+	}
+	return &CertificationParameters{
+		Public:      public,
+		Attestation: att,
+		Signature:   signature,
+	}, nil
 }

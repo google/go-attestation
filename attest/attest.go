@@ -103,6 +103,7 @@ type ak interface {
 	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
 	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
+	certify(tb tpmBase, handle interface{}) (*CertificationParameters, error)
 }
 
 // AK represents a key which can be used for attestation.
@@ -143,6 +144,14 @@ func (k *AK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
 // generate a credential activation challenge.
 func (k *AK) AttestationParameters() AttestationParameters {
 	return k.ak.attestationParameters()
+}
+
+// Certify uses the attestation key to certify the key with `handle`. It returns
+// certification parameters which allow to verify the properties of the attested
+// key. Depending on the actual instantiation it can accept different handle
+// types (e.g., tpmutil.Handle or uintptr).
+func (k *AK) Certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+	return k.ak.certify(tb, handle)
 }
 
 // AKConfig encapsulates parameters for minting keys. This type is defined
