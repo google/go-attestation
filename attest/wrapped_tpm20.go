@@ -379,7 +379,11 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 	if !ok {
 		return nil, fmt.Errorf("expected tpmutil.Handle, got %T", handle)
 	}
-	return certify(t.rwc, hnd, k.hnd)
+	scheme := tpm2.SigScheme{
+		Alg:  tpm2.AlgRSASSA,
+		Hash: tpm2.AlgSHA256,
+	}
+	return certify(t.rwc, hnd, k.hnd, scheme)
 }
 
 func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {

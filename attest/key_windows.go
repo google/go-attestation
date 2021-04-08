@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
+	"github.com/google/go-tpm/tpm2"
 )
 
 // windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.
@@ -209,5 +210,9 @@ func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 	}
-	return certify(tpm, hnd, akHnd)
+	scheme := tpm2.SigScheme{
+		Alg:  tpm2.AlgRSASSA,
+		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
+	}
+	return certify(tpm, hnd, akHnd, scheme)
 }

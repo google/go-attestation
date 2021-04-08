@@ -93,16 +93,6 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
 	}
 
-	// Compute & verify that the creation data matches the digest in the
-	// attestation structure.
-	nameHash, err := pub.NameAlg.Hash()
-	if err != nil {
-		return fmt.Errorf("HashConstructor() failed: %v", err)
-	}
-	if !nameHash.Available() {
-		return fmt.Errorf("hash function is unavailable")
-	}
-
 	// Make sure the key has sane parameters (e.g., attestation can be faked if an AK
 	// can be used for arbitrary signatures).
 	// We verify the following:
@@ -165,9 +155,9 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	return nil
 }
 
-// certify is a low-level function which certifies a key with `hnd` by an
-// attestation key and returns certification parameters.
-func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle) (*CertificationParameters, error) {
+// certify uses AK's handle and the passed signature scheme to certify the key
+// with the `hnd` handle.
+func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, scheme tpm2.SigScheme) (*CertificationParameters, error) {
 	pub, _, _, err := tpm2.ReadPublic(tpm, hnd)
 	if err != nil {
 		return nil, fmt.Errorf("tpm2.ReadPublic() failed: %v", err)
@@ -176,12 +166,11 @@ func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle) (*CertificationP
 	if err != nil {
 		return nil, fmt.Errorf("could not encode public key: %v", err)
 	}
-	att, sig, err := tpm2.Certify(tpm, "", "", hnd, akHnd, nil)
+	att, sig, err := tpm2.CertifyEx(tpm, "", "", hnd, akHnd, nil, scheme)
 	if err != nil {
 		return nil, fmt.Errorf("tpm2.Certify() failed: %v", err)
 	}
-	// TODO(szp): check if windows uses SHA256 for certification
-	signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, tpmutil.U16Bytes(sig))
+	signature, err := tpmutil.Pack(scheme.Alg, scheme.Hash, tpmutil.U16Bytes(sig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 	}
