@@ -117,7 +117,7 @@ func TestCertificationParametersTPM20(t *testing.T) {
 			err:  cmpopts.AnyError,
 		},
 		{
-			name: "modified Attestation",
+			name: "modified CreateAttestation",
 			p: &CertificationParameters{
 				Public:            skCertParams.Public,
 				CreateAttestation: akAttestParams.CreateAttestation,
@@ -127,7 +127,7 @@ func TestCertificationParametersTPM20(t *testing.T) {
 			err:  cmpopts.AnyError,
 		},
 		{
-			name: "modified Signature",
+			name: "modified CreateSignature",
 			p: &CertificationParameters{
 				Public:            skCertParams.Public,
 				CreateAttestation: skCertParams.CreateAttestation,
