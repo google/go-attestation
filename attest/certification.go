@@ -43,12 +43,15 @@ type CertificationParameters struct {
 	// Public represents the key's canonical encoding (a TPMT_PUBLIC structure).
 	// It includes the public key and signing parameters.
 	Public []byte
-	// Attestation represents an assertion as to the details of the key.
+	// CreateData represents the properties of a TPM 2.0 key. It is encoded
+	// as a TPMS_CREATION_DATA structure.
+	CreateData []byte
+	// CreateAttestation represents an assertion as to the details of the key.
 	// It is encoded as a TPMS_ATTEST structure.
-	Attestation []byte
-	// Signature represents a signature of the Attestation structure.
+	CreateAttestation []byte
+	// CreateSignature represents a signature of the CreateAttestation structure.
 	// It is encoded as a TPMT_SIGNATURE structure.
-	Signature []byte
+	CreateSignature []byte
 }
 
 // VerifyOpts specifies options for the key certification's verification.
@@ -72,7 +75,7 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	att, err := tpm2.DecodeAttestationData(p.Attestation)
+	att, err := tpm2.DecodeAttestationData(p.CreateAttestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
@@ -137,13 +140,13 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 		return fmt.Errorf("hash function is unavailable")
 	}
 	hsh := opts.Hash.New()
-	hsh.Write(p.Attestation)
+	hsh.Write(p.CreateAttestation)
 
-	if len(p.Signature) < 8 {
-		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.Signature))
+	if len(p.CreateSignature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.CreateSignature))
 	}
 
-	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.Signature))
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.CreateSignature))
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
@@ -175,8 +178,8 @@ func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, scheme tpm2.SigS
 		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
 	}
 	return &CertificationParameters{
-		Public:      public,
-		Attestation: att,
-		Signature:   signature,
+		Public:            public,
+		CreateAttestation: att,
+		CreateSignature:   signature,
 	}, nil
 }

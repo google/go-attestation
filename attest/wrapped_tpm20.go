@@ -203,7 +203,7 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	if err != nil {
 		return nil, fmt.Errorf("access public key: %v", err)
 	}
-	return &Key{key: newWrappedKey20(keyHandle, blob, pub, creationData, cp.Attestation, cp.Signature), pub: pubKey, tpm: t}, nil
+	return &Key{key: newWrappedKey20(keyHandle, blob, pub, creationData, cp.CreateAttestation, cp.CreateSignature), pub: pubKey, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
@@ -405,9 +405,9 @@ func (k *wrappedKey20) attestationParameters() AttestationParameters {
 
 func (k *wrappedKey20) certificationParameters() CertificationParameters {
 	return CertificationParameters{
-		Public:      k.public,
-		Attestation: k.createAttestation,
-		Signature:   k.createSignature,
+		Public:            k.public,
+		CreateAttestation: k.createAttestation,
+		CreateSignature:   k.createSignature,
 	}
 }
 
