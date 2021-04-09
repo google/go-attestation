@@ -24,6 +24,7 @@ import (
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // TPMVersion is used to configure a preference in
@@ -97,13 +98,19 @@ const (
 	keyEncodingParameterized
 )
 
+// Handle represents different types of a key handle.
+type Handle struct {
+	Native *tpmutil.Handle
+	PCP    *uintptr
+}
+
 type ak interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
 	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
 	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
-	certify(tb tpmBase, handle interface{}) (*CertificationParameters, error)
+	certify(tb tpmBase, handle Handle) (*CertificationParameters, error)
 }
 
 // AK represents a key which can be used for attestation.
@@ -150,8 +157,8 @@ func (k *AK) AttestationParameters() AttestationParameters {
 // certification parameters which allow to verify the properties of the attested
 // key. Depending on the actual instantiation it can accept different handle
 // types (e.g., tpmutil.Handle or uintptr).
-func (k *AK) Certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
-	return k.ak.certify(tb, handle)
+func (k *AK) Certify(tpm *TPM, handle Handle) (*CertificationParameters, error) {
+	return k.ak.certify(tpm.tpm, handle)
 }
 
 // AKConfig encapsulates parameters for minting keys. This type is defined

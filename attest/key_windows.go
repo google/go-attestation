@@ -111,7 +111,7 @@ func (k *windowsKey12) attestationParameters() AttestationParameters {
 		Public: k.public,
 	}
 }
-func (k *windowsKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsKey12) certify(tb tpmBase, handle Handle) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -189,16 +189,15 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsKey20) certify(tb tpmBase, handle Handle) (*CertificationParameters, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
 	}
-	h, ok := handle.(uintptr)
-	if !ok {
-		return nil, fmt.Errorf("expected uinptr, got %T", tb)
+	if handle.PCP == nil {
+		return nil, fmt.Errorf("no PCP handle passed")
 	}
-	hnd, err := t.pcp.TPMKeyHandle(h)
+	hnd, err := t.pcp.TPMKeyHandle(*handle.PCP)
 	if err != nil {
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
 	}
