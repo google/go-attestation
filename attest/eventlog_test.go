@@ -149,6 +149,24 @@ func TestParseEventLogEventSizeTooLarge(t *testing.T) {
 	}
 }
 
+func TestParseShortNoAction(t *testing.T) {
+	// https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClientSpecPlat_TPM_2p0_1p04_pub.pdf#page=110
+	// says: "For EV_NO_ACTION events other than the EFI Specification ID event
+	// (Section 9.4.5.1) the log will ...". Thus it is concluded other
+	// than "EFI Specification ID" events are also valid as NO_ACTION events.
+	//
+	// Currently we just assume that such events will have Data shorter than
+	// "EFI Specification ID" field.
+
+	data, err := ioutil.ReadFile("testdata/short_no_action_eventlog")
+	if err != nil {
+		t.Fatalf("reading test data: %v", err)
+	}
+	if _, err := ParseEventLog(data); err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+}
+
 func TestParseSpecIDEvent(t *testing.T) {
 	tests := []struct {
 		name    string
