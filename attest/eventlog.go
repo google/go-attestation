@@ -712,7 +712,7 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 			if alg.ID != algID {
 				continue
 			}
-			if uint16(r.Len()) < alg.Size {
+			if r.Len() < int(alg.Size) {
 				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
 			}
 			digest.data = make([]byte, alg.Size)
