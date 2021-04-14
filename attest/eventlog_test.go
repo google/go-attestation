@@ -15,6 +15,7 @@
 package attest
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"testing"
@@ -146,6 +147,29 @@ func TestParseEventLogEventSizeTooLarge(t *testing.T) {
 	_, err := ParseEventLog(data)
 	if err == nil {
 		t.Fatalf("expected parsing invalid event log to fail")
+	}
+}
+
+func TestParseEventLogEventSizeZero(t *testing.T) {
+	data := []byte{
+		// PCR index
+		0x4, 0x0, 0x0, 0x0,
+
+		// type
+		0xd, 0x0, 0x0, 0x0,
+
+		// Digest
+		0x94, 0x2d, 0xb7, 0x4a, 0xa7, 0x37, 0x5b, 0x23, 0xea, 0x23,
+		0x58, 0xeb, 0x3b, 0x31, 0x59, 0x88, 0x60, 0xf6, 0x90, 0x59,
+
+		// Event size (0 B)
+		0x0, 0x0, 0x0, 0x0,
+
+		// no "event data"
+	}
+
+	if _, err := parseRawEvent(bytes.NewBuffer(data), nil); err != nil {
+		t.Fatalf("parsing event log: %v", err)
 	}
 }
 
