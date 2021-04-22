@@ -37,7 +37,7 @@ import (
 // ReplayError describes the parsed events that failed to verify against
 // a particular PCR.
 type ReplayError struct {
-	Events      []Event
+	Events []Event
 	// InvalidPCRs reports the set of PCRs where the event log replay failed.
 	InvalidPCRs []int
 }
@@ -506,7 +506,7 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse first event: %v", err)
 	}
-	if e.typ == eventTypeNoAction {
+	if e.typ == eventTypeNoAction && len(e.data) >= binary.Size(specIDEventHeader{}) {
 		specID, err = parseSpecIDEvent(e.data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse spec ID event: %v", err)
@@ -568,22 +568,24 @@ const (
 	wantErrata = 0
 )
 
+type specIDEventHeader struct {
+	Signature     [16]byte
+	PlatformClass uint32
+	VersionMinor  uint8
+	VersionMajor  uint8
+	Errata        uint8
+	UintnSize     uint8
+	NumAlgs       uint32
+}
+
 // parseSpecIDEvent parses a TCG_EfiSpecIDEventStruct structure from the reader.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/EFI-Protocol-Specification-rev13-160330final.pdf#page=18
 func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 	r := bytes.NewReader(b)
-	var header struct {
-		Signature     [16]byte
-		PlatformClass uint32
-		VersionMinor  uint8
-		VersionMajor  uint8
-		Errata        uint8
-		UintnSize     uint8
-		NumAlgs       uint32
-	}
+	var header specIDEventHeader
 	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
-		return nil, fmt.Errorf("reading event header: %v", err)
+		return nil, fmt.Errorf("reading event header: %w: %X", err, b)
 	}
 	if header.Signature != wantSignature {
 		return nil, fmt.Errorf("invalid spec id signature: %x", header.Signature)
@@ -653,10 +655,7 @@ func (e *eventSizeErr) Error() string {
 func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err error) {
 	var h rawEventHeader
 	if err = binary.Read(r, binary.LittleEndian, &h); err != nil {
-		return event, err
-	}
-	if h.EventSize == 0 {
-		return event, errors.New("event data size is 0")
+		return event, fmt.Errorf("header deserialization error: %w", err)
 	}
 	if h.EventSize > uint32(r.Len()) {
 		return event, &eventSizeErr{h.EventSize, r.Len()}
@@ -664,7 +663,7 @@ func parseRawEvent(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err er
 
 	data := make([]byte, int(h.EventSize))
 	if _, err := io.ReadFull(r, data); err != nil {
-		return event, err
+		return event, fmt.Errorf("reading data error: %w", err)
 	}
 
 	digests := []digest{{hash: crypto.SHA1, data: h.Digest[:]}}
@@ -710,7 +709,7 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 			if alg.ID != algID {
 				continue
 			}
-			if uint16(r.Len()) < alg.Size {
+			if r.Len() < int(alg.Size) {
 				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
 			}
 			digest.data = make([]byte, alg.Size)
