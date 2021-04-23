@@ -189,7 +189,7 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsKey20) certify(tb tpmBase, handle Handle) (*CertificationParameters, error) {
+func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -197,7 +197,11 @@ func (k *windowsKey20) certify(tb tpmBase, handle Handle) (*CertificationParamet
 	if handle.PCP == nil {
 		return nil, fmt.Errorf("no PCP handle passed")
 	}
-	hnd, err := t.pcp.TPMKeyHandle(*handle.PCP)
+	h, ok := handle.(uintptr)
+	if !ok {
+		return nil, fmt.Errorf("expected uinptr, got %T", handle)
+	}
+	hnd, err := t.pcp.TPMKeyHandle(h)
 	if err != nil {
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
 	}
