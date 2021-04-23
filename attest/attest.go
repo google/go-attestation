@@ -149,7 +149,7 @@ func (k *AK) AttestationParameters() AttestationParameters {
 // Certify uses the attestation key to certify the key with `handle`. It returns
 // certification parameters which allow to verify the properties of the attested
 // key. Depending on the actual instantiation it can accept different handle
-// types (e.g., tpmutil.Handle or uintptr).
+// types (e.g., tpmutil.Handle on Linux or uintptr on Windows).
 func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, error) {
 	return k.ak.certify(tpm.tpm, handle)
 }
