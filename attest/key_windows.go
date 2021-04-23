@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
+	"github.com/google/go-tpm/tpm2"
 )
 
 // windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.
@@ -110,6 +111,9 @@ func (k *windowsKey12) attestationParameters() AttestationParameters {
 		Public: k.public,
 	}
 }
+func (k *windowsKey12) certify(tb tpmBase, handle Handle) (*CertificationParameters, error) {
+	return nil, fmt.Errorf("not implemented")
+}
 
 // windowsKey20 represents a key bound to a TPM 2.0.
 type windowsKey20 struct {
@@ -183,4 +187,32 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 		CreateAttestation: k.createAttestation,
 		CreateSignature:   k.createSignature,
 	}
+}
+
+func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+	t, ok := tb.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
+	}
+	h, ok := handle.(uintptr)
+	if !ok {
+		return nil, fmt.Errorf("expected uinptr, got %T", handle)
+	}
+	hnd, err := t.pcp.TPMKeyHandle(h)
+	if err != nil {
+		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+	}
+	akHnd, err := t.pcp.TPMKeyHandle(k.hnd)
+	if err != nil {
+		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+	}
+	tpm, err := t.pcp.TPMCommandInterface()
+	if err != nil {
+		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+	}
+	scheme := tpm2.SigScheme{
+		Alg:  tpm2.AlgRSASSA,
+		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
+	}
+	return certify(tpm, hnd, akHnd, scheme)
 }

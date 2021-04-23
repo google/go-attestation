@@ -91,3 +91,7 @@ func (k *trousersKey12) attestationParameters() AttestationParameters {
 		UseTCSDActivationFormat: true,
 	}
 }
+
+func (k *trousersKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+	return nil, fmt.Errorf("not implemented")
+}

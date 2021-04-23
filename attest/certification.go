@@ -20,8 +20,10 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // secureCurves represents a set of secure elliptic curves. For now,
@@ -32,7 +34,6 @@ var secureCurves = map[tpm2.EllipticCurve]bool{
 	tpm2.CurveNISTP521: true,
 	tpm2.CurveBNP256:   true,
 	tpm2.CurveBNP638:   true,
-	tpm2.CurveSM2P256:  true,
 }
 
 // CertificationParameters encapsulates the inputs for certifying an application key.
@@ -73,16 +74,12 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	_, err = tpm2.DecodeCreationData(p.CreateData)
-	if err != nil {
-		return fmt.Errorf("DecodeCreationData() failed: %v", err)
-	}
 	att, err := tpm2.DecodeAttestationData(p.CreateAttestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
-	if att.Type != tpm2.TagAttestCreation {
-		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
+	if att.Type != tpm2.TagAttestCertify {
+		return fmt.Errorf("attestation does not apply to certification data, got tag %x", att.Type)
 	}
 
 	switch pub.Type {
@@ -96,18 +93,6 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 		}
 	default:
 		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
-	}
-
-	// Compute & verify that the creation data matches the digest in the
-	// attestation structure.
-	nameHash, err := pub.NameAlg.Hash()
-	if err != nil {
-		return fmt.Errorf("HashConstructor() failed: %v", err)
-	}
-	h := nameHash.New()
-	h.Write(p.CreateData)
-	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
-		return errors.New("attestation refers to different public key")
 	}
 
 	// Make sure the key has sane parameters (e.g., attestation can be faked if an AK
@@ -136,19 +121,19 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 
 	// Verify the attested creation name matches what is computed from
 	// the public key.
-	match, err := att.AttestedCreationInfo.Name.MatchesPublic(pub)
+	match, err := att.AttestedCertifyInfo.Name.MatchesPublic(pub)
 	if err != nil {
 		return err
 	}
 	if !match {
-		return errors.New("creation attestation refers to a different key")
+		return errors.New("certification refers to a different key")
 	}
 
 	// Check the signature over the attestation data verifies correctly.
 	// TODO: Support ECC certifying keys
 	pk, ok := opts.Public.(*rsa.PublicKey)
 	if !ok {
-		return fmt.Errorf("Only RSA verification keys are supported")
+		return fmt.Errorf("only RSA verification keys are supported")
 	}
 	if !opts.Hash.Available() {
 		return fmt.Errorf("hash function is unavailable")
@@ -170,4 +155,30 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	}
 
 	return nil
+}
+
+// certify uses AK's handle and the passed signature scheme to certify the key
+// with the `hnd` handle.
+func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, scheme tpm2.SigScheme) (*CertificationParameters, error) {
+	pub, _, _, err := tpm2.ReadPublic(tpm, hnd)
+	if err != nil {
+		return nil, fmt.Errorf("tpm2.ReadPublic() failed: %v", err)
+	}
+	public, err := pub.Encode()
+	if err != nil {
+		return nil, fmt.Errorf("could not encode public key: %v", err)
+	}
+	att, sig, err := tpm2.CertifyEx(tpm, "", "", hnd, akHnd, nil, scheme)
+	if err != nil {
+		return nil, fmt.Errorf("tpm2.Certify() failed: %v", err)
+	}
+	signature, err := tpmutil.Pack(scheme.Alg, scheme.Hash, tpmutil.U16Bytes(sig))
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
+	}
+	return &CertificationParameters{
+		Public:            public,
+		CreateAttestation: att,
+		CreateSignature:   signature,
+	}, nil
 }

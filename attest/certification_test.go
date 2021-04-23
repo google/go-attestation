@@ -110,18 +110,6 @@ func TestCertificationParametersTPM20(t *testing.T) {
 			name: "modified Public",
 			p: &CertificationParameters{
 				Public:            akAttestParams.Public,
-				CreateData:        skCertParams.CreateData,
-				CreateAttestation: skCertParams.CreateAttestation,
-				CreateSignature:   skCertParams.CreateSignature,
-			},
-			opts: correctOpts,
-			err:  cmpopts.AnyError,
-		},
-		{
-			name: "modified CreateData",
-			p: &CertificationParameters{
-				Public:            skCertParams.Public,
-				CreateData:        []byte("unparsable"),
 				CreateAttestation: skCertParams.CreateAttestation,
 				CreateSignature:   skCertParams.CreateSignature,
 			},
@@ -132,7 +120,6 @@ func TestCertificationParametersTPM20(t *testing.T) {
 			name: "modified CreateAttestation",
 			p: &CertificationParameters{
 				Public:            skCertParams.Public,
-				CreateData:        skCertParams.CreateData,
 				CreateAttestation: akAttestParams.CreateAttestation,
 				CreateSignature:   skCertParams.CreateSignature,
 			},
@@ -143,7 +130,6 @@ func TestCertificationParametersTPM20(t *testing.T) {
 			name: "modified CreateSignature",
 			p: &CertificationParameters{
 				Public:            skCertParams.Public,
-				CreateData:        skCertParams.CreateData,
 				CreateAttestation: skCertParams.CreateAttestation,
 				CreateSignature:   akAttestParams.CreateSignature,
 			},
