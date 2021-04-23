@@ -194,9 +194,6 @@ func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
 	}
-	if handle.PCP == nil {
-		return nil, fmt.Errorf("no PCP handle passed")
-	}
 	h, ok := handle.(uintptr)
 	if !ok {
 		return nil, fmt.Errorf("expected uinptr, got %T", handle)
