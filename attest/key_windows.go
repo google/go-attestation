@@ -111,7 +111,7 @@ func (k *windowsKey12) attestationParameters() AttestationParameters {
 		Public: k.public,
 	}
 }
-func (k *windowsKey12) certify(tb tpmBase, handle Handle) (*CertificationParameters, error) {
+func (k *windowsKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
