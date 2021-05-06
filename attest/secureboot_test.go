@@ -15,6 +15,7 @@
 package attest
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"testing"
@@ -122,5 +123,55 @@ func TestSecureBootBug157(t *testing.T) {
 	}
 	if got, want := len(sbs.PostSeparatorAuthority), 3; got != want {
 		t.Errorf("len(sbs.PostSeparatorAuthority) = %d, want %d", got, want)
+	}
+}
+
+func b64MustDecode(input string) []byte {
+	b, err := base64.StdEncoding.DecodeString(input)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func TestSecureBootOptionRom(t *testing.T) {
+	raw, err := ioutil.ReadFile("testdata/option_rom_eventlog")
+	if err != nil {
+		t.Fatalf("reading test data: %v", err)
+	}
+	elr, err := ParseEventLog(raw)
+	if err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+
+	pcrs := []PCR{
+		{'\x00', b64MustDecode("AVGK7ch6DvUF0nJh74NYCefaAIY="), '\x03'},
+		{'\x01', b64MustDecode("vr/0wIpmd0c6tgTO3vuC+FDN6IM="), '\x03'},
+		{'\x02', b64MustDecode("NmoxoMB1No8OEIVzM+ou1uigD9M="), '\x03'},
+		{'\x03', b64MustDecode("sqg7Dr8vg3Qpmlsr38MeqVWtcjY="), '\x03'},
+		{'\x04', b64MustDecode("OfOIw5WekEaUcm9MAVttzq4GgKE="), '\x03'},
+		{'\x05', b64MustDecode("cjoFIM9/KXhUh0K9FUFwayRGRZ4="), '\x03'},
+		{'\x06', b64MustDecode("sqg7Dr8vg3Qpmlsr38MeqVWtcjY="), '\x03'},
+		{'\x07', b64MustDecode("IN59+6a838ytrX4+sJnJHU2Xxa0="), '\x03'},
+	}
+
+	events, err := elr.Verify(pcrs)
+	if err != nil {
+		t.Errorf("failed to verify log: %v", err)
+	}
+
+	sbs, err := ParseSecurebootState(events)
+	if err != nil {
+		t.Errorf("failed parsing secureboot state: %v", err)
+	}
+	if got, want := len(sbs.PostSeparatorAuthority), 2; got != want {
+		t.Errorf("len(sbs.PostSeparatorAuthority) = %d, want %d", got, want)
+	}
+
+	if got, want := len(sbs.DriverLoadSourceHints), 1; got != want {
+		t.Fatalf("len(sbs.DriverLoadSourceHints) = %d, want %d", got, want)
+	}
+	if got, want := sbs.DriverLoadSourceHints[0], PciMmioSource; got != want {
+		t.Errorf("sbs.DriverLoadSourceHints[0] = %v, want %v", got, want)
 	}
 }

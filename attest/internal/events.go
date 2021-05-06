@@ -79,6 +79,23 @@ const (
 	EFIVariableAuthority       EventType = 0x800000e0
 )
 
+// EFIDeviceType describes the type of a device specified by a device path.
+type EFIDeviceType uint8
+
+// "Device Path Protocol" type values.
+//
+// Section 9.3.2 of the UEFI specification, accessible at:
+// https://uefi.org/sites/default/files/resources/UEFI%20Spec%202_6.pdf
+const (
+	HardwareDevice  EFIDeviceType = 0x01
+	ACPIDevice      EFIDeviceType = 0x02
+	MessagingDevice EFIDeviceType = 0x03
+	MediaDevice     EFIDeviceType = 0x04
+	BBSDevice       EFIDeviceType = 0x05
+
+	EndDeviceArrayMarker EFIDeviceType = 0x7f
+)
+
 // ErrSigMissingGUID is returned if an EFI_SIGNATURE_DATA structure was parsed
 // successfully, however was missing the SignatureOwner GUID. This case is
 // handled specially as a workaround for a bug relating to authority events.
@@ -415,4 +432,88 @@ func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
 		}
 	}
 	return certificates, err
+}
+
+type EFIDevicePathElement struct {
+	Type    EFIDeviceType
+	Subtype uint8
+	Data    []byte
+}
+
+// EFIImageLoad describes an EFI_IMAGE_LOAD_EVENT structure.
+type EFIImageLoad struct {
+	Header      EFIImageLoadHeader
+	DevPathData []byte
+}
+
+type EFIImageLoadHeader struct {
+	LoadAddr      uint64
+	Length        uint64
+	LinkAddr      uint64
+	DevicePathLen uint64
+}
+
+func parseDevicePathElement(r io.Reader) (EFIDevicePathElement, error) {
+	var (
+		out     EFIDevicePathElement
+		dataLen uint16
+	)
+
+	if err := binary.Read(r, binary.LittleEndian, &out.Type); err != nil {
+		return EFIDevicePathElement{}, fmt.Errorf("reading type: %v", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &out.Subtype); err != nil {
+		return EFIDevicePathElement{}, fmt.Errorf("reading subtype: %v", err)
+	}
+	if err := binary.Read(r, binary.LittleEndian, &dataLen); err != nil {
+		return EFIDevicePathElement{}, fmt.Errorf("reading data len: %v", err)
+	}
+	if dataLen > maxNameLen {
+		return EFIDevicePathElement{}, fmt.Errorf("device path data too long: %d > %d", dataLen, maxNameLen)
+	}
+	if dataLen < 4 {
+		return EFIDevicePathElement{}, fmt.Errorf("device path data too short: %d < %d", dataLen, 4)
+	}
+	out.Data = make([]byte, dataLen-4)
+	if err := binary.Read(r, binary.LittleEndian, &out.Data); err != nil {
+		return EFIDevicePathElement{}, fmt.Errorf("reading data: %v", err)
+	}
+	return out, nil
+}
+
+func (h *EFIImageLoad) DevicePath() ([]EFIDevicePathElement, error) {
+	var (
+		r   = bytes.NewReader(h.DevPathData)
+		out []EFIDevicePathElement
+	)
+
+	for r.Len() > 0 {
+		e, err := parseDevicePathElement(r)
+		if err != nil {
+			return nil, err
+		}
+		if e.Type == EndDeviceArrayMarker {
+			return out, nil
+		}
+
+		out = append(out, e)
+	}
+
+	return out, nil
+}
+
+// ParseEFIImageLoad parses an EFI_IMAGE_LOAD_EVENT structure.
+//
+// https://trustedcomputinggroup.org/wp-content/uploads/TCG_EFI_Platform_1_22_Final_-v15.pdf#page=17
+func ParseEFIImageLoad(r io.Reader) (ret EFIImageLoad, err error) {
+	err = binary.Read(r, binary.LittleEndian, &ret.Header)
+	if err != nil {
+		return
+	}
+	if ret.Header.DevicePathLen > maxNameLen {
+		return EFIImageLoad{}, fmt.Errorf("device path structure too long: %d > %d", ret.Header.DevicePathLen, maxNameLen)
+	}
+	ret.DevPathData = make([]byte, ret.Header.DevicePathLen)
+	err = binary.Read(r, binary.LittleEndian, &ret.DevPathData)
+	return
 }
