@@ -96,20 +96,14 @@ var (
 			ModulusRaw: make([]byte, 256),
 		},
 	}
-	// Template for an ECC key for signing outside-TPM objects.
-	eccKeyTemplate = tpm2.Public{
+	// Basic template for an ECDSA key signing outside-TPM objects. Other
+	// fields are populated depending on the key creation options.
+	ecdsaKeyTemplate = tpm2.Public{
 		Type:       tpm2.AlgECC,
-		NameAlg:    tpm2.AlgSHA256,
 		Attributes: tpm2.FlagSignerDefault ^ tpm2.FlagRestricted,
 		ECCParameters: &tpm2.ECCParams{
 			Sign: &tpm2.SigScheme{
-				Alg:  tpm2.AlgECDSA,
-				Hash: tpm2.AlgSHA256,
-			},
-			CurveID: tpm2.CurveNISTP256,
-			Point: tpm2.ECPoint{
-				XRaw: make([]byte, 32),
-				YRaw: make([]byte, 32),
+				Alg: tpm2.AlgECDSA,
 			},
 		},
 	}
@@ -354,8 +348,12 @@ func (t *TPM) NewAK(opts *AKConfig) (*AK, error) {
 	return t.tpm.newAK(opts)
 }
 
-// NewKey creates an application key certified by the attestation key.
+// NewKey creates an application key certified by the attestation key. If opts is nil
+// then DefaultConfig is used.
 func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
+	if opts == nil {
+		opts = &DefaultConfig
+	}
 	return t.tpm.newKey(ak, opts)
 }
 

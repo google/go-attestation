@@ -56,9 +56,27 @@ func (s *signer) Public() crypto.PublicKey {
 	return s.pub
 }
 
-// KeyConfig encapsulates parameters for minting keys. This type is defined
-// now (despite being empty) for future interface compatibility.
+// Algorithm indicates an asymmetric algorithm to be used.
+type Algorithm string
+
+// Algorithm types supported.
+const (
+	EC  Algorithm = "EC"
+	RSA Algorithm = "RSA"
+)
+
+// KeyConfig encapsulates parameters for minting keys.
 type KeyConfig struct {
+	// Algorithm to be used, either RSA or EC.
+	Algorithm Algorithm
+	// Size is used to specify the bit size of the key.
+	Size int
+}
+
+// DefaultConfig is used when no other configuration is specified.
+var DefaultConfig = KeyConfig{
+	Algorithm: EC,
+	Size:      256,
 }
 
 // Public returns the public key corresponding to the private key.

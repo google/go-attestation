@@ -159,22 +159,17 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 }
 
 func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
-	// TODO(szp): TODO(jsonp): Abstract choice of hierarchy & parent.
 	k, ok := ak.ak.(*wrappedKey20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedKey20, got: %T", k)
 	}
 
-	srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
+	parent, blob, pub, creationData, err := createKey(t, opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
+		return nil, fmt.Errorf("cannot create key: %v", err)
 	}
 
-	blob, pub, creationData, _, _, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", eccKeyTemplate)
-	if err != nil {
-		return nil, fmt.Errorf("CreateKey() failed: %v", err)
-	}
-	keyHandle, _, err := tpm2.Load(t.rwc, srk, "", pub, blob)
+	keyHandle, _, err := tpm2.Load(t.rwc, parent, "", pub, blob)
 	if err != nil {
 		return nil, fmt.Errorf("Load() failed: %v", err)
 	}
@@ -204,6 +199,68 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 		return nil, fmt.Errorf("access public key: %v", err)
 	}
 	return &Key{key: newWrappedKey20(keyHandle, blob, pub, creationData, cp.CreateAttestation, cp.CreateSignature), pub: pubKey, tpm: t}, nil
+}
+
+func createKey(t *wrappedTPM20, opts *KeyConfig) (tpmutil.Handle, []byte, []byte, []byte, error) {
+	srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
+	if err != nil {
+		return 0, nil, nil, nil, fmt.Errorf("failed to get SRK handle: %v", err)
+	}
+
+	tmpl, err := templateFromConfig(opts)
+	if err != nil {
+		return 0, nil, nil, nil, fmt.Errorf("incorrect key options: %v", err)
+	}
+
+	blob, pub, creationData, _, _, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", tmpl)
+	if err != nil {
+		return 0, nil, nil, nil, fmt.Errorf("CreateKey() failed: %v", err)
+	}
+
+	return srk, blob, pub, creationData, err
+}
+
+func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
+	var tmpl tpm2.Public
+	switch opts.Algorithm {
+	case RSA:
+		return tmpl, fmt.Errorf("not implemented")
+
+	case EC:
+		tmpl = ecdsaKeyTemplate
+		switch opts.Size {
+		case 256:
+			tmpl.NameAlg = tpm2.AlgSHA256
+			tmpl.ECCParameters.Sign.Hash = tpm2.AlgSHA256
+			tmpl.ECCParameters.CurveID = tpm2.CurveNISTP256
+			tmpl.ECCParameters.Point = tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			}
+		case 384:
+			tmpl.NameAlg = tpm2.AlgSHA384
+			tmpl.ECCParameters.Sign.Hash = tpm2.AlgSHA384
+			tmpl.ECCParameters.CurveID = tpm2.CurveNISTP384
+			tmpl.ECCParameters.Point = tpm2.ECPoint{
+				XRaw: make([]byte, 48),
+				YRaw: make([]byte, 48),
+			}
+		case 521:
+			tmpl.NameAlg = tpm2.AlgSHA512
+			tmpl.ECCParameters.Sign.Hash = tpm2.AlgSHA512
+			tmpl.ECCParameters.CurveID = tpm2.CurveNISTP521
+			tmpl.ECCParameters.Point = tpm2.ECPoint{
+				XRaw: make([]byte, 65),
+				YRaw: make([]byte, 65),
+			}
+		default:
+			return tmpl, fmt.Errorf("unsupported key size: %v", opts.Size)
+		}
+	default:
+		return tmpl, fmt.Errorf("unsupported algorithm type: %q", opts.Algorithm)
+	}
+
+	return tmpl, nil
 }
 
 func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
