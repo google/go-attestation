@@ -224,9 +224,9 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 	var tmpl tpm2.Public
 	switch opts.Algorithm {
 	case RSA:
-		return tmpl, fmt.Errorf("not implemented")
+		return tmpl, fmt.Errorf("RSA keys are not implemented")
 
-	case EC:
+	case ECDSA:
 		tmpl = ecdsaKeyTemplate
 		switch opts.Size {
 		case 256:

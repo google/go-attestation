@@ -352,7 +352,10 @@ func (t *TPM) NewAK(opts *AKConfig) (*AK, error) {
 // then DefaultConfig is used.
 func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	if opts == nil {
-		opts = &DefaultConfig
+		opts = defaultConfig
+	}
+	if opts.Algorithm == "" && opts.Size == 0 {
+		opts = defaultConfig
 	}
 	return t.tpm.newKey(ak, opts)
 }

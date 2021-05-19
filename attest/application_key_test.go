@@ -66,21 +66,21 @@ func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP256-SHA256",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      256,
 			},
 		},
 		{
 			name: "ECDSAP384-SHA384",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      384,
 			},
 		},
 		{
 			name: "ECDSAP521-SHA512",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      521,
 			},
 		},
@@ -182,7 +182,7 @@ func testKeySign(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP256-SHA256",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      256,
 			},
 			digest: []byte("12345678901234567890123456789012"),
@@ -190,7 +190,7 @@ func testKeySign(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP384-SHA384",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      384,
 			},
 			digest: []byte("123456789012345678901234567890121234567890123456"),
@@ -198,7 +198,7 @@ func testKeySign(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP521-SHA512",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      521,
 			},
 			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
@@ -284,7 +284,7 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 		{
 			name: "wrong size",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      1234,
 			},
 			err: true,
@@ -297,7 +297,7 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP256",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      256,
 			},
 			err: false,
@@ -305,7 +305,7 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP384",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      384,
 			},
 			err: false,
@@ -313,7 +313,7 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 		{
 			name: "ECDSAP521",
 			opts: &KeyConfig{
-				Algorithm: EC,
+				Algorithm: ECDSA,
 				Size:      521,
 			},
 			err: false,
@@ -335,13 +335,13 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 
 			expected := test.opts
 			if expected == nil {
-				expected = &DefaultConfig
+				expected = defaultConfig
 			}
 
 			pub := sk.Public()
 			switch pub.(type) {
 			case *ecdsa.PublicKey:
-				if expected.Algorithm != EC {
+				if expected.Algorithm != ECDSA {
 					t.Errorf("incorrect key type generated, expected %q, got EC", expected.Algorithm)
 				}
 				sizeToCurve := map[int]elliptic.Curve{

@@ -61,21 +61,23 @@ type Algorithm string
 
 // Algorithm types supported.
 const (
-	EC  Algorithm = "EC"
+	ECDSA Algorithm = "ECDSA"
+	// TODO(szp): RSA is not supported yet
 	RSA Algorithm = "RSA"
 )
 
 // KeyConfig encapsulates parameters for minting keys.
 type KeyConfig struct {
-	// Algorithm to be used, either RSA or EC.
+	// Algorithm to be used, either RSA or ECDSA.
 	Algorithm Algorithm
-	// Size is used to specify the bit size of the key.
+	// Size is used to specify the bit size of the key or elliptic curve. For
+	// example, '256' is used to specify curve P-256."
 	Size int
 }
 
-// DefaultConfig is used when no other configuration is specified.
-var DefaultConfig = KeyConfig{
-	Algorithm: EC,
+// defaultConfig is used when no other configuration is specified.
+var defaultConfig = &KeyConfig{
+	Algorithm: ECDSA,
 	Size:      256,
 }
 
