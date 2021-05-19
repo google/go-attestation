@@ -27,6 +27,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
+	"math/big"
 	"testing"
 )
 
@@ -230,11 +232,16 @@ func testKeySign(t *testing.T, tpm *TPM) {
 
 func verifyECDSA(t *testing.T, pub crypto.PublicKey, digest, sig []byte) {
 	t.Helper()
+	parsed := struct{ R, S *big.Int }{}
+	_, err := asn1.Unmarshal(sig, &parsed)
+	if err != nil {
+		t.Fatalf("signature parsing failed: %v", err)
+	}
 	pubECDSA, ok := pub.(*ecdsa.PublicKey)
 	if !ok {
 		t.Fatalf("want *ecdsa.PublicKey, got %T", pub)
 	}
-	if !ecdsa.VerifyASN1(pubECDSA, digest[:], sig) {
+	if !ecdsa.Verify(pubECDSA, digest[:], parsed.R, parsed.S) {
 		t.Fatalf("ecdsa.Verify() failed")
 	}
 }
