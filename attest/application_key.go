@@ -71,7 +71,7 @@ type KeyConfig struct {
 	// Algorithm to be used, either RSA or ECDSA.
 	Algorithm Algorithm
 	// Size is used to specify the bit size of the key or elliptic curve. For
-	// example, '256' is used to specify curve P-256."
+	// example, '256' is used to specify curve P-256.
 	Size int
 }
 
