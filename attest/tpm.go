@@ -107,6 +107,14 @@ var (
 			},
 		},
 	}
+	// Basic template for an RSA key signing outside-TPM objects. Other
+	// fields are populated depending on the key creation options.
+	rsaKeyTemplate = tpm2.Public{
+		Type:          tpm2.AlgRSA,
+		NameAlg:       tpm2.AlgSHA256,
+		Attributes:    tpm2.FlagSignerDefault ^ tpm2.FlagRestricted,
+		RSAParameters: &tpm2.RSAParams{},
+	}
 )
 
 type tpm20Info struct {
