@@ -26,7 +26,7 @@ type key interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
 	certificationParameters() CertificationParameters
-	sign(tpmBase, []byte) ([]byte, error)
+	sign(tpmBase, []byte, crypto.PublicKey, crypto.SignerOpts) ([]byte, error)
 	decrypt(tpmBase, []byte) ([]byte, error)
 	blobs() ([]byte, []byte, error)
 }
@@ -48,7 +48,7 @@ type signer struct {
 
 // Sign signs digest with the TPM-stored private signing key.
 func (s *signer) Sign(r io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	return s.key.sign(s.tpm, digest)
+	return s.key.sign(s.tpm, digest, s.pub, opts)
 }
 
 // Public returns the public key corresponding to the private signing key.

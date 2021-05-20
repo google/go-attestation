@@ -17,9 +17,11 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/google/certificate-transparency-go/asn1"
@@ -224,7 +226,8 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 	var tmpl tpm2.Public
 	switch opts.Algorithm {
 	case RSA:
-		return tmpl, fmt.Errorf("RSA keys are not implemented")
+		tmpl = rsaKeyTemplate
+		tmpl.RSAParameters.KeyBits = uint16(opts.Size)
 
 	case ECDSA:
 		tmpl = ecdsaKeyTemplate
@@ -468,25 +471,56 @@ func (k *wrappedKey20) certificationParameters() CertificationParameters {
 	}
 }
 
-func (k *wrappedKey20) sign(tb tpmBase, digest []byte) ([]byte, error) {
+func (k *wrappedKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
-	sig, err := tpm2.Sign(t.rwc, k.hnd, "", digest, nil, nil)
+	switch pub.(type) {
+	case *ecdsa.PublicKey:
+		return signECDSA(t.rwc, k.hnd, digest)
+	case *rsa.PublicKey:
+		return signRSA(t.rwc, k.hnd, digest, opts)
+	}
+	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
+}
+
+func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte) ([]byte, error) {
+	sig, err := tpm2.Sign(rw, key, "", digest, nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("signing data: %v", err)
+		return nil, fmt.Errorf("cannot sign: %v", err)
 	}
-	if sig.RSA != nil {
-		return sig.RSA.Signature, nil
+	if sig.ECC == nil {
+		return nil, fmt.Errorf("expected ECDSA signature, got: %v", sig.Alg)
 	}
-	if sig.ECC != nil {
-		return asn1.Marshal(struct {
-			R *big.Int
-			S *big.Int
-		}{sig.ECC.R, sig.ECC.S})
+	return asn1.Marshal(struct {
+		R *big.Int
+		S *big.Int
+	}{sig.ECC.R, sig.ECC.S})
+}
+
+func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+	h, err := tpm2.HashToAlgorithm(opts.HashFunc())
+	if err != nil {
+		return nil, fmt.Errorf("incorrect hash algorithm: %v", err)
 	}
-	return nil, fmt.Errorf("unsupported signature type: %v", sig.Alg)
+
+	scheme := &tpm2.SigScheme{
+		Alg:  tpm2.AlgRSASSA,
+		Hash: h,
+	}
+	if _, ok := opts.(*rsa.PSSOptions); ok {
+		scheme.Alg = tpm2.AlgRSAPSS
+	}
+
+	sig, err := tpm2.Sign(rw, key, "", digest, nil, scheme)
+	if err != nil {
+		return nil, fmt.Errorf("cannot sign: %v", err)
+	}
+	if sig.RSA == nil {
+		return nil, fmt.Errorf("expected RSA signature, got: %v", sig.Alg)
+	}
+	return sig.RSA.Signature, nil
 }
 
 func (k *wrappedKey20) decrypt(tb tpmBase, ctxt []byte) ([]byte, error) {

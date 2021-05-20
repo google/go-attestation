@@ -25,10 +25,25 @@ import (
 	"github.com/google/go-tpm/tpm2"
 )
 
-func TestCertificationParametersTPM20(t *testing.T) {
-	s, tpm := setupSimulatedTPM(t)
-	defer s.Close()
+func TestSimTPM20CertificationParameters(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testCertificationParameters(t, tpm)
+}
 
+func TestTPM20CertificationParameters(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	tpm, err := OpenTPM(nil)
+	if err != nil {
+		t.Fatalf("OpenTPM() failed: %v", err)
+	}
+	defer tpm.Close()
+	testCertificationParameters(t, tpm)
+}
+
+func testCertificationParameters(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -139,6 +154,112 @@ func TestCertificationParametersTPM20(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			err := test.p.Verify(test.opts)
+			if test.err == nil && err == nil {
+				return
+			}
+			if got, want := err, test.err; !cmp.Equal(got, want, cmpopts.EquateErrors()) {
+				t.Errorf("p.Verify() err = %v, want = %v", got, want)
+			}
+		})
+	}
+}
+
+func TestSimTPM20KeyCertification(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testKeyCertification(t, tpm)
+}
+
+func TestTPM20KeyCertification(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	tpm, err := OpenTPM(nil)
+	if err != nil {
+		t.Fatalf("OpenTPM() failed: %v", err)
+	}
+	defer tpm.Close()
+	testKeyCertification(t, tpm)
+}
+
+func testKeyCertification(t *testing.T, tpm *TPM) {
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	akAttestParams := ak.AttestationParameters()
+	pub, err := tpm2.DecodePublic(akAttestParams.Public)
+	if err != nil {
+		t.Fatalf("DecodePublic() failed: %v", err)
+	}
+	pk := &rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
+	hash, err := pub.RSAParameters.Sign.Hash.Hash()
+	if err != nil {
+		t.Fatalf("cannot access AK's hash function: %v", err)
+	}
+	verifyOpts := VerifyOpts{
+		Public: pk,
+		Hash:   hash,
+	}
+	for _, test := range []struct {
+		name string
+		opts *KeyConfig
+		err  error
+	}{
+		{
+			name: "default",
+			opts: nil,
+			err:  nil,
+		},
+		{
+			name: "ECDSAP256-SHA256",
+			opts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      256,
+			},
+			err: nil,
+		},
+		{
+			name: "ECDSAP384-SHA384",
+			opts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      384,
+			},
+			err: nil,
+		},
+		{
+			name: "ECDSAP521-SHA512",
+			opts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      521,
+			},
+			err: nil,
+		},
+		{
+			name: "RSA-1024, key too short",
+			opts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      1024,
+			},
+			err: cmpopts.AnyError,
+		},
+		{
+			name: "RSA-2048",
+			opts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			err: nil,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			sk, err := tpm.NewKey(ak, test.opts)
+			if err != nil {
+				t.Fatalf("NewKey() failed: %v", err)
+			}
+			defer sk.Close()
+			p := sk.CertificationParameters()
+			err = p.Verify(verifyOpts)
 			if test.err == nil && err == nil {
 				return
 			}

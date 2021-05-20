@@ -84,9 +84,23 @@ func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 				Size:      521,
 			},
 		},
+		{
+			name: "RSA-1024",
+			opts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      1024,
+			},
+		},
+		{
+			name: "RSA-2048",
+			opts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			sk, err := tpm.NewKey(ak, nil)
+			sk, err := tpm.NewKey(ak, test.opts)
 			if err != nil {
 				t.Fatalf("NewKey() failed: %v", err)
 			}
@@ -164,48 +178,131 @@ func TestTPM20KeySign(t *testing.T) {
 	testKeySign(t, tpm)
 }
 
+type simpleOpts struct {
+	Hash crypto.Hash
+}
+
+func (o *simpleOpts) HashFunc() crypto.Hash {
+	return o.Hash
+}
+
 func testKeySign(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
+
 	for _, test := range []struct {
-		name   string
-		opts   *KeyConfig
-		digest []byte
+		name     string
+		keyOpts  *KeyConfig
+		signOpts crypto.SignerOpts
+		digest   []byte
 	}{
 		{
-			name:   "default",
-			opts:   nil,
-			digest: []byte("12345678901234567890123456789012"),
+			name:     "default",
+			keyOpts:  nil,
+			signOpts: nil,
+			digest:   []byte("12345678901234567890123456789012"),
 		},
 		{
 			name: "ECDSAP256-SHA256",
-			opts: &KeyConfig{
+			keyOpts: &KeyConfig{
 				Algorithm: ECDSA,
 				Size:      256,
+			},
+			signOpts: nil,
+			digest:   []byte("12345678901234567890123456789012"),
+		},
+		{
+			name: "ECDSAP384-SHA384",
+			keyOpts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      384,
+			},
+			signOpts: nil,
+			digest:   []byte("123456789012345678901234567890121234567890123456"),
+		},
+		{
+			name: "ECDSAP521-SHA512",
+			keyOpts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      521,
+			},
+			signOpts: nil,
+			digest:   []byte("1234567890123456789012345678901212345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PKCS1v15-SHA256",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &simpleOpts{
+				Hash: crypto.SHA256,
 			},
 			digest: []byte("12345678901234567890123456789012"),
 		},
 		{
-			name: "ECDSAP384-SHA384",
-			opts: &KeyConfig{
-				Algorithm: ECDSA,
-				Size:      384,
+			name: "RSA2048-PKCS1v15-SHA384",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &simpleOpts{
+				Hash: crypto.SHA384,
 			},
 			digest: []byte("123456789012345678901234567890121234567890123456"),
 		},
 		{
-			name: "ECDSAP521-SHA512",
-			opts: &KeyConfig{
-				Algorithm: ECDSA,
-				Size:      521,
+			name: "RSA2048-PKCS1v15-SHA512",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &simpleOpts{
+				Hash: crypto.SHA512,
+			},
+			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PSS-SHA256",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthAuto,
+				Hash:       crypto.SHA256,
+			},
+			digest: []byte("12345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PSS-SHA384",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthAuto,
+				Hash:       crypto.SHA384,
+			},
+			digest: []byte("123456789012345678901234567890121234567890123456"),
+		},
+		{
+			name: "RSA2048-PSS-SHA512",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthAuto,
+				Hash:       crypto.SHA512,
 			},
 			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			sk, err := tpm.NewKey(ak, test.opts)
+			sk, err := tpm.NewKey(ak, test.keyOpts)
 			if err != nil {
 				t.Fatalf("NewKey() failed: %v", err)
 			}
@@ -220,12 +317,16 @@ func testKeySign(t *testing.T, tpm *TPM) {
 			if !ok {
 				t.Fatalf("want crypto.Signer, got %T", priv)
 			}
-			sig, err := signer.Sign(rand.Reader, test.digest, nil)
+			sig, err := signer.Sign(rand.Reader, test.digest, test.signOpts)
 			if err != nil {
 				t.Fatalf("signer.Sign() failed: %v", err)
 			}
 
-			verifyECDSA(t, pub, test.digest, sig)
+			if test.keyOpts == nil || test.keyOpts.Algorithm == ECDSA {
+				verifyECDSA(t, pub, test.digest, sig)
+			} else {
+				verifyRSA(t, pub, test.digest, sig, test.signOpts)
+			}
 		})
 	}
 }
@@ -243,6 +344,23 @@ func verifyECDSA(t *testing.T, pub crypto.PublicKey, digest, sig []byte) {
 	}
 	if !ecdsa.Verify(pubECDSA, digest[:], parsed.R, parsed.S) {
 		t.Fatalf("ecdsa.Verify() failed")
+	}
+}
+
+func verifyRSA(t *testing.T, pub crypto.PublicKey, digest, sig []byte, opts crypto.SignerOpts) {
+	t.Helper()
+	pubRSA, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		t.Fatalf("want *rsa.PublicKey, got %T", pub)
+	}
+	if pss, ok := opts.(*rsa.PSSOptions); ok {
+		if err := rsa.VerifyPSS(pubRSA, opts.HashFunc(), digest, sig, pss); err != nil {
+			t.Fatalf("rsa.VerifyPSS(): %v", err)
+		}
+	} else {
+		if err := rsa.VerifyPKCS1v15(pubRSA, opts.HashFunc(), digest, sig); err != nil {
+			t.Fatalf("signature verification failed: %v", err)
+		}
 	}
 }
 
@@ -315,6 +433,22 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 			opts: &KeyConfig{
 				Algorithm: ECDSA,
 				Size:      521,
+			},
+			err: false,
+		},
+		{
+			name: "RSA-1024",
+			opts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      1024,
+			},
+			err: false,
+		},
+		{
+			name: "RSA-2048",
+			opts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
 			},
 			err: false,
 		},
