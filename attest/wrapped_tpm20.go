@@ -227,6 +227,9 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 	switch opts.Algorithm {
 	case RSA:
 		tmpl = rsaKeyTemplate
+		if opts.Size < 0 || opts.Size > 65535 { // basic sanity check
+			return tmpl, fmt.Errorf("incorrect size parameter")
+		}
 		tmpl.RSAParameters.KeyBits = uint16(opts.Size)
 
 	case ECDSA:
