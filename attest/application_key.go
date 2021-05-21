@@ -62,8 +62,7 @@ type Algorithm string
 // Algorithm types supported.
 const (
 	ECDSA Algorithm = "ECDSA"
-	// TODO(szp): RSA is not supported yet
-	RSA Algorithm = "RSA"
+	RSA   Algorithm = "RSA"
 )
 
 // KeyConfig encapsulates parameters for minting keys.
