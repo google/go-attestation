@@ -178,14 +178,6 @@ func TestTPM20KeySign(t *testing.T) {
 	testKeySign(t, tpm)
 }
 
-type simpleOpts struct {
-	Hash crypto.Hash
-}
-
-func (o *simpleOpts) HashFunc() crypto.Hash {
-	return o.Hash
-}
-
 func testKeySign(t *testing.T, tpm *TPM) {
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
@@ -237,10 +229,8 @@ func testKeySign(t *testing.T, tpm *TPM) {
 				Algorithm: RSA,
 				Size:      2048,
 			},
-			signOpts: &simpleOpts{
-				Hash: crypto.SHA256,
-			},
-			digest: []byte("12345678901234567890123456789012"),
+			signOpts: crypto.SHA256,
+			digest:   []byte("12345678901234567890123456789012"),
 		},
 		{
 			name: "RSA2048-PKCS1v15-SHA384",
@@ -248,10 +238,8 @@ func testKeySign(t *testing.T, tpm *TPM) {
 				Algorithm: RSA,
 				Size:      2048,
 			},
-			signOpts: &simpleOpts{
-				Hash: crypto.SHA384,
-			},
-			digest: []byte("123456789012345678901234567890121234567890123456"),
+			signOpts: crypto.SHA384,
+			digest:   []byte("123456789012345678901234567890121234567890123456"),
 		},
 		{
 			name: "RSA2048-PKCS1v15-SHA512",
@@ -259,10 +247,8 @@ func testKeySign(t *testing.T, tpm *TPM) {
 				Algorithm: RSA,
 				Size:      2048,
 			},
-			signOpts: &simpleOpts{
-				Hash: crypto.SHA512,
-			},
-			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
+			signOpts: crypto.SHA512,
+			digest:   []byte("1234567890123456789012345678901212345678901234567890123456789012"),
 		},
 		{
 			name: "RSA2048-PSS-SHA256",
@@ -296,6 +282,42 @@ func testKeySign(t *testing.T, tpm *TPM) {
 			},
 			signOpts: &rsa.PSSOptions{
 				SaltLength: rsa.PSSSaltLengthAuto,
+				Hash:       crypto.SHA512,
+			},
+			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PSS-SHA256, explicit salt len",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: 32,
+				Hash:       crypto.SHA256,
+			},
+			digest: []byte("12345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PSS-SHA384, explicit salt len",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: 48,
+				Hash:       crypto.SHA384,
+			},
+			digest: []byte("123456789012345678901234567890121234567890123456"),
+		},
+		{
+			name: "RSA2048-PSS-SHA512, explicit salt len",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: 64,
 				Hash:       crypto.SHA512,
 			},
 			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
