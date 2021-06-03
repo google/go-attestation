@@ -37,6 +37,14 @@ var (
 	certHashSHA512SigGUID    = efiGUID{0x446dbf63, 0x2502, 0x4cda, [8]byte{0xbc, 0xfa, 0x24, 0x65, 0xd2, 0xb0, 0xfe, 0x9d}}
 )
 
+var (
+	// https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/lib/guid.c#L36
+	// GUID used by the shim.
+	shimLockGUID = efiGUID{0x605dab50, 0xe046, 0x4300, [8]byte{0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23}}
+	// "SbatLevel" encoded as UCS-2.
+	shimSbatVarName = []uint16{0x53, 0x62, 0x61, 0x74, 0x4c, 0x65, 0x76, 0x65, 0x6c}
+)
+
 // EventType describes the type of event signalled in the event log.
 type EventType uint32
 
@@ -267,13 +275,27 @@ type UEFIVariableAuthority struct {
 // a UEFI variable authority.
 //
 // https://uefi.org/sites/default/files/resources/UEFI_Spec_2_8_final.pdf#page=1789
-func ParseUEFIVariableAuthority(r io.Reader) (UEFIVariableAuthority, error) {
-	v, err := ParseUEFIVariableData(r)
-	if err != nil {
-		return UEFIVariableAuthority{}, err
+func ParseUEFIVariableAuthority(v UEFIVariableData) (UEFIVariableAuthority, error) {
+	// Skip parsing new SBAT section logged by shim.
+	// See https://github.com/rhboot/shim/blob/main/SBAT.md for more.
+	if v.Header.VariableName == shimLockGUID && unicodeNameEquals(v, shimSbatVarName) {
+		//https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/include/sbat.h#L9-L12
+		return UEFIVariableAuthority{}, nil
 	}
 	certs, err := parseEfiSignature(v.VariableData)
 	return UEFIVariableAuthority{Certs: certs}, err
+}
+
+func unicodeNameEquals(v UEFIVariableData, comp []uint16) bool {
+	if len(v.UnicodeName) != len(comp) {
+		return false
+	}
+	for i, v := range v.UnicodeName {
+		if v != comp[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // efiSignatureData represents the EFI_SIGNATURE_DATA type.

@@ -172,7 +172,12 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 				}
 
 			case internal.EFIVariableAuthority:
-				a, err := internal.ParseUEFIVariableAuthority(bytes.NewReader(e.Data))
+				v, err := internal.ParseUEFIVariableData(bytes.NewReader(e.Data))
+				if err != nil {
+					return nil, fmt.Errorf("failed parsing UEFI variable data: %v", err)
+				}
+
+				a, err := internal.ParseUEFIVariableAuthority(v)
 				if err != nil {
 					// Workaround for: https://github.com/google/go-attestation/issues/157
 					if err == internal.ErrSigMissingGUID {
