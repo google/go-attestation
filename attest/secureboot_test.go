@@ -175,3 +175,22 @@ func TestSecureBootOptionRom(t *testing.T) {
 		t.Errorf("sbs.DriverLoadSourceHints[0] = %v, want %v", got, want)
 	}
 }
+
+func TestSecureBootEventLogUbuntu(t *testing.T) {
+	data, err := ioutil.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
+	if err != nil {
+		t.Fatalf("reading test data: %v", err)
+	}
+	el, err := ParseEventLog(data)
+	if err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+	evts := el.Events(HashSHA256)
+	if err != nil {
+		t.Fatalf("verifying event log: %v", err)
+	}
+	_, err = ParseSecurebootState(evts)
+	if err != nil {
+		t.Errorf("parsing sb state: %v", err)
+	}
+}
