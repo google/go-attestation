@@ -146,6 +146,16 @@ const (
 	BitlockerStatusRecovery = 0x40
 )
 
+// Ternary describes a boolean value that can additionally be unknown.
+type Ternary uint8
+
+// Valid Ternary values.
+const (
+	TernaryUnknown Ternary = iota
+	TernaryTrue
+	TernaryFalse
+)
+
 // WinEvents describes information from the event log recorded during
 // bootup of Microsoft Windows.
 type WinEvents struct {
@@ -169,19 +179,16 @@ type WinEvents struct {
 	KernelDebugEnabled bool
 	// DEPEnabled is true if NX (Data Execution Prevention) was consistently
 	// reported as enabled.
-	DEPEnabled bool
+	DEPEnabled Ternary
 	// CodeIntegrityEnabled is true if code integrity was consistently
 	// reported as enabled.
-	CodeIntegrityEnabled bool
+	CodeIntegrityEnabled Ternary
 	// TestSigningEnabled is true if test-mode signature verification was
 	// ever reported as enabled.
 	TestSigningEnabled bool
 	// BitlockerUnlocks reports the bitlocker status for every instance of
 	// a disk unlock, where bitlocker was used to secure the disk.
 	BitlockerUnlocks []BitlockerStatus
-
-	seenDep           bool
-	seenCodeIntegrity bool
 }
 
 // WinModuleLoad describes a module which was loaded while
@@ -346,8 +353,11 @@ func (w *WinEvents) readBooleanInt64Event(header microsoftEventHeader, r *bytes.
 	// Boolean signals that latch off if the are ever false (ie: attributes
 	// that represent a stronger security state when set).
 	case dataExecutionPrevention:
-		w.DEPEnabled = isSet && !(w.DEPEnabled != isSet && w.seenDep)
-		w.seenDep = true
+		if isSet && w.DEPEnabled == TernaryUnknown {
+			w.DEPEnabled = TernaryTrue
+		} else if !isSet {
+			w.DEPEnabled = TernaryFalse
+		}
 	}
 	return nil
 }
@@ -375,8 +385,11 @@ func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.R
 	// Boolean signals that latch off if the are ever false (ie: attributes
 	// that represent a stronger security state when set).
 	case codeIntegrity:
-		w.CodeIntegrityEnabled = isSet && !(w.CodeIntegrityEnabled != isSet && w.seenCodeIntegrity)
-		w.seenCodeIntegrity = true
+		if isSet && w.CodeIntegrityEnabled == TernaryUnknown {
+			w.CodeIntegrityEnabled = TernaryTrue
+		} else if !isSet {
+			w.CodeIntegrityEnabled = TernaryFalse
+		}
 	}
 	return nil
 }

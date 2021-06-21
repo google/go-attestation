@@ -27,8 +27,8 @@ func TestParseWinEvents(t *testing.T) {
 	want := &WinEvents{
 		ColdBoot:             true,
 		BootCount:            4,
-		DEPEnabled:           true,
-		CodeIntegrityEnabled: true,
+		DEPEnabled:           TernaryTrue,
+		CodeIntegrityEnabled: TernaryTrue,
 		BitlockerUnlocks:     []BitlockerStatus{0, 0},
 		LoadedModules: map[string]WinModuleLoad{
 			"0fdce7d71936f79445e7d2c84cbeb97c948d3730e0b839166b0a4e625c2d4547": WinModuleLoad{
