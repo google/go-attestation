@@ -348,7 +348,7 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 		return fmt.Errorf("attestation isn't a quote, tag of type 0x%x", att.Type)
 	}
 	if !bytes.Equal([]byte(att.ExtraData), nonce) {
-		return fmt.Errorf("nonce didn't match: %v", err)
+		return fmt.Errorf("nonce = %#v, want %#v", []byte(att.ExtraData), nonce)
 	}
 
 	pcrByIndex := map[int][]byte{}

@@ -15,12 +15,13 @@
 package attributecert
 
 import (
-	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 func TestVerifyAttributeCert(t *testing.T) {
@@ -38,7 +39,7 @@ func TestVerifyAttributeCert(t *testing.T) {
 		t.Fatalf("failed to parse Intel intermediate certificate: %v", err)
 	}
 
-	for _, filename := range(testfiles) {
+	for _, filename := range testfiles {
 		data, err = ioutil.ReadFile(filename)
 		if err != nil {
 			t.Fatalf("failed to read %s: %v", filename, err)

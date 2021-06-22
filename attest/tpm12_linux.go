@@ -24,8 +24,8 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tspi/attestation"
-	"github.com/google/go-tspi/tspi"
-	"github.com/google/go-tspi/tspiconst"
+	"github.com/Comcast/gotspi/tspi"
+	"github.com/Comcast/gotspi/tspiconst"
 )
 
 func init() {

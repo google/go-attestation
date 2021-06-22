@@ -15,9 +15,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest"
 	"github.com/google/go-attestation/attest/attest-tool/internal"
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 var (

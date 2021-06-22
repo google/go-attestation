@@ -2,10 +2,11 @@ package attest
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"testing"
+
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 // Generated using the following command:
