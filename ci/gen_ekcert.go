@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
@@ -12,9 +14,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/google/certificate-transparency-go/x509/pkix"
-	"github.com/google/certificate-transparency-go/x509"
 )
 
 var simulatorStatePath = flag.String("state_path", "/tmp/sim/NVRAM/00.permall", "Path to ibmswtpm state file")
