@@ -24,7 +24,12 @@ Please note that this is not an official Google product.
 
 The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
 
-Linux users must install `libtspi` and its headers. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+Linux users must install `libtspi` and its headers if they need TPM 1.2 support. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+
+In case Linux users need only TPM 2.0 support, they can:
+* still install `libtspi`
+* or turn off cgo completely, e.g., `CGO_ENABLED=0 go build`
+* or use `notspi` build tag if cgo is needed for some reasons, e.g., `go build --tags=notspi`
 
 ## Example: device identity
 
