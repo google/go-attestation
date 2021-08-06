@@ -83,7 +83,7 @@ func selftestCredentialActivation(tpm *attest.TPM, ak *attest.AK) error {
 
 func selftestAttest(tpm *attest.TPM, ak *attest.AK) error {
 	// This nonce is used in generating the quote. As this is a selftest,
-	// its set to an arbitrary value.
+	// it's set to an arbitrary value.
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}
 
 	pub, err := attest.ParseAKPublic(tpm.Version(), ak.AttestationParameters().Public)
