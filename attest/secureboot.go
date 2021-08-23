@@ -19,8 +19,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/go-attestation/attest/internal"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/go-attestation/attest/internal"
 )
 
 // SecurebootState describes the secure boot status of a machine, as determined
@@ -60,6 +60,12 @@ type SecurebootState struct {
 	// DriverLoadSourceHints describes the origin of boot services drivers.
 	// This data is not tamper-proof and must only be used as a hint.
 	DriverLoadSourceHints []DriverLoadSource
+
+	// DMAProtectionDisabled is true if the platform reports during boot that
+	// DMA protection is supported but disabled.
+	//
+	// See: https://docs.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-kernel-dma-protection
+	DMAProtectionDisabled bool
 }
 
 // DriverLoadSource describes the logical origin of a boot services driver.
@@ -125,10 +131,17 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 				}
 
 			case internal.EFIAction:
-				if string(e.Data) == "UEFI Debug Mode" {
+				switch string(e.Data) {
+				case "UEFI Debug Mode":
 					return nil, errors.New("a UEFI debugger was present during boot")
+				case "DMA Protection Disabled":
+					if digestVerify != nil {
+						return nil, fmt.Errorf("invalid digest for EFI Action 'DMA Protection Disabled' on event %d: %v", e.sequence, digestVerify)
+					}
+					out.DMAProtectionDisabled = true
+				default:
+					return nil, fmt.Errorf("event %d: unexpected EFI action event", e.sequence)
 				}
-				return nil, fmt.Errorf("event %d: unexpected EFI action event", e.sequence)
 
 			case internal.EFIVariableDriverConfig:
 				v, err := internal.ParseUEFIVariableData(bytes.NewReader(e.Data))
