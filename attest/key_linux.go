@@ -12,7 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-// +build linux,!gofuzz,cgo,!notspi
+// +build linux,!gofuzz,cgo,tspi
 
 package attest
 
