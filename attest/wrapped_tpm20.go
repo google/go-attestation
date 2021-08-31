@@ -31,8 +31,26 @@ import (
 
 // wrappedTPM20 interfaces with a TPM 2.0 command channel.
 type wrappedTPM20 struct {
-	interf TPMInterface
-	rwc    CommandChannelTPM20
+	interf        TPMInterface
+	rwc           CommandChannelTPM20
+	tpmEkTemplate *tpm2.Public
+}
+
+func (t *wrappedTPM20) ekTemplate() (tpm2.Public, error) {
+	if t.tpmEkTemplate != nil {
+		return *t.tpmEkTemplate, nil
+	}
+
+	nonce, err := tpm2.NVReadEx(t.rwc, nvramEkNonceIndex, tpm2.HandleOwner, "", 0)
+	if err != nil {
+		t.tpmEkTemplate = &defaultEKTemplate // No nonce, use the default template
+	} else {
+		template := defaultEKTemplate
+		copy(template.RSAParameters.ModulusRaw, nonce)
+		t.tpmEkTemplate = &template
+	}
+
+	return *t.tpmEkTemplate, nil
 }
 
 func (*wrappedTPM20) isTPMBase() {}
@@ -79,7 +97,11 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 	case commonSrkEquivalentHandle:
 		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", defaultSRKTemplate)
 	case commonEkEquivalentHandle:
-		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
+		var tmpl tpm2.Public
+		if tmpl, err = t.ekTemplate(); err != nil {
+			return 0, false, fmt.Errorf("ek template: %v", err)
+		}
+		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
 	}
 	if err != nil {
 		return 0, false, fmt.Errorf("CreatePrimary failed: %v", err)
@@ -102,7 +124,12 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 	}
 
 	// Attempt to create an EK.
-	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultEKTemplate)
+	tmpl, err := t.ekTemplate()
+	if err != nil {
+		return nil, fmt.Errorf("ek template: %v", err)
+	}
+
+	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
 	}

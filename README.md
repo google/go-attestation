@@ -15,7 +15,7 @@ Talks on this project:
 
 ## Status
 
-Go-Attestation is under active development and **is not** ready for production use. Expect
+Go-Attestation is under active development. Expect
 API changes at any time.
 
 Please note that this is not an official Google product.
