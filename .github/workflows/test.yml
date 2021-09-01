@@ -35,7 +35,7 @@ jobs:
     - name: Link openssl
       run: sudo ln -s $(brew --prefix openssl)/include/openssl /usr/local/include
     - name: Test
-      run: C_INCLUDE_PATH="$(brew --prefix openssl)/include" LIBRARY_PATH="$(brew --prefix openssl)/lib" go build ./...
+      run: C_INCLUDE_PATH="$(brew --prefix openssl)/include" LIBRARY_PATH="$(brew --prefix openssl)/lib" go test ./...
   test-windows:
     strategy:
       matrix:
