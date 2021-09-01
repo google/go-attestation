@@ -37,7 +37,8 @@ const (
 	tpmPtFwVersion1   = 0x00000100 + 11 // PT_FIXED + offset of 11
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities".
-	nvramCertIndex = 0x1c00002
+	nvramCertIndex    = 0x1c00002
+	nvramEkNonceIndex = 0x1c00003
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
 	commonSrkEquivalentHandle = 0x81000001
