@@ -12,12 +12,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-// +build linux
 // +build !localtest !tpm12
 // +build cgo
 
 // NOTE: simulator requires cgo, hence the build tag.
-// NOTE: currently requires linuxCmdChannel, which is only defined on Linux.
 
 package attest
 
@@ -35,7 +33,7 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &linuxCmdChannel{tpm}})
+	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &fakeCmdChannel{tpm}})
 	if err != nil {
 		t.Fatal(err)
 	}
