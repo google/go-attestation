@@ -26,9 +26,9 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 
-	"github.com/google/go-tpm/tpmutil"
-	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 	"golang.org/x/sys/windows"
+	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 const (

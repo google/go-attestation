@@ -28,9 +28,9 @@ import (
 	"io"
 	"math/big"
 
+	"golang.org/x/sys/windows"
 	tpm1 "github.com/google/go-tpm/tpm"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
-	"golang.org/x/sys/windows"
 )
 
 var wellKnownAuth [20]byte

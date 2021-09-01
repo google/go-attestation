@@ -33,7 +33,7 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &fakeCmdChannel{tpm}})
+	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &linuxCmdChannel{tpm}})
 	if err != nil {
 		t.Fatal(err)
 	}

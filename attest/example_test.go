@@ -79,7 +79,7 @@ func ExampleAK_credentialActivation() {
 		log.Fatalf("Failed to generate activation challenge: %v", err)
 	}
 
-	// Challenge the AK & EK properties to receive the decrypted secret.
+	// Challenge the AK & EK properties to recieve the decrypted secret.
 	decrypted, err := ak.ActivateCredential(tpm, *challenge)
 	if err != nil {
 		log.Fatalf("Failed to activate credential: %v", err)
