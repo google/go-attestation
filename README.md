@@ -20,6 +20,9 @@ API changes at any time.
 
 Please note that this is not an official Google product.
 
+TPM 1.2 support is best effort, meaning we will accept fixes for TPM 1.2, but
+testing is not covered by CI.
+
 ## Installation
 
 The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
