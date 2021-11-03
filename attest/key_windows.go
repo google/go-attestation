@@ -60,7 +60,7 @@ func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential) ([]
 	return decryptCredential(secretKey, in.Secret)
 }
 
-func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
 	}
@@ -77,11 +77,6 @@ func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, err
 	tpm, err := t.pcp.TPMCommandInterface()
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-	}
-
-	selectedPCRs := make([]int, 24)
-	for pcr, _ := range selectedPCRs {
-		selectedPCRs[pcr] = pcr
 	}
 
 	sig, pcrc, err := tpm1.Quote(tpm, tpmKeyHnd, nonce, selectedPCRs[:], wellKnownAuth[:])
@@ -159,7 +154,7 @@ func (k *windowsKey20) activateCredential(t tpmBase, in EncryptedCredential) ([]
 	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
 }
 
-func (k *windowsKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsKey20) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)

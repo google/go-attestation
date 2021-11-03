@@ -476,12 +476,12 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 	return certify(t.rwc, hnd, k.hnd, scheme)
 }
 
-func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
-	return quote20(t.rwc, k.hnd, tpm2.Algorithm(alg), nonce)
+	return quote20(t.rwc, k.hnd, tpm2.Algorithm(alg), nonce, selectedPCRs)
 }
 
 func (k *wrappedKey20) attestationParameters() AttestationParameters {

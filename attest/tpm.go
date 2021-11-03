@@ -231,12 +231,9 @@ func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
 	return ParseEKCertificate(ekCert)
 }
 
-func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm, nonce []byte) (*Quote, error) {
-	sel := tpm2.PCRSelection{Hash: hashAlg}
-	numPCRs := 24
-	for pcr := 0; pcr < numPCRs; pcr++ {
-		sel.PCRs = append(sel.PCRs, pcr)
-	}
+func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm, nonce []byte, selectedPCRs []int) (*Quote, error) {
+	sel := tpm2.PCRSelection{Hash: hashAlg,
+		PCRs: selectedPCRs}
 
 	quote, sig, err := tpm2.Quote(tpm, akHandle, "", "", nonce, sel, tpm2.AlgNull)
 	if err != nil {
@@ -391,7 +388,13 @@ func (t *TPM) attestPCRs(ak *AK, nonce []byte, alg HashAlg) (*Quote, []PCR, erro
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read %v PCRs: %v", alg, err)
 	}
-	quote, err := ak.Quote(t, nonce, alg)
+
+	selectedPCRs := make([]int, 24)
+	for pcr, _ := range selectedPCRs {
+		selectedPCRs[pcr] = pcr
+	}
+
+	quote, err := ak.Quote(t, nonce, alg, selectedPCRs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to quote using %v: %v", alg, err)
 	}
