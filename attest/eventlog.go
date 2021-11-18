@@ -173,7 +173,8 @@ type EventLog struct {
 	// Algs holds the set of algorithms that the event log uses.
 	Algs []HashAlg
 
-	rawEvents []rawEvent
+	rawEvents   []rawEvent
+	specIDEvent *specIDEvent
 }
 
 func (e *EventLog) clone() *EventLog {
@@ -183,6 +184,11 @@ func (e *EventLog) clone() *EventLog {
 	}
 	copy(out.Algs, e.Algs)
 	copy(out.rawEvents, e.rawEvents)
+	if e.specIDEvent != nil {
+		dupe := *e.specIDEvent
+		out.specIDEvent = &dupe
+	}
+
 	return &out
 }
 
@@ -528,6 +534,7 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 		// Note that this doesn't actually guarentee that events have SHA256
 		// digests.
 		parseFn = parseRawEvent2
+		el.specIDEvent = specID
 	} else {
 		el.Algs = []HashAlg{HashSHA1}
 		el.rawEvents = append(el.rawEvents, e)
@@ -740,4 +747,74 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 		return event, err
 	}
 	return event, err
+}
+
+// AppendEvents takes a series of TPM 2.0 event logs and combines
+// them into a single sequence of events with a single header.
+//
+// Additional logs must not use a digest algorithm which was not
+// present in the original log.
+func AppendEvents(base []byte, additional ...[]byte) ([]byte, error) {
+	baseLog, err := ParseEventLog(base)
+	if err != nil {
+		return nil, fmt.Errorf("base: %v", err)
+	}
+	if baseLog.specIDEvent == nil {
+		return nil, errors.New("tpm 1.2 event logs cannot be combined")
+	}
+
+	outBuff := make([]byte, len(base))
+	copy(outBuff, base)
+	out := bytes.NewBuffer(outBuff)
+
+	for i, l := range additional {
+		log, err := ParseEventLog(l)
+		if err != nil {
+			return nil, fmt.Errorf("log %d: %v", i, err)
+		}
+		if log.specIDEvent == nil {
+			return nil, fmt.Errorf("log %d: cannot use tpm 1.2 event log as a source", i)
+		}
+
+	algCheck:
+		for _, alg := range log.specIDEvent.algs {
+			for _, baseAlg := range baseLog.specIDEvent.algs {
+				if baseAlg == alg {
+					continue algCheck
+				}
+			}
+			return nil, fmt.Errorf("log %d: cannot use digest (%+v) not present in base log", i, alg)
+		}
+
+		for x, e := range log.rawEvents {
+			// Serialize header (PCR index, event type, number of digests)
+			binary.Write(out, binary.LittleEndian, rawEvent2Header{
+				PCRIndex: uint32(e.index),
+				Type:     uint32(e.typ),
+			})
+			binary.Write(out, binary.LittleEndian, uint32(len(e.digests)))
+
+			// Serialize digests
+			for _, d := range e.digests {
+				var algID uint16
+				switch d.hash {
+				case crypto.SHA256:
+					algID = uint16(HashSHA256)
+				case crypto.SHA1:
+					algID = uint16(HashSHA1)
+				default:
+					return nil, fmt.Errorf("log %d: event %d: unhandled hash function %v", i, x, d.hash)
+				}
+
+				binary.Write(out, binary.LittleEndian, algID)
+				out.Write(d.data)
+			}
+
+			// Serialize event data
+			binary.Write(out, binary.LittleEndian, uint32(len(e.data)))
+			out.Write(e.data)
+		}
+	}
+
+	return out.Bytes(), nil
 }

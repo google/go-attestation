@@ -16,6 +16,7 @@ package attest
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"testing"
@@ -335,5 +336,47 @@ func TestEBSVerifyWorkaround(t *testing.T) {
 	}
 	if _, err := el.Verify(pcr5); err != nil {
 		t.Errorf("Verify() failed: %v", err)
+	}
+}
+
+func TestAppendEvents(t *testing.T) {
+	base, err := ioutil.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
+	if err != nil {
+		t.Fatalf("reading test data: %v", err)
+	}
+
+	extraLog, err := base64.StdEncoding.DecodeString(`AAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACUAAABTcGVjIElEIEV2ZW50MDMAAAAAAAACAAEC
+AAAABAAUAAsAIAAACAAAAAYAAAACAAAABACX3UqVWDMNeg2Hkxyy6Q35wO4yBwsAVXbW4fKD8+xm
+Kv75L4ecBpvSR4d6bz+A7z1prUcKPuMrAQAACAISpgJpbWFfaGFzaD1zaGEyNTYgYXBwYXJtb3I9
+MSBwY2k9bm9hZXIsbm9hdHMgcHJpbnRrLmRldmttc2c9b24gc2xhYl9ub21lcmdlIGNvbnNvbGU9
+dHR5UzAsMTE1MjAwbjggY29uc29sZT10dHkwIGdsaW51eC1ib290LWltYWdlPTIwMjExMDI3LjAy
+LjAzIHF1aWV0IHNwbGFzaCBwbHltb3V0aC5pZ25vcmUtc2VyaWFsLWNvbnNvbGVzIGxzbT1sb2Nr
+ZG93bix5YW1hLGxvYWRwaW4sc2FmZXNldGlkLGludGVncml0eSxhcHBhcm1vcixzZWxpbnV4LHNt
+YWNrLHRvbW95byxicGYgcGFuaWM9MzAgaTkxNS5lbmFibGVfcHNyPTA=`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	combined, err := AppendEvents(base, extraLog)
+	if err != nil {
+		t.Fatalf("CombineEventLogs() failed: %v", err)
+	}
+
+	// Make sure the combined log parses successfully and has one more
+	// event than the base log.
+	parsedBase, err := ParseEventLog(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ParseEventLog(combined)
+	if err != nil {
+		t.Fatalf("ParseEventLog(combined_log) failed: %v", err)
+	}
+
+	if got, want := len(parsed.rawEvents), len(parsedBase.rawEvents)+1; got != want {
+		t.Errorf("unexpected number of events in combined log: got %d, want %d", got, want)
+		for i, e := range parsed.rawEvents {
+			t.Logf("logs[%d] = %+v", i, e)
+		}
 	}
 }
