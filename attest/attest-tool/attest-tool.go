@@ -16,7 +16,7 @@ import (
 	"os"
 
 	"github.com/google/go-attestation/attest"
-	"github.com/google/go-attestation/attest/attest_tool/internal"
+	"github.com/google/go-attestation/attest/attest-tool/internal"
 	"github.com/google/certificate-transparency-go/x509"
 )
 
