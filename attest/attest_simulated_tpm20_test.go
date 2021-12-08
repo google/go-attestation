@@ -24,7 +24,7 @@ import (
 	"crypto"
 	"testing"
 
-	"github.com/google/go-tpm_tools/simulator"
+	"github.com/google/go-tpm-tools/simulator"
 )
 
 func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
