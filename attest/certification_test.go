@@ -12,6 +12,11 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+//go:build (!localtest || !tpm12) && linux && cgo
+// +build !localtest !tpm12
+// +build linux
+// +build cgo
+
 package attest
 
 import (

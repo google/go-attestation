@@ -20,11 +20,19 @@ API changes at any time.
 
 Please note that this is not an official Google product.
 
+TPM 1.2 support is best effort, meaning we will accept fixes for TPM 1.2, but
+testing is not covered by CI.
+
 ## Installation
 
 The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
 
-Linux users must install `libtspi` and its headers. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+### TPM1.2
+By default, go-attestation does not build in TPM1.2 support on Linux.
+Linux users must install [`libtspi`](http://trousers.sourceforge.net/) and its headers if they need TPM 1.2 support. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
+Then, build go-attestation with the `tspi` [build tag](https://pkg.go.dev/go/build#hdr-Build_Constraints) `go build --tags=tspi`.
+
+Windows users can use go-attestation with TPM1.2 by default.
 
 ## Example: device identity
 
