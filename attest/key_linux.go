@@ -19,7 +19,7 @@ package attest
 import (
 	"fmt"
 
-	"github.com/Comcast/gotspi/attestation"
+	"github.com/google/go-tspi/attestation"
 )
 
 // trousersKey12 represents a key bound to a TPM 1.2 device via tcsd.
