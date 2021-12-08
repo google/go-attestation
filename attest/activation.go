@@ -14,7 +14,7 @@ import (
 
 	// TODO(jsonp): Move activation generation code to internal package.
 	"github.com/google/go-tpm/tpm2/credactivation"
-	"github.com/google/go-tspi/verification"
+	"github.com/Comcast/gotspi/verification"
 )
 
 const (

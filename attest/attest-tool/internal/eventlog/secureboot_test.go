@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-attestation/attest"
-	"github.com/google/go-attestation/attest/attest-tool/internal"
+	"github.com/google/go-attestation/attest/attest_tool/internal"
 )
 
 func parseEvents(t *testing.T, testdata string) []attest.Event {
