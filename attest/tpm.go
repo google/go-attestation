@@ -256,7 +256,7 @@ func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, er
 	out := map[uint32][]byte{}
 
 	// The TPM 2.0 spec says that the TPM can partially fulfill the
-	// request. As such, we repeat the command up to 8 times to get all
+	// request. As such, we repeat the command up to 24 times to get all
 	// 24 PCRs.
 	for i := 0; i < numPCRs; i++ {
 		// Build a selection structure, specifying all PCRs we do

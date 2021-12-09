@@ -36,11 +36,11 @@ type ActivationParameters struct {
 	// TPMVersion holds the version of the TPM, either 1.2 or 2.0.
 	TPMVersion TPMVersion
 
-	// EK, the endorsement key, describes an asymmetric key who's
-	// private key is permenantly bound to the TPM.
+	// EK, the endorsement key, describes an asymmetric key whose
+	// private key is permanently bound to the TPM.
 	//
 	// Activation will verify that the provided EK is held on the same
-	// TPM as the AK. However, it is the callers responsibility to
+	// TPM as the AK. However, it is the caller's responsibility to
 	// ensure the EK they provide corresponds to the the device which
 	// they are trying to associate the AK with.
 	EK crypto.PublicKey
