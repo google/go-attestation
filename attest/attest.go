@@ -290,7 +290,8 @@ func ParseAKPublic(version TPMVersion, public []byte) (*AKPublic, error) {
 
 // Verify is used to prove authenticity of the PCR measurements. It ensures that
 // the quote was signed by the AK, and that its contents matches the PCR and
-// nonce combination.
+// nonce combination. An error is returned if a provided PCR index was not part
+// of the quote.
 //
 // The nonce is used to prevent replays of Quote and PCRs and is signed by the
 // quote. Some TPMs don't support nonces longer than 20 bytes, and if the

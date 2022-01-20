@@ -366,12 +366,20 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 	}
 
 	sigHash.Reset()
+	quotePCRs := make(map[int]struct{}, len(att.AttestedQuoteInfo.PCRSelection.PCRs))
 	for _, index := range att.AttestedQuoteInfo.PCRSelection.PCRs {
 		digest, ok := pcrByIndex[index]
 		if !ok {
 			return fmt.Errorf("quote was over PCR %d which wasn't provided", index)
 		}
+		quotePCRs[index] = struct{}{}
 		sigHash.Write(digest)
+	}
+
+	for index, _ := range pcrByIndex {
+		if _, exists := quotePCRs[index]; !exists {
+			return fmt.Errorf("provided PCR %d was not included in quote", index)
+		}
 	}
 
 	if !bytes.Equal(sigHash.Sum(nil), att.AttestedQuoteInfo.PCRDigest) {
