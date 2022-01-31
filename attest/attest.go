@@ -325,7 +325,17 @@ func (a *AKPublic) Verify(quote Quote, pcrs []PCR, nonce []byte) error {
 
 // VerifyAll uses multiple quotes to verify the authenticity of all PCR
 // measurements. See documentation on Verify() for semantics.
+//
+// An error is returned if any PCRs provided were not covered by a quote,
+// or if no quote/nonce was provided.
 func (a *AKPublic) VerifyAll(quotes []Quote, pcrs []PCR, nonce []byte) error {
+	if len(quotes) == 0 {
+		return errors.New("no quotes were provided")
+	}
+	if len(nonce) == 0 {
+		return errors.New("no nonce was provided")
+	}
+
 	for i, quote := range quotes {
 		if err := a.Verify(quote, pcrs, nonce); err != nil {
 			return fmt.Errorf("quote %d: %v", i, err)
