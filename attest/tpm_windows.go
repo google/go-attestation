@@ -12,6 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+//go:build windows
 // +build windows
 
 package attest
@@ -28,9 +29,9 @@ import (
 	"io"
 	"math/big"
 
-	"golang.org/x/sys/windows"
 	tpm1 "github.com/google/go-tpm/tpm"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
+	"golang.org/x/sys/windows"
 )
 
 var wellKnownAuth [20]byte

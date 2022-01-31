@@ -12,6 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+//go:build linux && !gofuzz
 // +build linux,!gofuzz
 
 package attest

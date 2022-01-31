@@ -12,6 +12,7 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
+//go:build windows
 // +build windows
 
 package attest
@@ -26,9 +27,9 @@ import (
 
 	"github.com/google/certificate-transparency-go/x509"
 
-	"golang.org/x/sys/windows"
-	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 	"github.com/google/go-tpm/tpmutil"
+	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
+	"golang.org/x/sys/windows"
 )
 
 const (

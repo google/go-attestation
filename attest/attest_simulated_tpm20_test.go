@@ -149,7 +149,7 @@ func TestParseAKPublic20(t *testing.T) {
 	}
 }
 
-func TestSimTPM20QuoteAndVerify(t *testing.T) {
+func TestSimTPM20QuoteAndVerifyAll(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -160,9 +160,13 @@ func TestSimTPM20QuoteAndVerify(t *testing.T) {
 	defer ak.Close(tpm)
 
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	quote, err := ak.Quote(tpm, nonce, HashSHA256)
+	quote256, err := ak.Quote(tpm, nonce, HashSHA256)
 	if err != nil {
-		t.Fatalf("ak.Quote() failed: %v", err)
+		t.Fatalf("ak.Quote(SHA256) failed: %v", err)
+	}
+	quote1, err := ak.Quote(tpm, nonce, HashSHA1)
+	if err != nil {
+		t.Fatalf("ak.Quote(SHA1) failed: %v", err)
 	}
 
 	// Providing both PCR banks to AKPublic.Verify() ensures we can handle
@@ -180,7 +184,14 @@ func TestSimTPM20QuoteAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseAKPublic() failed: %v", err)
 	}
-	if err := pub.Verify(*quote, pcrs, nonce); err != nil {
+
+	// Ensure VerifyAll fails if a quote is missing and hence not all PCR
+	// banks are covered.
+	if err := pub.VerifyAll([]Quote{*quote256}, pcrs, nonce); err == nil {
+		t.Error("VerifyAll().err returned nil, expected failure")
+	}
+
+	if err := pub.VerifyAll([]Quote{*quote256, *quote1}, pcrs, nonce); err != nil {
 		t.Errorf("quote verification failed: %v", err)
 	}
 }
@@ -205,10 +216,8 @@ func TestSimTPM20AttestPlatform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseAKPublic() failed: %v", err)
 	}
-	for i, q := range attestation.Quotes {
-		if err := pub.Verify(q, attestation.PCRs, nonce); err != nil {
-			t.Errorf("quote[%d] verification failed: %v", i, err)
-		}
+	if err := pub.VerifyAll(attestation.Quotes, attestation.PCRs, nonce); err != nil {
+		t.Errorf("quote verification failed: %v", err)
 	}
 }
 

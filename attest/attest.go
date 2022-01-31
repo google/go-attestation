@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tpm/tpm"
@@ -179,6 +180,16 @@ type PCR struct {
 	Index     int
 	Digest    []byte
 	DigestAlg crypto.Hash
+
+	// quoteVerified is true if the PCR was verified against a quote
+	// in a call to AKPublic.Verify or AKPublic.VerifyAll.
+	quoteVerified bool
+}
+
+// QuoteVerified returns true if the value of this PCR was previously
+// verified against a Quote, in a call to AKPublic.Verify or AKPublic.VerifyAll.
+func (p *PCR) QuoteVerified() bool {
+	return p.quoteVerified
 }
 
 // EK is a burned-in endorcement key bound to a TPM. This optionally contains
@@ -290,7 +301,12 @@ func ParseAKPublic(version TPMVersion, public []byte) (*AKPublic, error) {
 
 // Verify is used to prove authenticity of the PCR measurements. It ensures that
 // the quote was signed by the AK, and that its contents matches the PCR and
-// nonce combination.
+// nonce combination. An error is returned if a provided PCR index was not part
+// of the quote. QuoteVerified() will return true on PCRs which were verified
+// by a quote.
+//
+// Do NOT use this method if you have multiple quotes to verify: Use VerifyAll
+// instead.
 //
 // The nonce is used to prevent replays of Quote and PCRs and is signed by the
 // quote. Some TPMs don't support nonces longer than 20 bytes, and if the
@@ -305,6 +321,27 @@ func (a *AKPublic) Verify(quote Quote, pcrs []PCR, nonce []byte) error {
 	default:
 		return fmt.Errorf("quote used unknown tpm version 0x%x", quote.Version)
 	}
+}
+
+// VerifyAll uses multiple quotes to verify the authenticity of all PCR
+// measurements. See documentation on Verify() for semantics.
+func (a *AKPublic) VerifyAll(quotes []Quote, pcrs []PCR, nonce []byte) error {
+	for i, quote := range quotes {
+		if err := a.Verify(quote, pcrs, nonce); err != nil {
+			return fmt.Errorf("quote %d: %v", i, err)
+		}
+	}
+
+	var errPCRs []string
+	for _, p := range pcrs {
+		if !p.QuoteVerified() {
+			errPCRs = append(errPCRs, fmt.Sprintf("%d (%s)", p.Index, p.DigestAlg))
+		}
+	}
+	if len(errPCRs) > 0 {
+		return fmt.Errorf("some PCRs were not covered by a quote: %s", strings.Join(errPCRs, ", "))
+	}
+	return nil
 }
 
 // HashAlg identifies a hashing Algorithm.

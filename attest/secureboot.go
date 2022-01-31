@@ -19,8 +19,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/google/go-attestation/attest/internal"
 	"github.com/google/certificate-transparency-go/x509"
+	"github.com/google/go-attestation/attest/internal"
 )
 
 // SecurebootState describes the secure boot status of a machine, as determined

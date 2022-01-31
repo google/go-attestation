@@ -320,6 +320,13 @@ func (a *AKPublic) validate12Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 	if att.Digest != sha1.Sum(composite) {
 		return fmt.Errorf("PCRs passed didn't match quote: %v", err)
 	}
+
+	// All provided PCRs are used to construct the composite hash which
+	// is verified against the quote (for TPM 1.2), so if we got this far,
+	// all PCR values are verified.
+	for i := range pcrs {
+		pcrs[i].quoteVerified = true
+	}
 	return nil
 }
 
@@ -366,16 +373,32 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 	}
 
 	sigHash.Reset()
+	quotePCRs := make(map[int]struct{}, len(att.AttestedQuoteInfo.PCRSelection.PCRs))
 	for _, index := range att.AttestedQuoteInfo.PCRSelection.PCRs {
 		digest, ok := pcrByIndex[index]
 		if !ok {
 			return fmt.Errorf("quote was over PCR %d which wasn't provided", index)
 		}
+		quotePCRs[index] = struct{}{}
 		sigHash.Write(digest)
+	}
+
+	for index, _ := range pcrByIndex {
+		if _, exists := quotePCRs[index]; !exists {
+			return fmt.Errorf("provided PCR %d was not included in quote", index)
+		}
 	}
 
 	if !bytes.Equal(sigHash.Sum(nil), att.AttestedQuoteInfo.PCRDigest) {
 		return fmt.Errorf("quote digest didn't match pcrs provided")
+	}
+
+	// If we got this far, all included PCRs with a digest algorithm matching that
+	// of the quote are verified. As such, we set their quoteVerified bit.
+	for i, pcr := range pcrs {
+		if _, exists := quotePCRs[pcr.Index]; exists && pcr.DigestAlg == pcrDigestAlg {
+			pcrs[i].quoteVerified = true
+		}
 	}
 	return nil
 }
