@@ -172,13 +172,9 @@ func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, scheme tpm2.SigS
 	if err != nil {
 		return nil, fmt.Errorf("tpm2.Certify() failed: %v", err)
 	}
-	signature, err := tpmutil.Pack(scheme.Alg, scheme.Hash, tpmutil.U16Bytes(sig))
-	if err != nil {
-		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
-	}
 	return &CertificationParameters{
 		Public:            public,
 		CreateAttestation: att,
-		CreateSignature:   signature,
+		CreateSignature:   sig,
 	}, nil
 }

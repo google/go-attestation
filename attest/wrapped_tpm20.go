@@ -179,12 +179,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}
-	// Pack the raw structure into a TPMU_SIGNATURE.
-	signature, err := tpmutil.Pack(tpm2.AlgRSASSA, tpm2.AlgSHA256, tpmutil.U16Bytes(sig))
-	if err != nil {
-		return nil, fmt.Errorf("failed to pack TPMT_SIGNATURE: %v", err)
-	}
-	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, signature)}, nil
+	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig)}, nil
 }
 
 func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
@@ -450,7 +445,7 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	}
 	defer tpm2.FlushContext(t.rwc, sessHandle)
 
-	if _, err := tpm2.PolicySecret(t.rwc, tpm2.HandleEndorsement, tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}, sessHandle, nil, nil, nil, 0); err != nil {
+	if _, _, err := tpm2.PolicySecret(t.rwc, tpm2.HandleEndorsement, tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}, sessHandle, nil, nil, nil, 0); err != nil {
 		return nil, fmt.Errorf("tpm2.PolicySecret() failed: %v", err)
 	}
 
