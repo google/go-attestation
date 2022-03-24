@@ -3,7 +3,6 @@ package internal
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -443,13 +442,11 @@ func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
 	} else {
 		// A bug in shim may cause an event to be missing the SignatureOwner GUID.
 		// We handle this, but signal back to the caller using ErrSigMissingGUID.
-		if _, isStructuralErr := err.(asn1.StructuralError); isStructuralErr {
-			var err2 error
-			cert, err2 = x509.ParseCertificate(b)
-			if err2 == nil {
-				certificates = append(certificates, *cert)
-				err = ErrSigMissingGUID
-			}
+		var err2 error
+		cert, err2 = x509.ParseCertificate(b)
+		if err2 == nil {
+			certificates = append(certificates, *cert)
+			err = ErrSigMissingGUID
 		}
 	}
 	return certificates, err
