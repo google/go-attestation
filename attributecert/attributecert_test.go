@@ -15,13 +15,12 @@
 package attributecert
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/google/certificate-transparency-go/x509"
 )
 
 func TestVerifyAttributeCert(t *testing.T) {

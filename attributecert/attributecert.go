@@ -9,15 +9,15 @@ package attributecert
 import (
 	"bytes"
 	"crypto"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/google/go-attestation/oid"
-	"github.com/google/certificate-transparency-go/asn1"
-	"github.com/google/certificate-transparency-go/x509/pkix"
-	"github.com/google/certificate-transparency-go/x509"
 )
 
 var (

@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"testing"
-
-	"github.com/google/certificate-transparency-go/x509"
 )
 
 func TestMakeActivationBlob(t *testing.T) {
