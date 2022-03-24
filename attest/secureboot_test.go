@@ -114,12 +114,12 @@ func TestSecureBootBug157(t *testing.T) {
 
 	events, err := elr.Verify(pcrs)
 	if err != nil {
-		t.Errorf("failed to verify log: %v", err)
+		t.Fatalf("failed to verify log: %v", err)
 	}
 
 	sbs, err := ParseSecurebootState(events)
 	if err != nil {
-		t.Errorf("failed parsing secureboot state: %v", err)
+		t.Fatalf("failed parsing secureboot state: %v", err)
 	}
 	if got, want := len(sbs.PostSeparatorAuthority), 3; got != want {
 		t.Errorf("len(sbs.PostSeparatorAuthority) = %d, want %d", got, want)
