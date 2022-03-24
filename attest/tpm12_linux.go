@@ -19,11 +19,11 @@ package attest
 
 import (
 	"crypto"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 
-	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tspi/attestation"
 	"github.com/google/go-tspi/tspi"
 	"github.com/google/go-tspi/tspiconst"
