@@ -3,6 +3,11 @@ on:
     branches: [master]
   pull_request:
 
+# Workaround for SHA1 on Go 1.18. There are some kinks to be worked out. See
+# the tracking issue for more info: https://github.com/golang/go/issues/41682
+env:
+  GODEBUG: x509sha1=1
+
 name: Test
 jobs:
   test-linux:
