@@ -12,9 +12,8 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build (!localtest || !tpm12) && linux && cgo
+//go:build (!localtest || !tpm12) && cgo
 // +build !localtest !tpm12
-// +build linux
 // +build cgo
 
 // NOTE: simulator requires cgo, hence the build tag.
@@ -35,7 +34,7 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &linuxCmdChannel{tpm}})
+	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &fakeCmdChannel{tpm}})
 	if err != nil {
 		t.Fatal(err)
 	}
