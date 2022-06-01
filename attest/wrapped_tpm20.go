@@ -205,7 +205,7 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	}()
 
 	// Certify application key by AK
-	cp, err := k.certify(t, keyHandle)
+	cp, err := k.certify(t, keyHandle, opts.QualifyingData)
 	if err != nil {
 		return nil, fmt.Errorf("ak.Certify() failed: %v", err)
 	}
@@ -455,7 +455,7 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	}, k.hnd, ekHnd, credential, secret)
 }
 
-func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *wrappedKey20) certify(tb tpmBase, handle interface{}, qualifyingData []byte) (*CertificationParameters, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
@@ -468,7 +468,7 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 		Alg:  tpm2.AlgRSASSA,
 		Hash: tpm2.AlgSHA256,
 	}
-	return certify(t.rwc, hnd, k.hnd, scheme)
+	return certify(t.rwc, hnd, k.hnd, qualifyingData, scheme)
 }
 
 func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
