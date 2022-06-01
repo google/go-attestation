@@ -12,10 +12,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build (!localtest || !tpm12) && linux && cgo
+//go:build (!localtest || !tpm12) && cgo && !gofuzz
 // +build !localtest !tpm12
-// +build linux
 // +build cgo
+// +build !gofuzz
 
 package attest
 

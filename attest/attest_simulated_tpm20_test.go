@@ -12,9 +12,10 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build (!localtest || !tpm12) && cgo
+//go:build (!localtest || !tpm12) && cgo && !gofuzz
 // +build !localtest !tpm12
 // +build cgo
+// +build !gofuzz
 
 // NOTE: simulator requires cgo, hence the build tag.
 
