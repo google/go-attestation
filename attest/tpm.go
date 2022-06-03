@@ -48,7 +48,7 @@ var (
 	akTemplate = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
-		Attributes: tpm2.FlagSignerDefault,
+		Attributes: tpm2.FlagSignerDefault | tpm2.FlagNoDA,
 		RSAParameters: &tpm2.RSAParams{
 			Sign: &tpm2.SigScheme{
 				Alg:  tpm2.AlgRSASSA,
