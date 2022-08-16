@@ -194,3 +194,22 @@ func TestSecureBootEventLogUbuntu(t *testing.T) {
 		t.Errorf("parsing sb state: %v", err)
 	}
 }
+
+func TestSecureBootEventLogFedora36(t *testing.T) {
+	data, err := ioutil.ReadFile("testdata/coreos_36_shielded_vm_no_secure_boot_eventlog")
+	if err != nil {
+		t.Fatalf("reading test data: %v", err)
+	}
+	el, err := ParseEventLog(data)
+	if err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+	evts := el.Events(HashSHA256)
+	if err != nil {
+		t.Fatalf("verifying event log: %v", err)
+	}
+	_, err = ParseSecurebootState(evts)
+	if err != nil {
+		t.Errorf("parsing sb state: %v", err)
+	}
+}
