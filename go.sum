@@ -328,8 +328,8 @@ github.com/google/go-tpm-tools v0.0.0-20190906225433-1614c142f845/go.mod h1:AVfH
 github.com/google/go-tpm-tools v0.2.0/go.mod h1:npUd03rQ60lxN7tzeBJreG38RvWwme2N1reF/eeiBk4=
 github.com/google/go-tpm-tools v0.2.1/go.mod h1:npUd03rQ60lxN7tzeBJreG38RvWwme2N1reF/eeiBk4=
 github.com/google/go-tpm-tools v0.3.1/go.mod h1:PSg+r5hSZI5tP3X7LBQx2sW1VSZUqZHBSrKyDqrB21U=
-github.com/google/go-tpm-tools v0.3.8 h1:ecZgxez5lyKWjnkK8lP3ru4rkgLyIM7pPY36FOFnAx4=
-github.com/google/go-tpm-tools v0.3.8/go.mod h1:rp+rDmmDCnWiMmxOTF3ypWxpChEQ4vwA6wtAIq09Qtc=
+github.com/google/go-tpm-tools v0.3.9 h1:66nkOHZtqmHXVnqonQvPDmiPRn8lcKW3FXzynJiBphg=
+github.com/google/go-tpm-tools v0.3.9/go.mod h1:22JvWmHcD5w55cs+nMeqDGDxgNS15/2pDq2cLqnc3rc=
 github.com/google/go-tspi v0.2.1-0.20190423175329-115dea689aad h1:LnpS22S8V1HqbxjveESGAazHhi6BX9SwI2Rij7qZcXQ=
 github.com/google/go-tspi v0.2.1-0.20190423175329-115dea689aad/go.mod h1:xfMGI3G0PhxCdNVcYr1C4C+EizojDg/TXuX5by8CiHI=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
@@ -1236,8 +1236,9 @@ google.golang.org/protobuf v1.25.0/go.mod h1:9JNX74DMeImyA3h4bdi1ymwjUzf21/xIlba
 google.golang.org/protobuf v1.25.1-0.20200805231151-a709e31e5d12/go.mod h1:9JNX74DMeImyA3h4bdi1ymwjUzf21/xIlbajtzgsN7c=
 google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp09yW+WbY/TyQbw=
 google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
-google.golang.org/protobuf v1.27.1 h1:SnqbnDw1V7RiZcXPx5MEeqPv2s79L9i7BJUlG/+RurQ=
 google.golang.org/protobuf v1.27.1/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
+google.golang.org/protobuf v1.28.0 h1:w43yiav+6bVFTBQFZX0r7ipe9JQ1QsbMgHwbBziscLw=
+google.golang.org/protobuf v1.28.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
