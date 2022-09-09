@@ -41,6 +41,8 @@ var (
 	shimLockGUID = efiGUID{0x605dab50, 0xe046, 0x4300, [8]byte{0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23}}
 	// "SbatLevel" encoded as UCS-2.
 	shimSbatVarName = []uint16{0x53, 0x62, 0x61, 0x74, 0x4c, 0x65, 0x76, 0x65, 0x6c}
+	// "MokListTrusted" encoded as UCS-2.
+	shimMokListTrustedVarName = []uint16{0x4d, 0x6f, 0x6b, 0x4c, 0x69, 0x73, 0x74, 0x54, 0x72, 0x75, 0x73, 0x74, 0x65, 0x64}
 )
 
 // EventType describes the type of event signalled in the event log.
@@ -274,10 +276,13 @@ type UEFIVariableAuthority struct {
 //
 // https://uefi.org/sites/default/files/resources/UEFI_Spec_2_8_final.pdf#page=1789
 func ParseUEFIVariableAuthority(v UEFIVariableData) (UEFIVariableAuthority, error) {
+	if v.Header.VariableName == shimLockGUID && (
 	// Skip parsing new SBAT section logged by shim.
 	// See https://github.com/rhboot/shim/blob/main/SBAT.md for more.
-	if v.Header.VariableName == shimLockGUID && unicodeNameEquals(v, shimSbatVarName) {
-		//https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/include/sbat.h#L9-L12
+	unicodeNameEquals(v, shimSbatVarName) || //https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/include/sbat.h#L9-L12
+	// Skip parsing new MokListTrusted section logged by shim.
+	// See https://github.com/rhboot/shim/blob/main/MokVars.txt for more.
+	unicodeNameEquals(v, shimMokListTrustedVarName)) { //https://github.com/rhboot/shim/blob/4e513405b4f1641710115780d19dcec130c5208f/mok.c#L169-L182	
 		return UEFIVariableAuthority{}, nil
 	}
 	certs, err := parseEfiSignature(v.VariableData)
