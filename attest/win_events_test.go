@@ -34,6 +34,7 @@ func TestParseWinEvents(t *testing.T) {
 			"0fdce7d71936f79445e7d2c84cbeb97c948d3730e0b839166b0a4e625c2d4547": WinModuleLoad{
 				FilePath:           `\Windows\System32\drivers\vioscsi.sys`,
 				ImageBase:          []uint64{81416192},
+				ImageSize:          uint64(86016),
 				HashAlgorithm:      WinAlgSHA256,
 				ImageValidated:     true,
 				AuthorityIssuer:    "Microsoft Windows Third Party Component CA 2014",
@@ -51,6 +52,7 @@ func TestParseWinEvents(t *testing.T) {
 			"055a36a9921b98cc04042ca95249c7eca655536868dafcec7508947ebe5e71f4": WinModuleLoad{
 				FilePath:           `\Windows\System32\Drivers\ksecpkg.sys`,
 				ImageBase:          []uint64{82952192},
+				ImageSize:          uint64(204800),
 				HashAlgorithm:      WinAlgSHA256,
 				ImageValidated:     true,
 				AuthorityIssuer:    "Microsoft Windows Production PCA 2011",
@@ -68,6 +70,7 @@ func TestParseWinEvents(t *testing.T) {
 			"2bedd1589410b6fa13c82f35db735025b6a160595922750248771f5abd0fee58": WinModuleLoad{
 				FilePath:           `\Windows\System32\drivers\volmgrx.sys`,
 				ImageBase:          []uint64{80875520},
+				ImageSize:          uint64(405504),
 				HashAlgorithm:      WinAlgSHA256,
 				ImageValidated:     true,
 				AuthorityIssuer:    "Microsoft Windows Production PCA 2011",

@@ -164,7 +164,7 @@ type WinEvents struct {
 	// BootCount contains the value of the monotonic boot counter. This
 	// value is not set for TPM 1.2 devices and some TPMs with buggy
 	// implementations of monotonic counters.
-	BootCount int
+	BootCount uint64
 	// LoadedModules contains authenticode hashes for binaries which
 	// were loaded during boot.
 	LoadedModules map[string]WinModuleLoad
@@ -394,38 +394,49 @@ func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.R
 	return nil
 }
 
-func (w *WinEvents) readUint(header microsoftEventHeader, r io.Reader) (uint64, error) {
-	if header.Size > 8 {
-		return 0, fmt.Errorf("integer too large (%d bytes)", header.Size)
+func (w *WinEvents) readUint32(header microsoftEventHeader, r io.Reader) (uint32, error) {
+	if header.Size != 4 {
+		return 0, fmt.Errorf("integer size not uint32 (%d bytes)", header.Size)
 	}
 
 	data := make([]uint8, header.Size)
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
-		return 0, fmt.Errorf("reading u%d: %w", header.Size<<8, err)
+		return 0, fmt.Errorf("reading u32: %w", err)
 	}
-	i, n := binary.Uvarint(data)
-	if n <= 0 {
-		return 0, fmt.Errorf("reading u%d: invalid varint", header.Size<<8)
+	i := binary.LittleEndian.Uint32(data)
+
+	return i, nil
+}
+
+func (w *WinEvents) readUint64(header microsoftEventHeader, r io.Reader) (uint64, error) {
+	if header.Size != 8 {
+		return 0, fmt.Errorf("integer size not uint64 (%d bytes)", header.Size)
 	}
+
+	data := make([]uint8, header.Size)
+	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
+		return 0, fmt.Errorf("reading u64: %w", err)
+	}
+	i := binary.LittleEndian.Uint64(data)
 
 	return i, nil
 }
 
 func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader) error {
-	i, err := w.readUint(header, r)
+	i, err := w.readUint64(header, r)
 	if err != nil {
 		return fmt.Errorf("boot counter: %v", err)
 	}
 
-	if w.BootCount > 0 && w.BootCount != int(i) {
+	if w.BootCount > 0 && w.BootCount != i {
 		return fmt.Errorf("conflicting values for boot counter: %d != %d", i, w.BootCount)
 	}
-	w.BootCount = int(i)
+	w.BootCount = i
 	return nil
 }
 
 func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *bytes.Reader) error {
-	i, err := w.readUint(header, r)
+	i, err := w.readUint32(header, r)
 	if err != nil {
 		return fmt.Errorf("transfer control: %v", err)
 	}
@@ -473,7 +484,7 @@ func (w *WinEvents) parseImageValidated(header microsoftEventHeader, r io.Reader
 }
 
 func (w *WinEvents) parseHashAlgID(header microsoftEventHeader, r io.Reader) (WinCSPAlg, error) {
-	i, err := w.readUint(header, r)
+	i, err := w.readUint32(header, r)
 	if err != nil {
 		return 0, fmt.Errorf("hash algorithm ID: %v", err)
 	}
@@ -578,7 +589,7 @@ func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header micros
 			if imgSize != 0 {
 				return errors.New("duplicate image size in LMA event")
 			}
-			if imgSize, err = w.readUint(h, r); err != nil {
+			if imgSize, err = w.readUint64(h, r); err != nil {
 				return err
 			}
 		case hashAlgorithmID:
