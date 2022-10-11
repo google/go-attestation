@@ -272,7 +272,7 @@ func ParseWinEvents(events []Event) (*WinEvents, error) {
 					return nil, fmt.Errorf("invalid tagged event structure at event %d: %w", e.sequence, err)
 				}
 				if digestVerify != nil {
-					return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, err)
+					return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, digestVerify)
 				}
 				if err := out.readWinEventBlock(s, e.Index); err != nil {
 					return nil, fmt.Errorf("invalid SIPA events in event %d: %w", e.sequence, err)
@@ -303,7 +303,7 @@ func ParseWinEvents(events []Event) (*WinEvents, error) {
 					return nil, fmt.Errorf("invalid tagged event structure at event %d: %w", e.sequence, err)
 				}
 				if digestVerify != nil {
-					return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, err)
+					return nil, fmt.Errorf("invalid digest for tagged event %d: %w", e.sequence, digestVerify)
 				}
 				if err := out.readWinEventBlock(s, e.Index); err != nil {
 					return nil, fmt.Errorf("invalid SIPA events in event %d: %w", e.sequence, err)
