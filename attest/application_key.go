@@ -72,6 +72,8 @@ type KeyConfig struct {
 	// Size is used to specify the bit size of the key or elliptic curve. For
 	// example, '256' is used to specify curve P-256.
 	Size int
+
+	QualifyingData []byte
 }
 
 // defaultConfig is used when no other configuration is specified.
