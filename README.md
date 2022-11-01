@@ -81,7 +81,7 @@ if err != nil {
     // handle error
 }
 
-if err := ioutil.WriteFile("encrypted_aik.json", akBytes, 0600); err != nil {
+if err := os.WriteFile("encrypted_aik.json", akBytes, 0600); err != nil {
     // handle error
 }
 
@@ -115,7 +115,7 @@ returning the same secret to the server.
 ```go
 // Client decrypts the credential
 
-akBytes, err := ioutil.ReadFile("encrypted_aik.json")
+akBytes, err := os.ReadFile("encrypted_aik.json")
 if err != nil {
     // handle error
 }

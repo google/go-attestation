@@ -16,7 +16,7 @@ package attest
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -91,7 +91,7 @@ func TestParseWinEvents(t *testing.T) {
 		},
 	}
 
-	data, err := ioutil.ReadFile("testdata/windows_gcp_shielded_vm.json")
+	data, err := os.ReadFile("testdata/windows_gcp_shielded_vm.json")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}

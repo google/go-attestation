@@ -53,8 +53,6 @@ func (t *wrappedTPM20) ekTemplate() (tpm2.Public, error) {
 	return *t.tpmEkTemplate, nil
 }
 
-func (*wrappedTPM20) isTPMBase() {}
-
 func (t *wrappedTPM20) tpmVersion() TPMVersion {
 	return TPMVersion20
 }
@@ -175,7 +173,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	}()
 
 	// We can only certify the creation immediately afterwards, so we cache the result.
-	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, tix)
+	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{Alg: tpm2.AlgRSASSA, Hash: tpm2.AlgSHA256, Count: 0}, tix)
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}

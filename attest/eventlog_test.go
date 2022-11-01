@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/google/go-tpm/tpm2"
@@ -56,7 +56,7 @@ func TestParseEventLogLinux(t *testing.T) {
 }
 
 func testParseEventLog(t *testing.T, testdata string) {
-	data, err := ioutil.ReadFile(testdata)
+	data, err := os.ReadFile(testdata)
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -70,7 +70,7 @@ func testParseEventLog(t *testing.T, testdata string) {
 }
 
 func TestParseCryptoAgileEventLog(t *testing.T) {
-	data, err := ioutil.ReadFile("testdata/crypto_agile_eventlog")
+	data, err := os.ReadFile("testdata/crypto_agile_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestEventLog(t *testing.T) {
 }
 
 func testEventLog(t *testing.T, testdata string) {
-	data, err := ioutil.ReadFile(testdata)
+	data, err := os.ReadFile(testdata)
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestParseShortNoAction(t *testing.T) {
 	// Currently we just assume that such events will have Data shorter than
 	// "EFI Specification ID" field.
 
-	data, err := ioutil.ReadFile("testdata/short_no_action_eventlog")
+	data, err := os.ReadFile("testdata/short_no_action_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestEBSVerifyWorkaround(t *testing.T) {
 		},
 	}
 
-	elr, err := ioutil.ReadFile("testdata/ebs_event_missing_eventlog")
+	elr, err := os.ReadFile("testdata/ebs_event_missing_eventlog")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestEBSVerifyWorkaround(t *testing.T) {
 }
 
 func TestAppendEvents(t *testing.T) {
-	base, err := ioutil.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
+	base, err := os.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
