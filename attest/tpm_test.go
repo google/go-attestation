@@ -10,8 +10,7 @@ import (
 
 // Generated using the following command:
 //
-//   openssl genrsa 2048|openssl rsa -outform PEM -pubout
-//
+// openssl genrsa 2048|openssl rsa -outform PEM -pubout
 var testRSAKey = mustParseRSAKey(`-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq8zyTXCjVALZzjS8wgNH
 nAVdt4ZGM3N450xOnLplx/RbCVwXyu83SWh0B3Ka+92aocqcHzo+j6e6Urppre/I

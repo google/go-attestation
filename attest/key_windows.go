@@ -81,7 +81,7 @@ func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, err
 	}
 
 	selectedPCRs := make([]int, 24)
-	for pcr, _ := range selectedPCRs {
+	for pcr := range selectedPCRs {
 		selectedPCRs[pcr] = pcr
 	}
 

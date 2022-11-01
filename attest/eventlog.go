@@ -383,7 +383,7 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 		sigHash.Write(digest)
 	}
 
-	for index, _ := range pcrByIndex {
+	for index := range pcrByIndex {
 		if _, exists := quotePCRs[index]; !exists {
 			return fmt.Errorf("provided PCR %d was not included in quote", index)
 		}
