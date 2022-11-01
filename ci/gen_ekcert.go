@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-var simulatorStatePath = flag.String("state_path", "/tmp/sim/NVRAM/00.permall", "Path to ibmswtpm state file")
-
 func ekPub() *rsa.PublicKey {
 	out, err := exec.Command("tpm_getpubek", "-z").Output()
 	if err != nil {

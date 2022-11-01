@@ -16,7 +16,7 @@ package eventlog
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/google/go-attestation/attest"
@@ -24,7 +24,7 @@ import (
 )
 
 func parseEvents(t *testing.T, testdata string) []attest.Event {
-	data, err := ioutil.ReadFile(testdata)
+	data, err := os.ReadFile(testdata)
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}

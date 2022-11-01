@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -49,7 +48,7 @@ func InjectSimulatedTPMForTest(rwc io.ReadWriteCloser) *TPM {
 func probeSystemTPMs() ([]probedTPM, error) {
 	var tpms []probedTPM
 
-	tpmDevs, err := ioutil.ReadDir(tpmRoot)
+	tpmDevs, err := os.ReadDir(tpmRoot)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
@@ -82,7 +81,7 @@ type linuxCmdChannel struct {
 
 // MeasurementLog implements CommandChannelTPM20.
 func (cc *linuxCmdChannel) MeasurementLog() ([]byte, error) {
-	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
+	return os.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }
 
 func openTPM(tpm probedTPM) (*TPM, error) {
@@ -98,7 +97,7 @@ func openTPM(tpm probedTPM) (*TPM, error) {
 		// If the TPM has a kernel-provided resource manager, we should
 		// use that instead of communicating directly.
 		devPath := path.Join("/dev", path.Base(tpm.Path))
-		f, err := ioutil.ReadDir(path.Join(tpm.Path, "device", "tpmrm"))
+		f, err := os.ReadDir(path.Join(tpm.Path, "device", "tpmrm"))
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return nil, err

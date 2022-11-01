@@ -188,7 +188,7 @@ func (e EventType) String() string {
 func UntrustedParseEventType(et uint32) (EventType, error) {
 	// "The value associated with a UEFI specific platform event type MUST be in
 	// the range between 0x80000000 and 0x800000FF, inclusive."
-	if (et < 0x80000000 && et > 0x800000FF) || (et < 0x0 && et > 0x12) {
+	if (et < 0x80000000 && et > 0x800000FF) || (et <= 0x0 && et > 0x12) {
 		return EventType(0), fmt.Errorf("event type not between [0x0, 0x12] or [0x80000000, 0x800000FF]: got %#x", et)
 	}
 	if _, ok := eventTypeNames[EventType(et)]; !ok {

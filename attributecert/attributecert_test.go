@@ -17,7 +17,7 @@ package attributecert
 import (
 	"crypto/x509"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -29,7 +29,7 @@ func TestVerifyAttributeCert(t *testing.T) {
 		"testdata/Intel_pc2.cer",
 		"testdata/Intel_pc3.cer",
 	}
-	data, err := ioutil.ReadFile("testdata/IntelSigningKey_20April2017.cer")
+	data, err := os.ReadFile("testdata/IntelSigningKey_20April2017.cer")
 	if err != nil {
 		t.Fatalf("failed to read Intel intermediate certificate: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestVerifyAttributeCert(t *testing.T) {
 	}
 
 	for _, filename := range testfiles {
-		data, err = ioutil.ReadFile(filename)
+		data, err = os.ReadFile(filename)
 		if err != nil {
 			t.Fatalf("failed to read %s: %v", filename, err)
 		}
@@ -57,7 +57,7 @@ func TestVerifyAttributeCert(t *testing.T) {
 }
 
 func TestParseAttributeCerts(t *testing.T) {
-	files, err := ioutil.ReadDir("testdata")
+	files, err := os.ReadDir("testdata")
 	if err != nil {
 		t.Fatalf("failed to read test dir: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestParseAttributeCerts(t *testing.T) {
 		}
 		filename := "testdata/" + file.Name()
 		jsonfile := filename + ".json"
-		data, err := ioutil.ReadFile(filename)
+		data, err := os.ReadFile(filename)
 		if err != nil {
 			t.Fatalf("failed to read test data %s: %v", filename, err)
 		}
@@ -78,7 +78,7 @@ func TestParseAttributeCerts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to parse test data %s: %v", filename, err)
 		}
-		jsondata, err := ioutil.ReadFile(jsonfile)
+		jsondata, err := os.ReadFile(jsonfile)
 		if err != nil {
 			t.Fatalf("failed to read json test data %s: %v", jsonfile, err)
 		}
