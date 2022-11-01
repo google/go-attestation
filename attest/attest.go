@@ -398,10 +398,10 @@ func (a HashAlg) String() string {
 // the booted state of the machine the TPM is attached to.
 //
 // The digests contained in the event log can be considered authentic if:
-//  - The AK public corresponds to the known AK for that platform.
-//  - All quotes are verified with AKPublic.Verify(), and return no errors.
-//  - The event log parsed successfully using ParseEventLog(), and a call
-//    to EventLog.Verify() with the full set of PCRs returned no error.
+//   - The AK public corresponds to the known AK for that platform.
+//   - All quotes are verified with AKPublic.Verify(), and return no errors.
+//   - The event log parsed successfully using ParseEventLog(), and a call
+//     to EventLog.Verify() with the full set of PCRs returned no error.
 type PlatformParameters struct {
 	// The version of the TPM which generated this attestation.
 	TPMVersion TPMVersion

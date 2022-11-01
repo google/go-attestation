@@ -303,7 +303,7 @@ type tpmBase interface {
 	measurementLog() ([]byte, error)
 }
 
-//TPM interfaces with a TPM device on the system.
+// TPM interfaces with a TPM device on the system.
 type TPM struct {
 	// tpm refers to a concrete implementation of TPM logic, based on the current
 	// platform and TPM version.

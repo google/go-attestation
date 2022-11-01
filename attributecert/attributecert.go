@@ -129,50 +129,50 @@ func getSignatureAlgorithmFromAI(ai pkix.AlgorithmIdentifier) x509.SignatureAlgo
 	return x509.UnknownSignatureAlgorithm
 }
 
-//RFC 5280 4.2.2.1
+// RFC 5280 4.2.2.1
 type authorityInfoAccess struct {
 	Method   asn1.ObjectIdentifier
 	Location asn1.RawValue
 }
 
-//RFC 5280 4.2.1.1
+// RFC 5280 4.2.1.1
 type authKeyID struct {
 	ID           []byte        `asn1:"optional,tag:0"`
 	IssuerName   asn1.RawValue `asn1:"set,optional,tag:1"`
 	SerialNumber *big.Int      `asn1:"optional,tag:2"`
 }
 
-//RFC 5280 4.2.1.4
+// RFC 5280 4.2.1.4
 type cpsPolicy struct {
 	ID    asn1.ObjectIdentifier
 	Value string
 }
 
-//RFC 5280 4.2.1.4
+// RFC 5280 4.2.1.4
 type policyInformation struct {
 	Raw    asn1.RawContent
 	ID     asn1.ObjectIdentifier
 	Policy asn1.RawValue
 }
 
-//RFC 5280 4.1.2.5
+// RFC 5280 4.1.2.5
 type validity struct {
 	NotBefore, NotAfter time.Time
 }
 
-//RFC 5280 4.2.1.4
-type NoticeReference struct {
+// RFC 5280 4.2.1.4
+type noticeReference struct {
 	Organization  string
 	NoticeNumbers []int
 }
 
-//RFC 5280 4.2.1.4
+// RFC 5280 4.2.1.4
 type userNotice struct {
-	NoticeRef    NoticeReference `asn1:"optional"`
+	NoticeRef    noticeReference `asn1:"optional"`
 	ExplicitText string          `asn1:"optional"`
 }
 
-//RFC 5755 4.1
+// RFC 5755 4.1
 type objectDigestInfo struct {
 	DigestedObjectType asn1.Enumerated
 	OtherObjectTypeID  asn1.ObjectIdentifier
@@ -180,14 +180,14 @@ type objectDigestInfo struct {
 	ObjectDigest       asn1.BitString
 }
 
-//RFC 5755 4.1
+// RFC 5755 4.1
 type attCertIssuer struct {
 	IssuerName        asn1.RawValue    `asn1:"set,optional"`
 	BaseCertificateID issuerSerial     `asn1:"optional,tag:0"`
 	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:1"`
 }
 
-//RFC 5755 4.1
+// RFC 5755 4.1
 type issuerSerial struct {
 	Raw       asn1.RawContent
 	Issuer    asn1.RawValue
@@ -195,7 +195,7 @@ type issuerSerial struct {
 	IssuerUID asn1.BitString `asn1:"optional"`
 }
 
-//RFC 5755 4.1
+// RFC 5755 4.1
 type holder struct {
 	Raw               asn1.RawContent
 	BaseCertificateID issuerSerial     `asn1:"optional,tag:0"`
@@ -203,13 +203,13 @@ type holder struct {
 	ObjectDigestInfo  objectDigestInfo `asn1:"optional,tag:2"`
 }
 
-//RFC 5755 4.1
+// RFC 5755 4.1
 type attribute struct {
 	ID        asn1.ObjectIdentifier
 	RawValues []asn1.RawValue `asn1:"set"`
 }
 
-//RFC 5755 4.1
+// RFC 5755 4.1
 type tbsAttributeCertificate struct {
 	Raw                asn1.RawContent
 	Version            int

@@ -48,7 +48,7 @@ var (
 // EventType describes the type of event signalled in the event log.
 type EventType uint32
 
-// 	BIOS Events (TCG PC Client Specific Implementation Specification for Conventional BIOS 1.21)
+// BIOS Events (TCG PC Client Specific Implementation Specification for Conventional BIOS 1.21)
 const (
 	PrebootCert          EventType = 0x00000000
 	PostCode             EventType = 0x00000001
@@ -280,9 +280,9 @@ func ParseUEFIVariableAuthority(v UEFIVariableData) (UEFIVariableAuthority, erro
 	// Skip parsing new SBAT section logged by shim.
 	// See https://github.com/rhboot/shim/blob/main/SBAT.md for more.
 	unicodeNameEquals(v, shimSbatVarName) || //https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/include/sbat.h#L9-L12
-	// Skip parsing new MokListTrusted section logged by shim.
-	// See https://github.com/rhboot/shim/blob/main/MokVars.txt for more.
-	unicodeNameEquals(v, shimMokListTrustedVarName)) { //https://github.com/rhboot/shim/blob/4e513405b4f1641710115780d19dcec130c5208f/mok.c#L169-L182	
+		// Skip parsing new MokListTrusted section logged by shim.
+		// See https://github.com/rhboot/shim/blob/main/MokVars.txt for more.
+		unicodeNameEquals(v, shimMokListTrustedVarName)) { //https://github.com/rhboot/shim/blob/4e513405b4f1641710115780d19dcec130c5208f/mok.c#L169-L182
 		return UEFIVariableAuthority{}, nil
 	}
 	certs, err := parseEfiSignature(v.VariableData)
