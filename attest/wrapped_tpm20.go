@@ -89,6 +89,7 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 		// Found the persistent handle, assume it's the key we want.
 		return pHnd, false, nil
 	}
+	rerr := err // Preserve this failure for later logging, if needed
 
 	var keyHnd tpmutil.Handle
 	switch pHnd {
@@ -102,7 +103,7 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
 	}
 	if err != nil {
-		return 0, false, fmt.Errorf("CreatePrimary failed: %v", err)
+		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
 	}
 	defer tpm2.FlushContext(t.rwc, keyHnd)
 
