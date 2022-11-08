@@ -112,7 +112,7 @@ func (k *windowsAK12) attestationParameters() AttestationParameters {
 		Public: k.public,
 	}
 }
-func (k *windowsAK12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsAK12) certify(tb tpmBase, handle interface{}, qualifyingData []byte) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -190,7 +190,7 @@ func (k *windowsAK20) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsAK20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsAK20) certify(tb tpmBase, handle interface{}, qualifyingData []byte) (*CertificationParameters, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -215,5 +215,5 @@ func (k *windowsAK20) certify(tb tpmBase, handle interface{}) (*CertificationPar
 		Alg:  tpm2.AlgRSASSA,
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
-	return certify(tpm, hnd, akHnd, scheme)
+	return certify(tpm, hnd, akHnd, qualifyingData, scheme)
 }

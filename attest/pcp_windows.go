@@ -380,7 +380,8 @@ func (h *winPCP) Close() error {
 }
 
 // DeleteKey permanently removes the key with the given handle
-//  from the system, and frees its handle.
+//
+//	from the system, and frees its handle.
 func (h *winPCP) DeleteKey(kh uintptr) error {
 	r, _, msg := nCryptDeleteKey.Call(kh, 0)
 	if r != 0 {
@@ -777,7 +778,7 @@ func decodeKeyBlob(keyBlob []byte) ([]byte, []byte, error) {
 	}
 
 	// Skip over any padding
-	r.Seek(headerSize, 0)
+	r.Seek(int64(headerSize), 0)
 
 	pubKey := make([]byte, pubLen)
 

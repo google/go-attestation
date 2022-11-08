@@ -347,7 +347,7 @@ func (t *windowsTPM) newKey(ak *AK, config *KeyConfig) (*Key, error) {
 		return nil, fmt.Errorf("pcp failed to mint application key: %v", err)
 	}
 
-	cp, err := k.certify(t, hnd)
+	cp, err := k.certify(t, hnd, config.QualifyingData)
 	if err != nil {
 		return nil, fmt.Errorf("ak.Certify() failed: %v", err)
 	}
