@@ -18,6 +18,10 @@
 package attest
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"errors"
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
@@ -216,4 +220,60 @@ func (k *windowsAK20) certify(tb tpmBase, handle interface{}, qualifyingData []b
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
 	return certify(tpm, hnd, akHnd, qualifyingData, scheme)
+}
+
+// newWindowsKey20 returns a pointer to a windowsAK20, conforming to the key interface. This
+// allows the resulting windowsAK20 to be used as a signing key.
+func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) key {
+	return &windowsAK20{
+		hnd:               hnd,
+		pcpKeyName:        pcpKeyName,
+		public:            public,
+		createData:        createData,
+		createAttestation: createAttest,
+		createSignature:   createSig,
+	}
+}
+
+func (k *windowsAK20) blobs() ([]byte, []byte, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (k *windowsAK20) certificationParameters() CertificationParameters {
+	return CertificationParameters{
+		Public:            k.public,
+		CreateAttestation: k.createAttestation,
+		CreateSignature:   k.createSignature,
+	}
+}
+
+func (k *windowsAK20) decrypt(tpmBase, []byte) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (k *windowsAK20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
+
+	t, ok := tb.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
+	}
+
+	rw, err := t.pcp.TPMCommandInterface()
+	if err != nil {
+		return nil, fmt.Errorf("error getting TPM command interface: %w", err)
+	}
+
+	hnd, err := t.pcp.TPMKeyHandle(k.hnd)
+	if err != nil {
+		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+	}
+
+	switch pub.(type) {
+	case *ecdsa.PublicKey:
+		return signECDSA(rw, hnd, digest)
+	case *rsa.PublicKey:
+		return signRSA(rw, hnd, digest, opts)
+	}
+
+	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
