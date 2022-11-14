@@ -402,8 +402,6 @@ func (t *windowsTPM) loadKey(opaqueBlob []byte) (*Key, error) {
 	}
 
 	return &Key{key: newWindowsKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pubKey, tpm: t}, nil
-
-	return nil, fmt.Errorf("not implemented")
 }
 
 func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
