@@ -125,7 +125,6 @@ type windowsAK20 struct {
 	hnd uintptr
 
 	pcpKeyName        string
-	blob              []byte
 	public            []byte
 	createData        []byte
 	createAttestation []byte
@@ -225,11 +224,10 @@ func (k *windowsAK20) certify(tb tpmBase, handle interface{}, qualifyingData []b
 
 // newWindowsKey20 returns a pointer to a windowsAK20, conforming to the key interface. This
 // allows the resulting windowsAK20 to be used as a signing key.
-func newWindowsKey20(hnd uintptr, pcpKeyName string, blob, pub, createData, createAttest, createSig []byte) key {
+func newWindowsKey20(hnd uintptr, pcpKeyName string, pub, createData, createAttest, createSig []byte) key {
 	return &windowsAK20{
 		hnd:               hnd,
 		pcpKeyName:        pcpKeyName,
-		blob:              blob,
 		public:            pub,
 		createData:        createData,
 		createAttestation: createAttest,
@@ -238,7 +236,9 @@ func newWindowsKey20(hnd uintptr, pcpKeyName string, blob, pub, createData, crea
 }
 
 func (k *windowsAK20) blobs() ([]byte, []byte, error) {
-	return k.public, k.blob, nil
+	// TODO(hslatman): check if this is required on Windows? `newKey` seems to create
+	// persistent keys with a name, so it may be possible to load the key by name instead?
+	return nil, nil, errors.New("not implemented")
 }
 
 func (k *windowsAK20) certificationParameters() CertificationParameters {
