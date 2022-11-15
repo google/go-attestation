@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/asn1"
 	"errors"
@@ -500,16 +501,29 @@ func (k *wrappedKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opt
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
-	switch pub.(type) {
+	switch p := pub.(type) {
 	case *ecdsa.PublicKey:
-		return signECDSA(t.rwc, k.hnd, digest)
+		return signECDSA(t.rwc, k.hnd, digest, p.Curve)
 	case *rsa.PublicKey:
 		return signRSA(t.rwc, k.hnd, digest, opts)
 	}
 	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
 
-func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte) ([]byte, error) {
+func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve) ([]byte, error) {
+	// https://cs.opensource.google/go/go/+/refs/tags/go1.19.2:src/crypto/ecdsa/ecdsa.go;l=181
+	orderBits := curve.Params().N.BitLen()
+	orderBytes := (orderBits + 7) / 8
+	if len(digest) > orderBytes {
+		digest = digest[:orderBytes]
+	}
+	ret := new(big.Int).SetBytes(digest)
+	excess := len(digest)*8 - orderBits
+	if excess > 0 {
+		ret.Rsh(ret, uint(excess))
+	}
+	digest = ret.Bytes()
+
 	sig, err := tpm2.Sign(rw, key, "", digest, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)
