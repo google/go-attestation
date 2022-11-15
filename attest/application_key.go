@@ -74,6 +74,15 @@ type KeyConfig struct {
 	Size int
 
 	QualifyingData []byte
+
+	// Name is used to specify a name for the key, instead of generating
+	// a random one. If provided, the Prefix will be ignored. This property
+	// is only used on Windows.
+	Name string
+
+	// Prefix is used to specify a custom prefix for the key, instead of
+	// using the default `app`. This property is only used on Windows.
+	Prefix string
 }
 
 // defaultConfig is used when no other configuration is specified.

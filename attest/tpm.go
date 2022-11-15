@@ -22,6 +22,7 @@ import (
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -364,6 +365,15 @@ func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	}
 	if opts.Algorithm == "" && opts.Size == 0 {
 		opts = defaultConfig
+	}
+	if _, ok := t.tpm.(*windowsTPM); !ok && opts.Name != "" {
+		return nil, errors.New("providing a key name is only supported with Windows TPMs")
+	}
+	if _, ok := t.tpm.(*windowsTPM); !ok && opts.Prefix != "" {
+		return nil, errors.New("providing a key prefix is only supported with Windows TPMs")
+	}
+	if opts.Name != "" && opts.Prefix != "" {
+		return nil, errors.New("key prefix and name are incompatible")
 	}
 	return t.tpm.newKey(ak, opts)
 }
