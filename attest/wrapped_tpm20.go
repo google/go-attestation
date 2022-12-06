@@ -117,11 +117,13 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 }
 
 func (t *wrappedTPM20) eks() ([]EK, error) {
-	if cert, err := readEKCertFromNVRAM20(t.rwc); err == nil {
+	cert, err := readEKCertFromNVRAM20(t.rwc)
+	if err == nil {
 		return []EK{
 			{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
 		}, nil
 	}
+	rerr := err
 
 	// Attempt to create an EK.
 	tmpl, err := t.ekTemplate()
@@ -131,7 +133,7 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 
 	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
 	if err != nil {
-		return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
+		return nil, fmt.Errorf("readEKCertFromNVRAM20 failed (%v), and then EK CreatePrimary failed: %v", rerr, err)
 	}
 	defer tpm2.FlushContext(t.rwc, ekHnd)
 
