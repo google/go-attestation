@@ -223,10 +223,38 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 }
 
 func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
-	ekCert, err := tpm2.NVReadEx(tpm, nvramCertIndex, tpm2.HandleOwner, "", 0)
-	if err != nil {
-		return nil, fmt.Errorf("reading EK cert: %v", err)
+	// Try to read the EK cert from NVRAM using all the available auth handles. See the definition of
+	// `NvReadAccessChecks()` in "Trusted Platform Module Library Part 4: Supporting Routines" for a
+	// bit more context, but basically nv cells support owner, platform, and "self" auth.
+	//
+	// While trying each auth handle we concatenate together errors along the way so that if they
+	// all fail we can present all the failures to the caller.
+	var ekCert []byte
+	var allErrs error
+	var success bool
+	for _, authHandle := range []tpmutil.Handle{
+		tpm2.HandleOwner,
+		nvramCertIndex,
+	} {
+		var err error
+		ekCert, err = tpm2.NVReadEx(tpm, nvramCertIndex, authHandle, "", 0)
+		if err != nil {
+			err = fmt.Errorf("reading EK cert with auth handle 0x%x: %v", authHandle, err)
+			if allErrs == nil {
+				allErrs = err
+			} else {
+				allErrs = fmt.Errorf("%v; %v", allErrs, err)
+			}
+		} else {
+			// Break on the first successful read.
+			success = true
+			break
+		}
 	}
+	if !success {
+		return nil, allErrs
+	}
+
 	return ParseEKCertificate(ekCert)
 }
 
