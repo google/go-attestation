@@ -270,9 +270,9 @@ func (k *windowsAK20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts
 		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
 	}
 
-	switch pub.(type) {
+	switch p := pub.(type) {
 	case *ecdsa.PublicKey:
-		return signECDSA(rw, hnd, digest)
+		return signECDSA(rw, hnd, digest, p.Curve)
 	case *rsa.PublicKey:
 		return signRSA(rw, hnd, digest, opts)
 	}
