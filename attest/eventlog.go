@@ -56,14 +56,6 @@ func (e ReplayError) Error() string {
 	return fmt.Sprintf("event log failed to verify: the following registers failed to replay: %v", e.InvalidPCRs)
 }
 
-// TPM algorithms. See the TPM 2.0 specification section 6.3.
-//
-// https://trustedcomputinggroup.org/wp-content/uploads/TPM-Rev-2.0-Part-2-Structures-01.38.pdf#page=42
-const (
-	algSHA1   uint16 = 0x0004
-	algSHA256 uint16 = 0x000B
-)
-
 // EventType indicates what kind of data an event is reporting.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClientSpecPlat_TPM_2p0_1p04_pub.pdf#page=103
@@ -383,7 +375,7 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 		sigHash.Write(digest)
 	}
 
-	for index, _ := range pcrByIndex {
+	for index := range pcrByIndex {
 		if _, exists := quotePCRs[index]; !exists {
 			return fmt.Errorf("provided PCR %d was not included in quote", index)
 		}

@@ -22,7 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/google/go-tspi/attestation"
 	"github.com/google/go-tspi/tspi"
@@ -169,5 +169,5 @@ func (t *trousersTPM) pcrs(alg HashAlg) ([]PCR, error) {
 }
 
 func (t *trousersTPM) measurementLog() ([]byte, error) {
-	return ioutil.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
+	return os.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }

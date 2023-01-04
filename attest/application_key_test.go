@@ -496,8 +496,7 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 				expected = defaultConfig
 			}
 
-			pub := sk.Public()
-			switch pub.(type) {
+			switch pub := sk.Public().(type) {
 			case *ecdsa.PublicKey:
 				if expected.Algorithm != ECDSA {
 					t.Errorf("incorrect key type generated, expected %q, got EC", expected.Algorithm)
@@ -511,16 +510,15 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 				if !ok {
 					t.Fatalf("cannot match curve to key size %d", expected.Size)
 				}
-				curve := pub.(*ecdsa.PublicKey).Curve
-				if expectedCurve != curve {
-					t.Errorf("incorrect curve, expected %v, got %v", expectedCurve, curve)
+				if expectedCurve != pub.Curve {
+					t.Errorf("incorrect curve, expected %v, got %v", expectedCurve, pub.Curve)
 				}
 			case *rsa.PublicKey:
 				if expected.Algorithm != RSA {
 					t.Errorf("incorrect key type, expected %q, got RSA", expected.Algorithm)
 				}
-				if pub.(*rsa.PublicKey).Size()*8 != expected.Size {
-					t.Errorf("incorrect key size, expected %d, got %d", expected.Size, pub.(*rsa.PublicKey).Size()*8)
+				if pub.Size()*8 != expected.Size {
+					t.Errorf("incorrect key size, expected %d, got %d", expected.Size, pub.Size()*8)
 				}
 			default:
 				t.Errorf("unsupported key type: %T", pub)

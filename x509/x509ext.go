@@ -18,9 +18,9 @@ var (
 	oidPermanentIdentifier = []int{1, 3, 6, 1, 5, 5, 7, 8, 3}
 )
 
-// OtherName ::= SEQUENCE {
-//     type-id    OBJECT IDENTIFIER,
-//     value      [0] EXPLICIT ANY DEFINED BY type-id }
+//	OtherName ::= SEQUENCE {
+//	  type-id    OBJECT IDENTIFIER,
+//	  value      [0] EXPLICIT ANY DEFINED BY type-id }
 type otherName struct {
 	TypeID asn1.ObjectIdentifier
 	Value  asn1.RawValue
@@ -42,10 +42,13 @@ func marshalOtherName(typeID asn1.ObjectIdentifier, value interface{}) (asn1.Raw
 	return asn1.RawValue{FullBytes: bytes}, nil
 }
 
-// PermanentIdentifier ::= SEQUENCE {
-//     identifierValue    UTF8String OPTIONAL,
-//     assigner           OBJECT IDENTIFIER OPTIONAL
-//    }
+// PermanentIdentifier represents an ASN.1 encoded "permanent identifier" as
+// defined by RFC4043.
+//
+//	PermanentIdentifier ::= SEQUENCE {
+//	    identifierValue    UTF8String OPTIONAL,
+//	    assigner           OBJECT IDENTIFIER OPTIONAL
+//	   }
 //
 // https://datatracker.ietf.org/doc/html/rfc4043
 type PermanentIdentifier struct {

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/asn1"
 	"errors"
@@ -52,8 +53,6 @@ func (t *wrappedTPM20) ekTemplate() (tpm2.Public, error) {
 
 	return *t.tpmEkTemplate, nil
 }
-
-func (*wrappedTPM20) isTPMBase() {}
 
 func (t *wrappedTPM20) tpmVersion() TPMVersion {
 	return TPMVersion20
@@ -91,6 +90,7 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 		// Found the persistent handle, assume it's the key we want.
 		return pHnd, false, nil
 	}
+	rerr := err // Preserve this failure for later logging, if needed
 
 	var keyHnd tpmutil.Handle
 	switch pHnd {
@@ -104,7 +104,7 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
 	}
 	if err != nil {
-		return 0, false, fmt.Errorf("CreatePrimary failed: %v", err)
+		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
 	}
 	defer tpm2.FlushContext(t.rwc, keyHnd)
 
@@ -175,7 +175,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	}()
 
 	// We can only certify the creation immediately afterwards, so we cache the result.
-	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{tpm2.AlgRSASSA, tpm2.AlgSHA256, 0}, tix)
+	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{Alg: tpm2.AlgRSASSA, Hash: tpm2.AlgSHA256, Count: 0}, tix)
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}
@@ -501,16 +501,29 @@ func (k *wrappedKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opt
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
-	switch pub.(type) {
+	switch p := pub.(type) {
 	case *ecdsa.PublicKey:
-		return signECDSA(t.rwc, k.hnd, digest)
+		return signECDSA(t.rwc, k.hnd, digest, p.Curve)
 	case *rsa.PublicKey:
 		return signRSA(t.rwc, k.hnd, digest, opts)
 	}
 	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
 
-func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte) ([]byte, error) {
+func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve) ([]byte, error) {
+	// https://cs.opensource.google/go/go/+/refs/tags/go1.19.2:src/crypto/ecdsa/ecdsa.go;l=181
+	orderBits := curve.Params().N.BitLen()
+	orderBytes := (orderBits + 7) / 8
+	if len(digest) > orderBytes {
+		digest = digest[:orderBytes]
+	}
+	ret := new(big.Int).SetBytes(digest)
+	excess := len(digest)*8 - orderBits
+	if excess > 0 {
+		ret.Rsh(ret, uint(excess))
+	}
+	digest = ret.Bytes()
+
 	sig, err := tpm2.Sign(rw, key, "", digest, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)

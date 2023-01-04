@@ -13,7 +13,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/google/go-attestation/attest"
@@ -153,10 +152,10 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			return err
 		}
-		return ioutil.WriteFile(*keyPath, b, 0644)
+		return os.WriteFile(*keyPath, b, 0644)
 
 	case "quote":
-		b, err := ioutil.ReadFile(*keyPath)
+		b, err := os.ReadFile(*keyPath)
 		if err != nil {
 			return err
 		}

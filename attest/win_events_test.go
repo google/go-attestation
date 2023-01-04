@@ -16,7 +16,7 @@ package attest
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -31,7 +31,7 @@ func TestParseWinEvents(t *testing.T) {
 		CodeIntegrityEnabled: TernaryTrue,
 		BitlockerUnlocks:     []BitlockerStatus{0, 0},
 		LoadedModules: map[string]WinModuleLoad{
-			"0fdce7d71936f79445e7d2c84cbeb97c948d3730e0b839166b0a4e625c2d4547": WinModuleLoad{
+			"0fdce7d71936f79445e7d2c84cbeb97c948d3730e0b839166b0a4e625c2d4547": {
 				FilePath:           `\Windows\System32\drivers\vioscsi.sys`,
 				ImageBase:          []uint64{81416192},
 				ImageSize:          uint64(86016),
@@ -49,7 +49,7 @@ func TestParseWinEvents(t *testing.T) {
 				},
 				AuthenticodeHash: []byte{15, 220, 231, 215, 25, 54, 247, 148, 69, 231, 210, 200, 76, 190, 185, 124, 148, 141, 55, 48, 224, 184, 57, 22, 107, 10, 78, 98, 92, 45, 69, 71},
 			},
-			"055a36a9921b98cc04042ca95249c7eca655536868dafcec7508947ebe5e71f4": WinModuleLoad{
+			"055a36a9921b98cc04042ca95249c7eca655536868dafcec7508947ebe5e71f4": {
 				FilePath:           `\Windows\System32\Drivers\ksecpkg.sys`,
 				ImageBase:          []uint64{82952192},
 				ImageSize:          uint64(204800),
@@ -67,7 +67,7 @@ func TestParseWinEvents(t *testing.T) {
 				},
 				AuthenticodeHash: []byte{5, 90, 54, 169, 146, 27, 152, 204, 4, 4, 44, 169, 82, 73, 199, 236, 166, 85, 83, 104, 104, 218, 252, 236, 117, 8, 148, 126, 190, 94, 113, 244},
 			},
-			"2bedd1589410b6fa13c82f35db735025b6a160595922750248771f5abd0fee58": WinModuleLoad{
+			"2bedd1589410b6fa13c82f35db735025b6a160595922750248771f5abd0fee58": {
 				FilePath:           `\Windows\System32\drivers\volmgrx.sys`,
 				ImageBase:          []uint64{80875520},
 				ImageSize:          uint64(405504),
@@ -87,11 +87,11 @@ func TestParseWinEvents(t *testing.T) {
 			},
 		},
 		ELAM: map[string]WinELAM{
-			"Windows Defender": WinELAM{Measured: []byte{0x06, 0x7d, 0x5b, 0x9d, 0xc5, 0x62, 0x7f, 0x97, 0xdc, 0xf3, 0xfe, 0xff, 0x60, 0x2a, 0x34, 0x2e, 0xd6, 0x98, 0xd2, 0xcc}},
+			"Windows Defender": {Measured: []byte{0x06, 0x7d, 0x5b, 0x9d, 0xc5, 0x62, 0x7f, 0x97, 0xdc, 0xf3, 0xfe, 0xff, 0x60, 0x2a, 0x34, 0x2e, 0xd6, 0x98, 0xd2, 0xcc}},
 		},
 	}
 
-	data, err := ioutil.ReadFile("testdata/windows_gcp_shielded_vm.json")
+	data, err := os.ReadFile("testdata/windows_gcp_shielded_vm.json")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestParseWinEvents(t *testing.T) {
 		"055a36a9921b98cc04042ca95249c7eca655536868dafcec7508947ebe5e71f4": true,
 		"2bedd1589410b6fa13c82f35db735025b6a160595922750248771f5abd0fee58": true,
 	}
-	for k, _ := range winState.LoadedModules {
+	for k := range winState.LoadedModules {
 		if _, keep := keep[k]; !keep {
 			delete(winState.LoadedModules, k)
 		}

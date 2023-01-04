@@ -600,7 +600,7 @@ func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header micros
 				return err
 			}
 		case imageValidated:
-			if imgValidated == true {
+			if imgValidated {
 				return errors.New("duplicate image validated field in LMA event")
 			}
 			if imgValidated, err = w.parseImageValidated(h, r); err != nil {

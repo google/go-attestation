@@ -17,12 +17,12 @@ package attest
 import (
 	"encoding/base64"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 )
 
 func TestSecureBoot(t *testing.T) {
-	data, err := ioutil.ReadFile("testdata/windows_gcp_shielded_vm.json")
+	data, err := os.ReadFile("testdata/windows_gcp_shielded_vm.json")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestSecureBoot(t *testing.T) {
 
 // See: https://github.com/google/go-attestation/issues/157
 func TestSecureBootBug157(t *testing.T) {
-	raw, err := ioutil.ReadFile("testdata/sb_cert_eventlog")
+	raw, err := os.ReadFile("testdata/sb_cert_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -135,7 +135,7 @@ func b64MustDecode(input string) []byte {
 }
 
 func TestSecureBootOptionRom(t *testing.T) {
-	raw, err := ioutil.ReadFile("testdata/option_rom_eventlog")
+	raw, err := os.ReadFile("testdata/option_rom_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestSecureBootOptionRom(t *testing.T) {
 }
 
 func TestSecureBootEventLogUbuntu(t *testing.T) {
-	data, err := ioutil.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
+	data, err := os.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestSecureBootEventLogUbuntu(t *testing.T) {
 }
 
 func TestSecureBootEventLogFedora36(t *testing.T) {
-	data, err := ioutil.ReadFile("testdata/coreos_36_shielded_vm_no_secure_boot_eventlog")
+	data, err := os.ReadFile("testdata/coreos_36_shielded_vm_no_secure_boot_eventlog")
 	if err != nil {
 		t.Fatalf("reading test data: %v", err)
 	}
