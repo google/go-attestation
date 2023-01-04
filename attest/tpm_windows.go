@@ -276,11 +276,11 @@ func decryptCredential(secretKey, blob []byte) ([]byte, error) {
 }
 
 func (t *windowsTPM) newAK(opts *AKConfig) (*AK, error) {
-	nameHex := make([]byte, 5)
-	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
-		return nil, fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
+
+	name, err := getAKName(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create name for key: %w", err)
 	}
-	name := fmt.Sprintf("ak-%x", nameHex)
 
 	kh, err := t.pcp.NewAK(name)
 	if err != nil {
@@ -490,6 +490,24 @@ func getKeyName(config *KeyConfig) (string, error) {
 	}
 
 	prefix := "app"
+	if config.Prefix != "" {
+		prefix = config.Prefix
+	}
+
+	nameHex := make([]byte, 5)
+	if n, err := rand.Read(nameHex); err != nil || n != len(nameHex) {
+		return "", fmt.Errorf("rand.Read() failed with %d/%d bytes read and error: %v", n, len(nameHex), err)
+	}
+
+	return fmt.Sprintf("%s-%x", prefix, nameHex), nil
+}
+
+func getAKName(config *AKConfig) (string, error) {
+	if config.Name != "" {
+		return config.Name, nil
+	}
+
+	prefix := "ak"
 	if config.Prefix != "" {
 		prefix = config.Prefix
 	}

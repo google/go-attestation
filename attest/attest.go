@@ -158,6 +158,14 @@ func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, er
 // AKConfig encapsulates parameters for minting keys. This type is defined
 // now (despite being empty) for future interface compatibility.
 type AKConfig struct {
+	// Name is used to specify a name for the key, instead of generating
+	// a random one. If provided, the Prefix will be ignored. This property
+	// is only used on Windows.
+	Name string
+
+	// Prefix is used to specify a custom prefix for the key, instead of
+	// using the default `app`. This property is only used on Windows.
+	Prefix string
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
@@ -398,10 +406,10 @@ func (a HashAlg) String() string {
 // the booted state of the machine the TPM is attached to.
 //
 // The digests contained in the event log can be considered authentic if:
-//  - The AK public corresponds to the known AK for that platform.
-//  - All quotes are verified with AKPublic.Verify(), and return no errors.
-//  - The event log parsed successfully using ParseEventLog(), and a call
-//    to EventLog.Verify() with the full set of PCRs returned no error.
+//   - The AK public corresponds to the known AK for that platform.
+//   - All quotes are verified with AKPublic.Verify(), and return no errors.
+//   - The event log parsed successfully using ParseEventLog(), and a call
+//     to EventLog.Verify() with the full set of PCRs returned no error.
 type PlatformParameters struct {
 	// The version of the TPM which generated this attestation.
 	TPMVersion TPMVersion
