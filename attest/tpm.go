@@ -223,7 +223,10 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 }
 
 func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
-	ekCert, err := tpm2.NVReadEx(tpm, nvramCertIndex, tpm2.HandleOwner, "", 0)
+	// By passing nvramCertIndex as our auth handle we're using the NV index
+	// itself as the auth hierarchy, which is the same approach
+	// tpm2_getekcertificate takes.
+	ekCert, err := tpm2.NVReadEx(tpm, nvramCertIndex, nvramCertIndex, "", 0)
 	if err != nil {
 		return nil, fmt.Errorf("reading EK cert: %v", err)
 	}
