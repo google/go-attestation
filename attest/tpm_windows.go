@@ -403,6 +403,27 @@ func (t *windowsTPM) loadKey(opaqueBlob []byte) (*Key, error) {
 	return &Key{key: newWindowsKey20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pubKey, tpm: t}, nil
 }
 
+func (t *windowsTPM) deleteKey(opaqueBlob []byte) error {
+	sKey, err := deserializeKey(opaqueBlob, TPMVersion20)
+	if err != nil {
+		return fmt.Errorf("deserializeKey() failed: %w", err)
+	}
+	if sKey.Encoding != keyEncodingOSManaged {
+		return fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
+	}
+
+	hnd, err := t.pcp.LoadKeyByName(sKey.Name)
+	if err != nil {
+		return fmt.Errorf("pcp failed to load key: %w", err)
+	}
+
+	if err := t.pcp.DeleteKey(hnd); err != nil {
+		return fmt.Errorf("delete public key: %w", err)
+	}
+
+	return nil
+}
+
 func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
 	numPCRs := 24
 	out := map[uint32][]byte{}

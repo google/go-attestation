@@ -300,6 +300,7 @@ type tpmBase interface {
 	newAK(opts *AKConfig) (*AK, error)
 	loadKey(opaqueBlob []byte) (*Key, error)
 	newKey(ak *AK, opts *KeyConfig) (*Key, error)
+	deleteKey(opaqueBlob []byte) error
 	pcrs(alg HashAlg) ([]PCR, error)
 	measurementLog() ([]byte, error)
 }
@@ -384,6 +385,10 @@ func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
 // to this function.
 func (t *TPM) LoadKey(opaqueBlob []byte) (*Key, error) {
 	return t.tpm.loadKey(opaqueBlob)
+}
+
+func (t *TPM) DeleteKey(opaqueBlob []byte) error {
+	return t.tpm.deleteKey(opaqueBlob)
 }
 
 // PCRs returns the present value of Platform Configuration Registers with

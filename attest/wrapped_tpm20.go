@@ -335,6 +335,11 @@ func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (*Key, error) {
 	return &Key{key: newWrappedKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
+func (t *wrappedTPM20) deleteKey(opaqueBlob []byte) error {
+	// assuming the *wrappedTPM doesn't store the key at all, there's nothing to do // TODO: verify if this is correct
+	return nil
+}
+
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
 	PCRs, err := readAllPCRs20(t.rwc, alg.goTPMAlg())
 	if err != nil {
