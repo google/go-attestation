@@ -112,8 +112,8 @@ func (t *trousersTPM) loadKey(opaqueBlob []byte) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (t *trousersTPM) deleteKey(opaqueBlob []byte) (*Key, error) {
-	return nil, fmt.Errorf("not implemented")
+func (t *trousersTPM) deleteKey(opaqueBlob []byte) error {
+	return fmt.Errorf("not implemented")
 }
 
 func (t *trousersTPM) newAK(opts *AKConfig) (*AK, error) {
