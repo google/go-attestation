@@ -118,11 +118,53 @@ type ak interface {
 	quote(t tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle interface{}) (*CertificationParameters, error)
+	sign(tpmBase, []byte, crypto.PublicKey, crypto.SignerOpts, any) ([]byte, error)
 }
 
 // AK represents a key which can be used for attestation.
 type AK struct {
 	ak ak
+
+	pub crypto.PublicKey
+	tpm tpmBase
+}
+
+// signer implements crypto.Signer returned by Key.Private().
+type akSigner struct {
+	ak  ak
+	pub crypto.PublicKey
+	tpm tpmBase
+}
+
+// Sign hashes data within the TPM and uses the restricted AK to sign the resulting
+// digest. Hashing within the TPM is necessary to retrieve a TPM validation ticket
+// confirming that the data to-be-signed does not start with TPM_GENERATED_VALUE.
+// Restricted keys only allow signing data from outside the TPM, if the data
+// does not begin with TPM_GENERATED_VALUE.
+func (s *akSigner) Sign(r io.Reader, data []byte, opts crypto.SignerOpts) ([]byte, error) {
+
+	digest, validation, err := s.tpm.hash(opts.HashFunc(), data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash data within TPM: %w", err)
+	}
+
+	return s.ak.sign(s.tpm, digest, s.pub, opts, validation)
+}
+
+// Public returns the public key corresponding to the private key.
+func (s *akSigner) Public() crypto.PublicKey {
+	return s.pub
+}
+
+// Public returns the public key corresponding to the private key.
+func (k *AK) Public() crypto.PublicKey {
+	return k.pub
+}
+
+// Private returns the crypto.PrivateKey interface to sign data
+// within the TPM.
+func (k *AK) Private() crypto.PrivateKey {
+	return &akSigner{k.ak, k.pub, k.tpm}
 }
 
 // Close unloads the AK from the system.

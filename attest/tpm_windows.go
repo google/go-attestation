@@ -19,6 +19,7 @@ package attest
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -432,4 +433,12 @@ func (t *windowsTPM) measurementLog() ([]byte, error) {
 		return nil, err
 	}
 	return logBuffer, nil
+}
+
+func (t *windowsTPM) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation any) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (t *windowsTPM) hash(hashAlg crypto.Hash, data []byte) ([]byte, any, error) {
+	return nil, nil, errors.New("not implemented")
 }

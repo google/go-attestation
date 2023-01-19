@@ -18,6 +18,8 @@
 package attest
 
 import (
+	"crypto"
+	"errors"
 	"fmt"
 
 	"github.com/google/go-tpm/legacy/tpm2"
@@ -109,6 +111,10 @@ func (k *windowsKey12) attestationParameters() AttestationParameters {
 }
 func (k *windowsKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (k *windowsKey12) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation any) ([]byte, error) {
+	return nil, errors.New("not implemented")
 }
 
 // windowsKey20 represents a key bound to a TPM 2.0.
@@ -211,4 +217,8 @@ func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
 	return certify(tpm, hnd, akHnd, scheme)
+}
+
+func (k *windowsKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation any) ([]byte, error) {
+	return nil, errors.New("not implemented")
 }
