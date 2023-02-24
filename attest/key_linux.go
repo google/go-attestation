@@ -18,6 +18,7 @@
 package attest
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/go-tspi/attestation"
@@ -95,4 +96,8 @@ func (k *trousersKey12) attestationParameters() AttestationParameters {
 
 func (k *trousersKey12) certify(tb tpmBase, handle interface{}, qualifyingData []byte) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (k *trousersKey12) blobs() ([]byte, []byte, error) {
+	return nil, nil, errors.New("not implemented")
 }

@@ -120,6 +120,10 @@ func (k *windowsAK12) certify(tb tpmBase, handle interface{}, qualifyingData []b
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (k *windowsAK12) blobs() ([]byte, []byte, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
 // windowsAK20 represents a key bound to a TPM 2.0.
 type windowsAK20 struct {
 	hnd uintptr

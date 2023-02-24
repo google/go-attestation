@@ -136,6 +136,10 @@ func (t *trousersTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	return &AK{ak: newTrousersKey12(sKey.Blob, sKey.Public)}, nil
 }
 
+func (t *trousersTPM) deleteAK(opaqueBlob []byte) error {
+	return fmt.Errorf("not implemented")
+}
+
 // allPCRs12 returns a map of all the PCR values on the TPM
 func allPCRs12(ctx *tspi.Context) (map[uint32][]byte, error) {
 	tpm := ctx.GetTPM()
