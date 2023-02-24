@@ -326,6 +326,27 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	}
 }
 
+func (t *windowsTPM) deleteAK(opaqueBlob []byte) error {
+	sKey, err := deserializeKey(opaqueBlob, TPMVersion20)
+	if err != nil {
+		return fmt.Errorf("deserializeKey() failed: %w", err)
+	}
+	if sKey.Encoding != keyEncodingOSManaged {
+		return fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
+	}
+
+	hnd, err := t.pcp.LoadKeyByName(sKey.Name)
+	if err != nil {
+		return fmt.Errorf("pcp failed to load key: %w", err)
+	}
+
+	if err := t.pcp.DeleteKey(hnd); err != nil {
+		return fmt.Errorf("delete public key: %w", err)
+	}
+
+	return nil
+}
+
 func (t *windowsTPM) newKey(ak *AK, config *KeyConfig) (*Key, error) {
 	if t.version != TPMVersion20 {
 		return nil, fmt.Errorf("key generation on TPM version %v is unsupported", t.version)

@@ -301,6 +301,7 @@ type tpmBase interface {
 
 	loadAK(opaqueBlob []byte) (*AK, error)
 	newAK(opts *AKConfig) (*AK, error)
+	deleteAK(opaqueBlob []byte) error
 	loadKey(opaqueBlob []byte) (*Key, error)
 	newKey(ak *AK, opts *KeyConfig) (*Key, error)
 	deleteKey(opaqueBlob []byte) error
@@ -359,6 +360,10 @@ func (t *TPM) MeasurementLog() ([]byte, error) {
 // NewAK creates an attestation key.
 func (t *TPM) NewAK(opts *AKConfig) (*AK, error) {
 	return t.tpm.newAK(opts)
+}
+
+func (t *TPM) DeleteAK(opaqueBlob []byte) error {
+	return t.tpm.deleteAK(opaqueBlob)
 }
 
 // NewKey creates an application key certified by the attestation key. If opts is nil

@@ -319,6 +319,11 @@ func (t *wrappedTPM20) loadAK(opaqueBlob []byte) (*AK, error) {
 	return &AK{ak: newWrappedAK20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
 }
 
+func (t *wrappedTPM20) deleteAK(opaqueBlob []byte) error {
+	// assuming the *wrappedTPM doesn't store the key at all, there's nothing to do // TODO: verify if this is correct
+	return nil
+}
+
 func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (*Key, error) {
 	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob)
 	if err != nil {
