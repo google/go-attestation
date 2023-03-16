@@ -219,7 +219,7 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 	pubHash.Write(ekPub.N.Bytes())
 	pubHash.Write([]byte{0x1, 0x00, 0x01})
 
-	return intelEKCertServiceURL + base64.URLEncoding.EncodeToString(pubHash.Sum(nil))
+	return intelEKCertServiceURL + strings.ReplaceAll(base64.URLEncoding.EncodeToString(pubHash.Sum(nil)), "=", "%3D")
 }
 
 func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
