@@ -161,17 +161,11 @@ func (k *AK) Blobs() (pub, priv []byte, err error) {
 	return k.ak.blobs()
 }
 
-// AKConfig encapsulates parameters for minting keys. This type is defined
-// now (despite being empty) for future interface compatibility.
+// AKConfig encapsulates parameters for minting keys.
 type AKConfig struct {
 	// Name is used to specify a name for the key, instead of generating
-	// a random one. If provided, the Prefix will be ignored. This property
-	// is only used on Windows.
+	// a random one. This property is only used on Windows.
 	Name string
-
-	// Prefix is used to specify a custom prefix for the key, instead of
-	// using the default `app`. This property is only used on Windows.
-	Prefix string
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
