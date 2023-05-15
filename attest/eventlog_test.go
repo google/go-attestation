@@ -174,6 +174,43 @@ func TestParseEventLogEventSizeZero(t *testing.T) {
 	}
 }
 
+func TestParseEventLog2EventSizeZero(t *testing.T) {
+	data := []byte{
+		// PCR index
+		0x0, 0x0, 0x0, 0x0,
+
+		// type
+		0x7, 0x0, 0x0, 0x0,
+
+		// number of digests
+		0x1, 0x0, 0x0, 0x0,
+
+		// algorithm
+		0xb, 0x0,
+
+		// Digest
+		0xc8, 0xe3, 0x88, 0xb4, 0x79, 0x12, 0x86, 0x0c,
+		0x66, 0xa1, 0x5d, 0xad, 0xc4, 0x34, 0xf5, 0xdf,
+		0x73, 0x6c, 0x3a, 0xb4, 0xbe, 0x52, 0x07, 0x08,
+		0xdf, 0xac, 0x48, 0x2d, 0x71, 0xce, 0xa0, 0x73,
+
+		// Event size (0 B)
+		0x0, 0x0, 0x0, 0x0,
+
+		// no "event data"
+	}
+
+	specID := &specIDEvent{
+		algs: []specAlgSize{
+			{ID: uint16(tpm2.AlgSHA256), Size: 32},
+		},
+	}
+
+	if _, err := parseRawEvent2(bytes.NewBuffer(data), specID); err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+}
+
 func TestParseShortNoAction(t *testing.T) {
 	// https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClientSpecPlat_TPM_2p0_1p04_pub.pdf#page=110
 	// says: "For EV_NO_ACTION events other than the EFI Specification ID event
