@@ -97,10 +97,14 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 	if err != nil {
 		return fmt.Errorf("DecodePublic() failed: %v", err)
 	}
-	_, err = tpm2.DecodeCreationData(p.AK.CreateData)
-	if err != nil {
-		return fmt.Errorf("DecodeCreationData() failed: %v", err)
+
+	if len(p.AK.CreateData) > 0 {
+		_, err = tpm2.DecodeCreationData(p.AK.CreateData)
+		if err != nil {
+			return fmt.Errorf("DecodeCreationData() failed: %v", err)
+		}
 	}
+
 	att, err := tpm2.DecodeAttestationData(p.AK.CreateAttestation)
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
