@@ -105,8 +105,45 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 	if err != nil {
 		return fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
-	if att.Type != tpm2.TagAttestCreation {
-		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
+
+	switch att.Type {
+	case tpm2.TagAttestCreation:
+		// Verify the attested creation name matches what is computed from
+		// the public key.
+		match, err := att.AttestedCreationInfo.Name.MatchesPublic(pub)
+		if err != nil {
+			return err
+		}
+		if !match {
+			return errors.New("creation attestation refers to a different key")
+		}
+
+		// Further verify CreateData as part of this step, if provided
+		if len(p.AK().CreateData) > 0 {
+			// Compute & verify that the creation data matches the digest in the
+			// attestation structure.
+			nameHash, err := pub.NameAlg.Hash()
+			if err != nil {
+				return fmt.Errorf("HashConstructor() failed: %v", err)
+			}
+			h := nameHash.New()
+			h.Write(p.AK().CreateData)
+			if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
+				return errors.New("attestation refers to different public key")
+			}
+		}
+	case tpm2.TagAttestCertify:
+		// Verify the attested certify name matches what is computed from
+		// the public key.
+		match, err := att.AttestedCertifyInfo.Name.MatchesPublic(pub)
+		if err != nil {
+			return err
+		}
+		if !match {
+			return errors.New("certify attestation refers to a different key")
+		}
+	default:
+		return fmt.Errorf("attestation does not apply to creation or certify data, got %x", att.Type)
 	}
 
 	// TODO: Support ECC AKs.
@@ -117,18 +154,6 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 		}
 	default:
 		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
-	}
-
-	// Compute & verify that the creation data matches the digest in the
-	// attestation structure.
-	nameHash, err := pub.NameAlg.Hash()
-	if err != nil {
-		return fmt.Errorf("HashConstructor() failed: %v", err)
-	}
-	h := nameHash.New()
-	h.Write(p.AK.CreateData)
-	if !bytes.Equal(att.AttestedCreationInfo.OpaqueDigest, h.Sum(nil)) {
-		return errors.New("attestation refers to different public key")
 	}
 
 	// Make sure the AK has sane key parameters (Attestation can be faked if an AK
@@ -147,16 +172,6 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 	}
 	if ((pub.Attributes & tpm2.FlagRestricted) == 0) || ((pub.Attributes & tpm2.FlagFixedParent) == 0) || ((pub.Attributes & tpm2.FlagSensitiveDataOrigin) == 0) {
 		return errors.New("provided key is not limited to attestation")
-	}
-
-	// Verify the attested creation name matches what is computed from
-	// the public key.
-	match, err := att.AttestedCreationInfo.Name.MatchesPublic(pub)
-	if err != nil {
-		return err
-	}
-	if !match {
-		return errors.New("creation attestation refers to a different key")
 	}
 
 	// Check the signature over the attestation data verifies correctly.
@@ -233,13 +248,30 @@ func (p *ActivationParameters) generateChallengeTPM20(secret []byte) (*Encrypted
 	if err != nil {
 		return nil, fmt.Errorf("DecodeAttestationData() failed: %v", err)
 	}
-	if att.AttestedCreationInfo == nil {
-		return nil, fmt.Errorf("attestation was not for a creation event")
+
+	var aikDigest *tpm2.HashValue
+	switch att.Type {
+	case tpm2.TagAttestCreation:
+		if att.AttestedCreationInfo.Name.Digest == nil {
+			return nil, fmt.Errorf("attestation creation info name has no digest")
+		}
+
+		aikDigest = att.AttestedCreationInfo.Name.Digest
+	case tpm2.TagAttestCertify:
+		if att.AttestedCertifyInfo.Name.Digest == nil {
+			return nil, fmt.Errorf("attestation certify info name has no digest")
+		}
+
+		aikDigest = att.AttestedCertifyInfo.Name.Digest
+	default:
+		return fmt.Errorf("attestation does not apply to creation or certify data, got %x", att.Type)
 	}
-	if att.AttestedCreationInfo.Name.Digest == nil {
-		return nil, fmt.Errorf("attestation creation info name has no digest")
+
+	if aikDigest == nil {
+		return nil, fmt.Errorf("unable to extract an AIK digest from the given AK public key")
 	}
-	cred, encSecret, err := credactivation.Generate(att.AttestedCreationInfo.Name.Digest, p.EK, symBlockSize, secret)
+
+	cred, encSecret, err := credactivation.Generate(aikDigest, p.EK, symBlockSize, secret)
 	if err != nil {
 		return nil, fmt.Errorf("credactivation.Generate() failed: %v", err)
 	}
