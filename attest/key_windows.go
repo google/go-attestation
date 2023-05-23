@@ -270,7 +270,7 @@ func (k *windowsAK20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts
 
 	switch p := pub.(type) {
 	case *ecdsa.PublicKey:
-		return signECDSA(rw, hnd, digest, p.Curve)
+		return signECDSA(rw, hnd, digest, p.Curve, opts)
 	case *rsa.PublicKey:
 		return signRSA(rw, hnd, digest, opts)
 	}
