@@ -37,9 +37,9 @@ type wrappedTPM20 struct {
 	tpmEkTemplate *tpm2.Public
 }
 
-func (t *wrappedTPM20) ekTemplate() (tpm2.Public, error) {
+func (t *wrappedTPM20) ekTemplate() tpm2.Public {
 	if t.tpmEkTemplate != nil {
-		return *t.tpmEkTemplate, nil
+		return *t.tpmEkTemplate
 	}
 
 	nonce, err := tpm2.NVReadEx(t.rwc, nvramEkNonceIndex, tpm2.HandleOwner, "", 0)
@@ -51,7 +51,7 @@ func (t *wrappedTPM20) ekTemplate() (tpm2.Public, error) {
 		t.tpmEkTemplate = &template
 	}
 
-	return *t.tpmEkTemplate, nil
+	return *t.tpmEkTemplate
 }
 
 func (t *wrappedTPM20) tpmVersion() TPMVersion {
@@ -97,11 +97,7 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 	case commonSrkEquivalentHandle:
 		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", defaultSRKTemplate)
 	case commonEkEquivalentHandle:
-		var tmpl tpm2.Public
-		if tmpl, err = t.ekTemplate(); err != nil {
-			return 0, false, fmt.Errorf("ek template: %v", err)
-		}
-		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
+		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.ekTemplate())
 	}
 	if err != nil {
 		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
@@ -124,12 +120,7 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 	}
 
 	// Attempt to create an EK.
-	tmpl, err := t.ekTemplate()
-	if err != nil {
-		return nil, fmt.Errorf("ek template: %v", err)
-	}
-
-	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
+	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.ekTemplate())
 	if err != nil {
 		return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
 	}
