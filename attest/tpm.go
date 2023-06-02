@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/google/go-tpm/tpm2"
@@ -219,7 +220,7 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 	pubHash.Write(ekPub.N.Bytes())
 	pubHash.Write([]byte{0x1, 0x00, 0x01})
 
-	return intelEKCertServiceURL + base64.URLEncoding.EncodeToString(pubHash.Sum(nil))
+	return intelEKCertServiceURL + url.QueryEscape(base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
 }
 
 func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
