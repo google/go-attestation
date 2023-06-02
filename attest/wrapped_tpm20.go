@@ -83,12 +83,11 @@ func (t *wrappedTPM20) info() (*TPMInfo, error) {
 	return &tInfo, nil
 }
 
-// Return value: handle, whether we generated a new one, error
-func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle, bool, error) {
+func (t *wrappedTPM20) persistHandle(pHnd tpmutil.Handle) error {
 	_, _, _, err := tpm2.ReadPublic(t.rwc, pHnd)
 	if err == nil {
-		// Found the persistent handle, assume it's the key we want.
-		return pHnd, false, nil
+		// Found the persistent handle, no need to do anything.
+		return nil
 	}
 	rerr := err // Preserve this failure for later logging, if needed
 
@@ -100,16 +99,16 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.ekTemplate())
 	}
 	if err != nil {
-		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
+		return fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
 	}
 	defer tpm2.FlushContext(t.rwc, keyHnd)
 
 	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, pHnd)
 	if err != nil {
-		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
+		return fmt.Errorf("EvictControl failed: %v", err)
 	}
 
-	return pHnd, true, nil
+	return nil
 }
 
 func (t *wrappedTPM20) eks() ([]EK, error) {
@@ -145,16 +144,16 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 
 func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	// TODO(jsonp): Abstract choice of hierarchy & parent.
-	srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
+	err := t.persistHandle(commonSrkEquivalentHandle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
 
-	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", akTemplate)
+	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, commonSrkEquivalentHandle, tpm2.PCRSelection{}, "", "", akTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
 	}
-	keyHandle, _, err := tpm2.Load(t.rwc, srk, "", pub, blob)
+	keyHandle, _, err := tpm2.Load(t.rwc, commonSrkEquivalentHandle, "", pub, blob)
 	if err != nil {
 		return nil, fmt.Errorf("Load() failed: %v", err)
 	}
@@ -217,7 +216,7 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 }
 
 func createKey(t *wrappedTPM20, opts *KeyConfig) (tpmutil.Handle, []byte, []byte, []byte, error) {
-	srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
+	err := t.persistHandle(commonSrkEquivalentHandle)
 	if err != nil {
 		return 0, nil, nil, nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
@@ -227,12 +226,12 @@ func createKey(t *wrappedTPM20, opts *KeyConfig) (tpmutil.Handle, []byte, []byte
 		return 0, nil, nil, nil, fmt.Errorf("incorrect key options: %v", err)
 	}
 
-	blob, pub, creationData, _, _, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", tmpl)
+	blob, pub, creationData, _, _, err := tpm2.CreateKey(t.rwc, commonSrkEquivalentHandle, tpm2.PCRSelection{}, "", "", tmpl)
 	if err != nil {
 		return 0, nil, nil, nil, fmt.Errorf("CreateKey() failed: %v", err)
 	}
 
-	return srk, blob, pub, creationData, err
+	return commonSrkEquivalentHandle, blob, pub, creationData, err
 }
 
 func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
@@ -291,12 +290,12 @@ func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *s
 		return 0, nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
 
-	srk, _, err := t.getPrimaryKeyHandle(commonSrkEquivalentHandle)
+	err = t.persistHandle(commonSrkEquivalentHandle)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
 	var hnd tpmutil.Handle
-	if hnd, _, err = tpm2.Load(t.rwc, srk, "", sKey.Public, sKey.Blob); err != nil {
+	if hnd, _, err = tpm2.Load(t.rwc, commonSrkEquivalentHandle, "", sKey.Public, sKey.Blob); err != nil {
 		return 0, nil, fmt.Errorf("Load() failed: %v", err)
 	}
 	return hnd, sKey, nil
@@ -417,7 +416,7 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	}
 	secret := in.Secret[2:]
 
-	ekHnd, _, err := t.getPrimaryKeyHandle(commonEkEquivalentHandle)
+	err := t.persistHandle(commonEkEquivalentHandle)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +442,7 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	return tpm2.ActivateCredentialUsingAuth(t.rwc, []tpm2.AuthCommand{
 		{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
 		{Session: sessHandle, Attributes: tpm2.AttrContinueSession},
-	}, k.hnd, ekHnd, credential, secret)
+	}, k.hnd, commonEkEquivalentHandle, credential, secret)
 }
 
 func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {

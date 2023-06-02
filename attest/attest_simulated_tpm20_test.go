@@ -250,22 +250,13 @@ func TestSimTPM20Persistence(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	ekHnd, _, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	err := tpm.tpm.(*wrappedTPM20).persistHandle(commonEkEquivalentHandle)
 	if err != nil {
-		t.Fatalf("getPrimaryKeyHandle() failed: %v", err)
-	}
-	if ekHnd != commonEkEquivalentHandle {
-		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
+		t.Fatalf("persistHandle() failed: %v", err)
 	}
 
-	ekHnd, p, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	err = tpm.tpm.(*wrappedTPM20).persistHandle(commonEkEquivalentHandle)
 	if err != nil {
-		t.Fatalf("second getPrimaryKeyHandle() failed: %v", err)
-	}
-	if ekHnd != commonEkEquivalentHandle {
-		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
-	}
-	if p {
-		t.Fatalf("generated a new key the second time; that shouldn't happen")
+		t.Fatalf("second persistHandle() failed: %v", err)
 	}
 }
