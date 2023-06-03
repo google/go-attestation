@@ -18,28 +18,32 @@
 package attest
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"errors"
 	"fmt"
 
 	tpm1 "github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
 )
 
-// windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.
-type windowsKey12 struct {
+// windowsAK12 represents a Windows-managed key on a TPM1.2 TPM.
+type windowsAK12 struct {
 	hnd        uintptr
 	pcpKeyName string
 	public     []byte
 }
 
-func newWindowsKey12(hnd uintptr, pcpKeyName string, public []byte) ak {
-	return &windowsKey12{
+func newWindowsAK12(hnd uintptr, pcpKeyName string, public []byte) ak {
+	return &windowsAK12{
 		hnd:        hnd,
 		pcpKeyName: pcpKeyName,
 		public:     public,
 	}
 }
 
-func (k *windowsKey12) marshal() ([]byte, error) {
+func (k *windowsAK12) marshal() ([]byte, error) {
 	out := serializedKey{
 		Encoding:   keyEncodingOSManaged,
 		TPMVersion: TPMVersion12,
@@ -49,7 +53,7 @@ func (k *windowsKey12) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsAK12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -61,7 +65,7 @@ func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential) ([]
 	return decryptCredential(secretKey, in.Secret)
 }
 
-func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsAK12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
 	}
@@ -103,21 +107,21 @@ func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, err
 	}, nil
 }
 
-func (k *windowsKey12) close(tpm tpmBase) error {
+func (k *windowsAK12) close(tpm tpmBase) error {
 	return closeNCryptObject(k.hnd)
 }
 
-func (k *windowsKey12) attestationParameters() AttestationParameters {
+func (k *windowsAK12) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public: k.public,
 	}
 }
-func (k *windowsKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsAK12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-// windowsKey20 represents a key bound to a TPM 2.0.
-type windowsKey20 struct {
+// windowsAK20 represents a key bound to a TPM 2.0.
+type windowsAK20 struct {
 	hnd uintptr
 
 	pcpKeyName        string
@@ -127,8 +131,8 @@ type windowsKey20 struct {
 	createSignature   []byte
 }
 
-func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) ak {
-	return &windowsKey20{
+func newWindowsAK20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) ak {
+	return &windowsAK20{
 		hnd:               hnd,
 		pcpKeyName:        pcpKeyName,
 		public:            public,
@@ -138,7 +142,7 @@ func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createA
 	}
 }
 
-func (k *windowsKey20) marshal() ([]byte, error) {
+func (k *windowsAK20) marshal() ([]byte, error) {
 	out := serializedKey{
 		Encoding:   keyEncodingOSManaged,
 		TPMVersion: TPMVersion20,
@@ -152,7 +156,7 @@ func (k *windowsKey20) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *windowsKey20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsAK20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -160,7 +164,7 @@ func (k *windowsKey20) activateCredential(t tpmBase, in EncryptedCredential) ([]
 	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
 }
 
-func (k *windowsKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsAK20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -177,11 +181,11 @@ func (k *windowsKey20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, err
 	return quote20(tpm, tpmKeyHnd, alg.goTPMAlg(), nonce)
 }
 
-func (k *windowsKey20) close(tpm tpmBase) error {
+func (k *windowsAK20) close(tpm tpmBase) error {
 	return closeNCryptObject(k.hnd)
 }
 
-func (k *windowsKey20) attestationParameters() AttestationParameters {
+func (k *windowsAK20) attestationParameters() AttestationParameters {
 	return AttestationParameters{
 		Public:            k.public,
 		CreateData:        k.createData,
@@ -190,7 +194,7 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsAK20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -216,4 +220,60 @@ func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
 	return certify(tpm, hnd, akHnd, scheme)
+}
+
+// newWindowsKey20 returns a pointer to a windowsAK20, conforming to the key interface. This
+// allows the resulting windowsAK20 to be used as a signing key.
+func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) key {
+	return &windowsAK20{
+		hnd:               hnd,
+		pcpKeyName:        pcpKeyName,
+		public:            public,
+		createData:        createData,
+		createAttestation: createAttest,
+		createSignature:   createSig,
+	}
+}
+
+func (k *windowsAK20) blobs() ([]byte, []byte, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (k *windowsAK20) certificationParameters() CertificationParameters {
+	return CertificationParameters{
+		Public:            k.public,
+		CreateAttestation: k.createAttestation,
+		CreateSignature:   k.createSignature,
+	}
+}
+
+func (k *windowsAK20) decrypt(tpmBase, []byte) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (k *windowsAK20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
+
+	t, ok := tb.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
+	}
+
+	rw, err := t.pcp.TPMCommandInterface()
+	if err != nil {
+		return nil, fmt.Errorf("error getting TPM command interface: %w", err)
+	}
+
+	hnd, err := t.pcp.TPMKeyHandle(k.hnd)
+	if err != nil {
+		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+	}
+
+	switch p := pub.(type) {
+	case *ecdsa.PublicKey:
+		return signECDSA(rw, hnd, digest, p.Curve, opts)
+	case *rsa.PublicKey:
+		return signRSA(rw, hnd, digest, opts)
+	}
+
+	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
