@@ -32,26 +32,26 @@ import (
 
 // wrappedTPM20 interfaces with a TPM 2.0 command channel.
 type wrappedTPM20 struct {
-	interf        TPMInterface
-	rwc           CommandChannelTPM20
-	tpmEkTemplate *tpm2.Public
+	interf           TPMInterface
+	rwc              CommandChannelTPM20
+	tpmRSAEkTemplate *tpm2.Public
 }
 
-func (t *wrappedTPM20) ekTemplate() tpm2.Public {
-	if t.tpmEkTemplate != nil {
-		return *t.tpmEkTemplate
+func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
+	if t.tpmRSAEkTemplate != nil {
+		return *t.tpmRSAEkTemplate
 	}
 
-	nonce, err := tpm2.NVReadEx(t.rwc, nvramEkNonceIndex, tpm2.HandleOwner, "", 0)
+	nonce, err := tpm2.NVReadEx(t.rwc, nvramRSAEkNonceIndex, tpm2.HandleOwner, "", 0)
 	if err != nil {
-		t.tpmEkTemplate = &defaultEKTemplate // No nonce, use the default template
+		t.tpmRSAEkTemplate = &defaultRSAEKTemplate // No nonce, use the default template
 	} else {
-		template := defaultEKTemplate
+		template := defaultRSAEKTemplate
 		copy(template.RSAParameters.ModulusRaw, nonce)
-		t.tpmEkTemplate = &template
+		t.tpmRSAEkTemplate = &template
 	}
 
-	return *t.tpmEkTemplate
+	return *t.tpmRSAEkTemplate
 }
 
 func (t *wrappedTPM20) tpmVersion() TPMVersion {
@@ -96,8 +96,8 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 	switch pHnd {
 	case commonSrkEquivalentHandle:
 		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", defaultSRKTemplate)
-	case commonEkEquivalentHandle:
-		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.ekTemplate())
+	case commonRSAEkEquivalentHandle:
+		keyHnd, _, err = tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.rsaEkTemplate())
 	}
 	if err != nil {
 		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
@@ -113,14 +113,14 @@ func (t *wrappedTPM20) getPrimaryKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle,
 }
 
 func (t *wrappedTPM20) eks() ([]EK, error) {
-	if cert, err := readEKCertFromNVRAM20(t.rwc); err == nil {
+	if cert, err := readEKCertFromNVRAM20(t.rwc, nvramRSACertIndex); err == nil {
 		return []EK{
 			{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
 		}, nil
 	}
 
 	// Attempt to create an EK.
-	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.ekTemplate())
+	ekHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", t.rsaEkTemplate())
 	if err != nil {
 		return nil, fmt.Errorf("EK CreatePrimary failed: %v", err)
 	}
@@ -417,7 +417,7 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential) ([
 	}
 	secret := in.Secret[2:]
 
-	ekHnd, _, err := t.getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, _, err := t.getPrimaryKeyHandle(commonRSAEkEquivalentHandle)
 	if err != nil {
 		return nil, err
 	}

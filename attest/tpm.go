@@ -37,12 +37,12 @@ const (
 	tpmPtFwVersion1   = 0x00000100 + 11 // PT_FIXED + offset of 11
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities".
-	nvramCertIndex    = 0x1c00002
-	nvramEkNonceIndex = 0x1c00003
+	nvramRSACertIndex    = 0x1c00002
+	nvramRSAEkNonceIndex = 0x1c00003
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
-	commonSrkEquivalentHandle = 0x81000001
-	commonEkEquivalentHandle  = 0x81010001
+	commonSrkEquivalentHandle   = 0x81000001
+	commonRSAEkEquivalentHandle = 0x81010001
 )
 
 var (
@@ -72,9 +72,9 @@ var (
 			KeyBits:    2048,
 		},
 	}
-	// Default EK template defined in:
+	// Default RSA EK template defined in:
 	// https://trustedcomputinggroup.org/wp-content/uploads/Credential_Profile_EK_V2.0_R14_published.pdf
-	defaultEKTemplate = tpm2.Public{
+	defaultRSAEKTemplate = tpm2.Public{
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,
 		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
@@ -223,7 +223,7 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 	return intelEKCertServiceURL + url.QueryEscape(base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
 }
 
-func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
+func readEKCertFromNVRAM20(tpm io.ReadWriter, nvramCertIndex tpmutil.Handle) (*x509.Certificate, error) {
 	// By passing nvramCertIndex as our auth handle we're using the NV index
 	// itself as the auth hierarchy, which is the same approach
 	// tpm2_getekcertificate takes.
