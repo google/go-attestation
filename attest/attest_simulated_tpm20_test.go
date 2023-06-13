@@ -250,20 +250,20 @@ func TestSimTPM20Persistence(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	ekHnd, _, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, _, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonRSAEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("getPrimaryKeyHandle() failed: %v", err)
 	}
-	if ekHnd != commonEkEquivalentHandle {
-		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
+	if ekHnd != commonRSAEkEquivalentHandle {
+		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonRSAEkEquivalentHandle)
 	}
 
-	ekHnd, p, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	ekHnd, p, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonRSAEkEquivalentHandle)
 	if err != nil {
 		t.Fatalf("second getPrimaryKeyHandle() failed: %v", err)
 	}
-	if ekHnd != commonEkEquivalentHandle {
-		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
+	if ekHnd != commonRSAEkEquivalentHandle {
+		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonRSAEkEquivalentHandle)
 	}
 	if p {
 		t.Fatalf("generated a new key the second time; that shouldn't happen")
