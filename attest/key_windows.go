@@ -20,8 +20,8 @@ package attest
 import (
 	"fmt"
 
+	"github.com/google/go-tpm/legacy/tpm2"
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
 )
 
 // windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.

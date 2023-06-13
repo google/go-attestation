@@ -21,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 )
 
 // Dump describes the layout of serialized information from the dump command.
