@@ -49,7 +49,7 @@ func (k *windowsKey12) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -152,7 +152,7 @@ func (k *windowsKey20) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *windowsKey20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsKey20) activateCredential(t tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)

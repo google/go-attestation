@@ -16,7 +16,6 @@ package attest
 
 import (
 	"bytes"
-	"crypto"
 	"flag"
 	"fmt"
 	"reflect"
@@ -119,16 +118,16 @@ func TestAKCreateAndLoad(t *testing.T) {
 	}
 }
 
-// chooseEK selects the EK public which will be activated against.
-func chooseEK(t *testing.T, eks []EK) crypto.PublicKey {
+// chooseEK selects the EK which will be activated against.
+func chooseEK(t *testing.T, eks []EK) EK {
 	t.Helper()
 
 	for _, ek := range eks {
-		return ek.Public
+		return ek
 	}
 
 	t.Fatalf("No suitable EK found")
-	return nil
+	return EK{}
 }
 
 func TestPCRs(t *testing.T) {

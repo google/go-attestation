@@ -151,7 +151,7 @@ func TestTPMActivateCredential(t *testing.T) {
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion12,
 		AK:         ak.AttestationParameters(),
-		EK:         ek,
+		EK:         ek.Public,
 	}
 	secret, challenge, err := ap.Generate()
 	if err != nil {
