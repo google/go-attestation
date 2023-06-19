@@ -152,6 +152,18 @@ func (t *windowsTPM) info() (*TPMInfo, error) {
 	return &tInfo, nil
 }
 
+func (t *windowsTPM) ekCertificates() ([]EK, error) {
+	ekCerts, err := t.pcp.EKCerts()
+	if err != nil {
+		return nil, fmt.Errorf("could not read EKCerts: %v", err)
+	}
+	var eks []EK
+	for _, cert := range ekCerts {
+		eks = append(eks, EK{Certificate: cert, Public: cert.PublicKey})
+	}
+	return eks, nil
+}
+
 func (t *windowsTPM) eks() ([]EK, error) {
 	ekCerts, err := t.pcp.EKCerts()
 	if err != nil {

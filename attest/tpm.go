@@ -39,10 +39,12 @@ const (
 	// Defined in "Registry of reserved TPM 2.0 handles and localities".
 	nvramRSACertIndex    = 0x1c00002
 	nvramRSAEkNonceIndex = 0x1c00003
+	nvramECCCertIndex    = 0x1c0000a
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
 	commonSrkEquivalentHandle   = 0x81000001
 	commonRSAEkEquivalentHandle = 0x81010001
+	commonECCEkEquivalentHandle = 0x81010002
 )
 
 var (
@@ -297,6 +299,7 @@ type tpmBase interface {
 	close() error
 	tpmVersion() TPMVersion
 	eks() ([]EK, error)
+	ekCertificates() ([]EK, error)
 	info() (*TPMInfo, error)
 
 	loadAK(opaqueBlob []byte) (*AK, error)
@@ -322,6 +325,12 @@ func (t *TPM) Close() error {
 // EKs returns the endorsement keys burned-in to the platform.
 func (t *TPM) EKs() ([]EK, error) {
 	return t.tpm.eks()
+}
+
+// EKCertificates returns the endorsement key certificates burned-in to the platform.
+// It is guaranteed that each EK.Certificate field will be populated.
+func (t *TPM) EKCertificates() ([]EK, error) {
+	return t.tpm.ekCertificates()
 }
 
 // Info returns information about the TPM.

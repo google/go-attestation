@@ -94,6 +94,10 @@ func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, er
 		ekTemplate = t.rsaEkTemplate()
 	} else {
 		ekHandle = ek.handle
+		if ekHandle == 0 {
+			// Assume RSA EK handle if it was not provided.
+			ekHandle = commonRSAEkEquivalentHandle
+		}
 		switch pub := ek.Public.(type) {
 		case *rsa.PublicKey:
 			ekTemplate = t.rsaEkTemplate()
@@ -146,6 +150,17 @@ func (t *wrappedTPM20) getStorageRootKeyHandle(pHnd tpmutil.Handle) (tpmutil.Han
 	}
 
 	return pHnd, true, nil
+}
+
+func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
+	var res []EK
+	if rsaCert, err := readEKCertFromNVRAM20(t.rwc, nvramRSACertIndex); err == nil {
+		res = append(res, EK{Public: crypto.PublicKey(rsaCert.PublicKey), Certificate: rsaCert, handle: commonRSAEkEquivalentHandle})
+	}
+	if eccCert, err := readEKCertFromNVRAM20(t.rwc, nvramECCCertIndex); err == nil {
+		res = append(res, EK{Public: crypto.PublicKey(eccCert.PublicKey), Certificate: eccCert, handle: commonECCEkEquivalentHandle})
+	}
+	return res, nil
 }
 
 func (t *wrappedTPM20) eks() ([]EK, error) {

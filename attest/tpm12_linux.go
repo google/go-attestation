@@ -94,7 +94,7 @@ func readEKCertFromNVRAM12(ctx *tspi.Context) (*x509.Certificate, error) {
 	return ParseEKCertificate(ekCert)
 }
 
-func (t *trousersTPM) eks() ([]EK, error) {
+func (t *trousersTPM) ekCertificates() ([]EK, error) {
 	cert, err := readEKCertFromNVRAM12(t.ctx)
 	if err != nil {
 		return nil, fmt.Errorf("readEKCertFromNVRAM failed: %v", err)
@@ -102,6 +102,10 @@ func (t *trousersTPM) eks() ([]EK, error) {
 	return []EK{
 		{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert},
 	}, nil
+}
+
+func (t *trousersTPM) eks() ([]EK, error) {
+	return t.ekCertificates()
 }
 
 func (t *trousersTPM) newKey(*AK, *KeyConfig) (*Key, error) {
