@@ -7,7 +7,7 @@ require (
 	github.com/google/go-tpm v0.3.4-0.20230613064043-511507721cb1
 	github.com/google/go-tpm-tools v0.3.12
 	github.com/google/go-tspi v0.3.0
-	golang.org/x/sys v0.8.0
+	golang.org/x/sys v0.9.0
 )
 
 require (
