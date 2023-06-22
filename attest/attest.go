@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpm"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // TPMVersion is used to configure a preference in
@@ -101,7 +102,7 @@ const (
 type ak interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
-	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
+	activateCredential(tpm tpmBase, in EncryptedCredential, ek *EK) ([]byte, error)
 	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle interface{}) (*CertificationParameters, error)
@@ -110,6 +111,10 @@ type ak interface {
 // AK represents a key which can be used for attestation.
 type AK struct {
 	ak ak
+
+	// The EK that will be used for attestation.
+	// If nil, an RSA EK with handle 0x81010001 will be used.
+	ek *EK
 }
 
 // Close unloads the AK from the system.
@@ -130,7 +135,7 @@ func (k *AK) Marshal() ([]byte, error) {
 //
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
-	return k.ak.activateCredential(tpm.tpm, in)
+	return k.ak.activateCredential(tpm.tpm, in, k.ek)
 }
 
 // Quote returns a quote over the platform state, signed by the AK.
@@ -155,9 +160,12 @@ func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, er
 	return k.ak.certify(tpm.tpm, handle)
 }
 
-// AKConfig encapsulates parameters for minting keys. This type is defined
-// now (despite being empty) for future interface compatibility.
+// AKConfig encapsulates parameters for minting keys.
 type AKConfig struct {
+	// The EK that will be used for attestation.
+	// If nil, an RSA EK with handle 0x81010001 will be used.
+	// If not nil, it must be one of EKs returned from TPM.EKs().
+	EK *EK
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
@@ -205,6 +213,9 @@ type EK struct {
 	// Public key. Clients or servers can perform an HTTP GET to this URL, and
 	// use ParseEKCertificate on the response body.
 	CertificateURL string
+
+	// The EK persistent handle.
+	handle tpmutil.Handle
 }
 
 // AttestationParameters describes information about a key which is necessary

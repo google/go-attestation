@@ -52,7 +52,7 @@ func (k *trousersKey12) close(tpm tpmBase) error {
 	return nil // No state for tpm 1.2.
 }
 
-func (k *trousersKey12) activateCredential(tb tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *trousersKey12) activateCredential(tb tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
 	t, ok := tb.(*trousersTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
