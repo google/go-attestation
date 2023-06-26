@@ -103,7 +103,7 @@ type ak interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
 	activateCredential(tpm tpmBase, in EncryptedCredential, ek *EK) ([]byte, error)
-	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
+	quote(t tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle interface{}) (*CertificationParameters, error)
 }
@@ -143,7 +143,16 @@ func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte
 // This is a low-level API. Consumers seeking to attest the state of the
 // platform should use tpm.AttestPlatform() instead.
 func (k *AK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
-	return k.ak.quote(tpm.tpm, nonce, alg)
+	pcrs := make([]int, 24)
+	for pcr := range pcrs {
+		pcrs[pcr] = pcr
+	}
+	return k.ak.quote(tpm.tpm, nonce, alg, pcrs)
+}
+
+// QuotePCRs is like Quote() but allows the caller to select a subset of the PCRs.
+func (k *AK) QuotePCRs(tpm *TPM, nonce []byte, alg HashAlg, pcrs []int) (*Quote, error) {
+	return k.ak.quote(tpm.tpm, nonce, alg, pcrs)
 }
 
 // AttestationParameters returns information about the AK, typically used to
