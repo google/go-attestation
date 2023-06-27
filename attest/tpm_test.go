@@ -8,17 +8,22 @@ import (
 	"testing"
 )
 
-// Generated using the following command:
+// Created by downloading the base64-url encoded PEM data from
+// https://ekop.intel.com/ekcertservice/WVEG2rRwkQ7m3RpXlUphgo6Y2HLxl18h6ZZkkOAdnBE%3D,
+// extracting its public key, and formatting it to PEM using
 //
-// openssl genrsa 2048|openssl rsa -outform PEM -pubout
+//	openssl x509 -in ekcert.pem  -pubkey
+//
+// This is the public key from the EK cert that's used for testing tpm2-tools:
+// https://github.com/tpm2-software/tpm2-tools/blob/master/test/integration/tests/getekcertificate.sh
 var testRSAKey = mustParseRSAKey(`-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq8zyTXCjVALZzjS8wgNH
-nAVdt4ZGM3N450xOnLplx/RbCVwXyu83SWh0B3Ka+92aocqcHzo+j6e6Urppre/I
-+7VVKTdUAr8t5gxgSLGvo+ev+zv70GF4DmJthb8JNheHCmk3RnoSFs5TnDuSdvGb
-KcSzas0186LQyxvwfFjTxLweGrZKh/CTewD0/f5ozXmbTtJpl+qYrMi9GJamGlg6
-N6EsWKh1xos8J/cEmS2vbyCGGADyBwRV8Zkto5EU1HJaEli10HVZf0D06vuKzzxM
-+6W7LzGqzAPeaWvHi07ezShqdr5q5y1KKhFJcy8HOpwN8iFfIw70y3FtMlrMprrU
-twIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwyDi8kSoYBqs8+AdJsZl
+JJk1Vi3h2hl+nn8HbEaWE8+2U+mOwsOG/B0TPyyMbMM4tzLwsgi9g4qHej5bvD4d
+QIToNcfIkGocBbTS0w/b68HbrZUPprFlvUtqhkYDFGFkwMT1nUiQEe8fko3upukA
+YfPTdeVkYnMVHvYiJSCYvhpKsB3AoSInxgn9rOsRWvQI1Gk6b0mRl3RpWwwSvBih
+/3EgpzN7L7XxlR2Lt/CU1bVUwRyVI7MHKf5keH0KE7nmMEiNq039hmNKUnDscvzF
+pE3GeajzKTjdgZfina6Dn1tMoPXeJ8lSLCPFThws5XhZUlEYvURwsYGA7veK5CZ7
+zQIDAQAB
 -----END PUBLIC KEY-----`)
 
 func mustParseRSAKey(data string) *rsa.PublicKey {
@@ -45,7 +50,7 @@ func parseRSAKey(data string) (*rsa.PublicKey, error) {
 }
 
 func TestIntelEKURL(t *testing.T) {
-	want := "https://ekop.intel.com/ekcertservice/7YtWV2nT3LpvSCfJt7ENIznN1R1jYkj_3S6mez3yyzg="
+	want := "https://ekop.intel.com/ekcertservice/WVEG2rRwkQ7m3RpXlUphgo6Y2HLxl18h6ZZkkOAdnBE%3D"
 	got := intelEKURL(testRSAKey)
 	if got != want {
 		t.Fatalf("intelEKURL(), got=%q, want=%q", got, want)

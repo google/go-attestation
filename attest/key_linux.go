@@ -53,7 +53,7 @@ func (k *trousersKey12) close(tpm tpmBase) error {
 	return nil // No state for tpm 1.2.
 }
 
-func (k *trousersKey12) activateCredential(tb tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *trousersKey12) activateCredential(tb tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
 	t, ok := tb.(*trousersTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
@@ -66,13 +66,16 @@ func (k *trousersKey12) activateCredential(tb tpmBase, in EncryptedCredential) (
 	return cred, nil
 }
 
-func (k *trousersKey12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *trousersKey12) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
 	t, ok := tb.(*trousersTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *linuxTPM, got %T", tb)
 	}
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
+	}
+	if selectedPCRs != nil {
+		return nil, fmt.Errorf("selecting PCRs not supported on TPM 1.2 (parameter must be nil)")
 	}
 
 	quote, rawSig, err := attestation.GetQuote(t.ctx, k.blob, nonce)

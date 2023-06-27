@@ -17,12 +17,14 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
 
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2/credactivation"
 	"github.com/google/go-tpm/tpmutil"
 )
 
@@ -60,6 +62,38 @@ type VerifyOpts struct {
 	// Hash is the hash function used for signature verification. It can be
 	// extracted from the properties of the certifying key.
 	Hash crypto.Hash
+}
+
+// ActivateOpts specifies options for the key certification's challenge generation.
+type ActivateOpts struct {
+	// EK, the endorsement key, describes an asymmetric key whose
+	// private key is permanently bound to the TPM.
+	//
+	// Activation will verify that the provided EK is held on the same
+	// TPM as the key we're certifying. However, it is the caller's responsibility to
+	// ensure the EK they provide corresponds to the the device which
+	// they are trying to associate the certified key with.
+	EK crypto.PublicKey
+	// VerifierKeyNameDigest is the name digest of the public key we're using to
+	// verify the certification of the tpm-generated key being activated.
+	// The verifier key (usually the AK) that owns this digest should be the same
+	// key used in VerifyOpts.Public.
+	// Use tpm2.Public.Name() to produce the digest for a provided key.
+	VerifierKeyNameDigest *tpm2.HashValue
+}
+
+// NewActivateOpts creates options for use in generating an activation challenge for a certified key.
+// The computed hash is the name digest of the public key used to verify the certification of our key.
+func NewActivateOpts(verifierPubKey tpm2.Public, ek crypto.PublicKey) (*ActivateOpts, error) {
+	pubName, err := verifierPubKey.Name()
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve a tpm2.Public Name struct from the given public key struct: %v", err)
+	}
+
+	return &ActivateOpts{
+		EK:                    ek,
+		VerifierKeyNameDigest: pubName.Digest,
+	}, nil
 }
 
 // Verify verifies the TPM2-produced certification parameters checking whether:
@@ -155,6 +189,51 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	}
 
 	return nil
+}
+
+// Generate returns a credential activation challenge, which can be provided
+// to the TPM to verify the AK parameters given are authentic & the AK
+// is present on the same TPM as the EK.
+//
+// The caller is expected to verify the secret returned from the TPM as
+// as result of calling ActivateCredential() matches the secret returned here.
+// The caller should use subtle.ConstantTimeCompare to avoid potential
+// timing attack vectors.
+func (p *CertificationParameters) Generate(rnd io.Reader, verifyOpts VerifyOpts, activateOpts ActivateOpts) (secret []byte, ec *EncryptedCredential, err error) {
+	if err := p.Verify(verifyOpts); err != nil {
+		return nil, nil, err
+	}
+
+	if activateOpts.EK == nil {
+		return nil, nil, errors.New("no EK provided")
+	}
+
+	secret = make([]byte, activationSecretLen)
+	if rnd == nil {
+		rnd = rand.Reader
+	}
+	if _, err = io.ReadFull(rnd, secret); err != nil {
+		return nil, nil, fmt.Errorf("error generating activation secret: %v", err)
+	}
+
+	att, err := tpm2.DecodeAttestationData(p.CreateAttestation)
+	if err != nil {
+		return nil, nil, fmt.Errorf("DecodeAttestationData() failed: %v", err)
+	}
+
+	if att.Type != tpm2.TagAttestCertify {
+		return nil, nil, fmt.Errorf("attestation does not apply to certify data, got %x", att.Type)
+	}
+
+	cred, encSecret, err := credactivation.Generate(activateOpts.VerifierKeyNameDigest, activateOpts.EK, symBlockSize, secret)
+	if err != nil {
+		return nil, nil, fmt.Errorf("credactivation.Generate() failed: %v", err)
+	}
+
+	return secret, &EncryptedCredential{
+		Credential: cred,
+		Secret:     encSecret,
+	}, nil
 }
 
 // certify uses AK's handle and the passed signature scheme to certify the key

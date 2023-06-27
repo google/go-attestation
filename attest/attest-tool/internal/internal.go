@@ -3,7 +3,7 @@ package internal
 
 import (
 	"github.com/google/go-attestation/attest"
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 )
 
 // Dump describes the layout of serialized information from the dump command.

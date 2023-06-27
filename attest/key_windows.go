@@ -24,8 +24,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/go-tpm/legacy/tpm2"
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
 )
 
 // windowsAK12 represents a Windows-managed key on a TPM1.2 TPM.
@@ -53,7 +53,7 @@ func (k *windowsAK12) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *windowsAK12) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsAK12) activateCredential(t tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -65,7 +65,7 @@ func (k *windowsAK12) activateCredential(t tpmBase, in EncryptedCredential) ([]b
 	return decryptCredential(secretKey, in.Secret)
 }
 
-func (k *windowsAK12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsAK12) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
 	}
@@ -82,11 +82,6 @@ func (k *windowsAK12) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, erro
 	tpm, err := t.pcp.TPMCommandInterface()
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-	}
-
-	selectedPCRs := make([]int, 24)
-	for pcr := range selectedPCRs {
-		selectedPCRs[pcr] = pcr
 	}
 
 	sig, pcrc, err := tpm1.Quote(tpm, tpmKeyHnd, nonce, selectedPCRs[:], wellKnownAuth[:])
@@ -160,7 +155,7 @@ func (k *windowsAK20) marshal() ([]byte, error) {
 	return out.Serialize()
 }
 
-func (k *windowsAK20) activateCredential(t tpmBase, in EncryptedCredential) ([]byte, error) {
+func (k *windowsAK20) activateCredential(t tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
 	tpm, ok := t.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
@@ -168,7 +163,7 @@ func (k *windowsAK20) activateCredential(t tpmBase, in EncryptedCredential) ([]b
 	return tpm.pcp.ActivateCredential(k.hnd, append(in.Credential, in.Secret...))
 }
 
-func (k *windowsAK20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, error) {
+func (k *windowsAK20) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -182,7 +177,7 @@ func (k *windowsAK20) quote(tb tpmBase, nonce []byte, alg HashAlg) (*Quote, erro
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 	}
-	return quote20(tpm, tpmKeyHnd, alg.goTPMAlg(), nonce)
+	return quote20(tpm, tpmKeyHnd, alg.goTPMAlg(), nonce, selectedPCRs)
 }
 
 func (k *windowsAK20) close(tpm tpmBase) error {

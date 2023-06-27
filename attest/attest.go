@@ -23,8 +23,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // TPMVersion is used to configure a preference in
@@ -101,8 +102,8 @@ const (
 type ak interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
-	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
-	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
+	activateCredential(tpm tpmBase, in EncryptedCredential, ek *EK) ([]byte, error)
+	quote(t tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle interface{}, qualifyingData []byte) (*CertificationParameters, error)
 	blobs() ([]byte, []byte, error)
@@ -111,6 +112,10 @@ type ak interface {
 // AK represents a key which can be used for attestation.
 type AK struct {
 	ak ak
+
+	// The EK that will be used for attestation.
+	// If nil, an RSA EK with handle 0x81010001 will be used.
+	ek *EK
 }
 
 // Close unloads the AK from the system.
@@ -131,7 +136,7 @@ func (k *AK) Marshal() ([]byte, error) {
 //
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
-	return k.ak.activateCredential(tpm.tpm, in)
+	return k.ak.activateCredential(tpm.tpm, in, k.ek)
 }
 
 // Quote returns a quote over the platform state, signed by the AK.
@@ -139,7 +144,16 @@ func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte
 // This is a low-level API. Consumers seeking to attest the state of the
 // platform should use tpm.AttestPlatform() instead.
 func (k *AK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
-	return k.ak.quote(tpm.tpm, nonce, alg)
+	pcrs := make([]int, 24)
+	for pcr := range pcrs {
+		pcrs[pcr] = pcr
+	}
+	return k.ak.quote(tpm.tpm, nonce, alg, pcrs)
+}
+
+// QuotePCRs is like Quote() but allows the caller to select a subset of the PCRs.
+func (k *AK) QuotePCRs(tpm *TPM, nonce []byte, alg HashAlg, pcrs []int) (*Quote, error) {
+	return k.ak.quote(tpm.tpm, nonce, alg, pcrs)
 }
 
 // AttestationParameters returns information about the AK, typically used to
@@ -166,6 +180,11 @@ type AKConfig struct {
 	// Name is used to specify a name for the key, instead of generating
 	// a random one. This property is only used on Windows.
 	Name string
+
+	// The EK that will be used for attestation.
+	// If nil, an RSA EK with handle 0x81010001 will be used.
+	// If not nil, it must be one of EKs returned from TPM.EKs().
+	EK *EK
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
@@ -213,6 +232,9 @@ type EK struct {
 	// Public key. Clients or servers can perform an HTTP GET to this URL, and
 	// use ParseEKCertificate on the response body.
 	CertificateURL string
+
+	// The EK persistent handle.
+	handle tpmutil.Handle
 }
 
 // AttestationParameters describes information about a key which is necessary

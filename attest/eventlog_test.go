@@ -21,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 )
 
 // Dump describes the layout of serialized information from the dump command.
@@ -170,6 +170,43 @@ func TestParseEventLogEventSizeZero(t *testing.T) {
 	}
 
 	if _, err := parseRawEvent(bytes.NewBuffer(data), nil); err != nil {
+		t.Fatalf("parsing event log: %v", err)
+	}
+}
+
+func TestParseEventLog2EventSizeZero(t *testing.T) {
+	data := []byte{
+		// PCR index
+		0x0, 0x0, 0x0, 0x0,
+
+		// type
+		0x7, 0x0, 0x0, 0x0,
+
+		// number of digests
+		0x1, 0x0, 0x0, 0x0,
+
+		// algorithm
+		0xb, 0x0,
+
+		// Digest
+		0xc8, 0xe3, 0x88, 0xb4, 0x79, 0x12, 0x86, 0x0c,
+		0x66, 0xa1, 0x5d, 0xad, 0xc4, 0x34, 0xf5, 0xdf,
+		0x73, 0x6c, 0x3a, 0xb4, 0xbe, 0x52, 0x07, 0x08,
+		0xdf, 0xac, 0x48, 0x2d, 0x71, 0xce, 0xa0, 0x73,
+
+		// Event size (0 B)
+		0x0, 0x0, 0x0, 0x0,
+
+		// no "event data"
+	}
+
+	specID := &specIDEvent{
+		algs: []specAlgSize{
+			{ID: uint16(tpm2.AlgSHA256), Size: 32},
+		},
+	}
+
+	if _, err := parseRawEvent2(bytes.NewBuffer(data), specID); err != nil {
 		t.Fatalf("parsing event log: %v", err)
 	}
 }
