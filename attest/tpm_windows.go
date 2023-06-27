@@ -29,8 +29,8 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/google/go-tpm/legacy/tpm2"
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 	"golang.org/x/sys/windows"
 )
