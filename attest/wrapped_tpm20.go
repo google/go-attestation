@@ -35,6 +35,7 @@ type wrappedTPM20 struct {
 	interf           TPMInterface
 	rwc              CommandChannelTPM20
 	tpmRSAEkTemplate *tpm2.Public
+	tpmECCEkTemplate *tpm2.Public
 }
 
 func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
@@ -52,6 +53,23 @@ func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
 	}
 
 	return *t.tpmRSAEkTemplate
+}
+
+func (t *wrappedTPM20) eccEkTemplate() tpm2.Public {
+	if t.tpmECCEkTemplate != nil {
+		return *t.tpmECCEkTemplate
+	}
+
+	nonce, err := tpm2.NVReadEx(t.rwc, nvramECCEkNonceIndex, tpm2.HandleOwner, "", 0)
+	if err != nil {
+		t.tpmECCEkTemplate = &defaultECCEKTemplate // No nonce, use the default template
+	} else {
+		template := defaultECCEKTemplate
+		copy(template.ECCParameters.Point.XRaw, nonce)
+		t.tpmECCEkTemplate = &template
+	}
+
+	return *t.tpmECCEkTemplate
 }
 
 func (t *wrappedTPM20) tpmVersion() TPMVersion {
@@ -102,7 +120,7 @@ func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, er
 		case *rsa.PublicKey:
 			ekTemplate = t.rsaEkTemplate()
 		case *ecdsa.PublicKey:
-			return 0, false, errors.New("ECC EKs are not supported")
+			ekTemplate = t.eccEkTemplate()
 		default:
 			return 0, false, fmt.Errorf("unsupported public key type %T", pub)
 		}
