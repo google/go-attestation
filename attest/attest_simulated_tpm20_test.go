@@ -115,11 +115,7 @@ func testActivateCredential(t *testing.T, useEK bool) {
 	}
 	ek := chooseEK(t, EKs)
 
-	var akConfig *AKConfig
-	if useEK {
-		akConfig = &AKConfig{EK: &ek}
-	}
-	ak, err := tpm.NewAK(akConfig)
+	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
@@ -135,7 +131,12 @@ func testActivateCredential(t *testing.T, useEK bool) {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	decryptedSecret, err := ak.ActivateCredential(tpm, *challenge)
+	var decryptedSecret []byte
+	if useEK {
+		decryptedSecret, err = ak.ActivateCredentialWithEK(tpm, *challenge, ek)
+	} else {
+		decryptedSecret, err = ak.ActivateCredential(tpm, *challenge)
+	}
 	if err != nil {
 		t.Errorf("ak.ActivateCredential() failed: %v", err)
 	}

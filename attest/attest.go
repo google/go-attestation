@@ -131,11 +131,22 @@ func (k *AK) Marshal() ([]byte, error) {
 }
 
 // ActivateCredential decrypts the secret using the key to prove that the AK
-// was generated on the same TPM as the EK.
+// was generated on the same TPM as the EK. This method can be used with TPMs
+// that have the default EK, i.e. RSA EK with handle 0x81010001.
 //
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
 	return k.ak.activateCredential(tpm.tpm, in, k.ek)
+}
+
+// ActivateCredential decrypts the secret using the key to prove that the AK
+// was generated on the same TPM as the EK. This method can be used with TPMs
+// that have an ECC EK. The 'ek' argument must be one of EKs returned from
+// TPM.EKs() or TPM.EKCertificates().
+//
+// This operation is synonymous with TPM2_ActivateCredential.
+func (k *AK) ActivateCredentialWithEK(tpm *TPM, in EncryptedCredential, ek EK) (secret []byte, err error) {
+	return k.ak.activateCredential(tpm.tpm, in, &ek)
 }
 
 // Quote returns a quote over the platform state, signed by the AK.
