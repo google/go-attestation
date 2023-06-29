@@ -91,12 +91,62 @@ func ExampleAK_credentialActivation() {
 	}
 }
 
+func ExampleAK_credentialActivationWithEK() {
+	tpm, err := attest.OpenTPM(nil)
+	if err != nil {
+		log.Fatalf("Failed to open TPM: %v", err)
+	}
+	defer tpm.Close()
+
+	// Create a new AK.
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		log.Fatalf("Failed to create AK: %v", err)
+	}
+	defer ak.Close(tpm)
+
+	// Read the EK certificates.
+	ekCerts, err := tpm.EKCertificates()
+	if err != nil {
+		log.Fatalf("Failed to enumerate EKs: %v", err)
+	}
+
+	// Read parameters necessary to generate a challenge.
+	ap := ak.AttestationParameters()
+
+	// Try activating with each EK certificate.
+	for _, ek := range ekCerts {
+		// Generate a credential activation challenge (usually done on the server).
+		activation := attest.ActivationParameters{
+			TPMVersion: tpm.Version(),
+			EK:         ek.Public,
+			AK:         ap,
+		}
+		secret, challenge, err := activation.Generate()
+		if err != nil {
+			log.Fatalf("Failed to generate activation challenge: %v", err)
+		}
+
+		// Challenge the AK & EK properties to recieve the decrypted secret.
+		decrypted, err := ak.ActivateCredentialWithEK(tpm, *challenge, ek)
+		if err != nil {
+			log.Fatalf("Failed to activate credential: %v", err)
+		}
+
+		// Check that the AK completed the challenge (usually done on the server).
+		if subtle.ConstantTimeCompare(secret, decrypted) == 0 {
+			log.Fatal("Activation response did not match secret")
+		}
+	}
+}
+
 func TestExampleAK(t *testing.T) {
 	if !*testExamples {
 		t.SkipNow()
 	}
 	ExampleAK()
 	ExampleAK_credentialActivation()
+	ExampleAK_credentialActivationWithEK()
 }
 
 func TestExampleTPM(t *testing.T) {
