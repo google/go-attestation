@@ -240,11 +240,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}
-	var ek *EK
-	if opts != nil {
-		ek = opts.EK
-	}
-	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig), ek: ek}, nil
+	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig)}, nil
 }
 
 func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
