@@ -111,10 +111,6 @@ type ak interface {
 // AK represents a key which can be used for attestation.
 type AK struct {
 	ak ak
-
-	// The EK that will be used for attestation.
-	// If nil, an RSA EK with handle 0x81010001 will be used.
-	ek *EK
 }
 
 // Close unloads the AK from the system.
@@ -136,7 +132,7 @@ func (k *AK) Marshal() ([]byte, error) {
 //
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
-	return k.ak.activateCredential(tpm.tpm, in, k.ek)
+	return k.ak.activateCredential(tpm.tpm, in, nil)
 }
 
 // ActivateCredential decrypts the secret using the key to prove that the AK
@@ -180,12 +176,9 @@ func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, er
 	return k.ak.certify(tpm.tpm, handle)
 }
 
-// AKConfig encapsulates parameters for minting keys.
+// AKConfig encapsulates parameters for minting keys. This type is defined
+// now (despite being empty) for future interface compatibility.
 type AKConfig struct {
-	// The EK that will be used for attestation.
-	// If nil, an RSA EK with handle 0x81010001 will be used.
-	// If not nil, it must be one of EKs returned from TPM.EKs().
-	EK *EK
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
