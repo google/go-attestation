@@ -148,26 +148,36 @@ func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, er
 }
 
 // Return value: handle, whether we generated a new one, error
-func (t *wrappedTPM20) getStorageRootKeyHandle(pHnd tpmutil.Handle) (tpmutil.Handle, bool, error) {
-	_, _, _, err := tpm2.ReadPublic(t.rwc, pHnd)
+func (t *wrappedTPM20) getStorageRootKeyHandle(parent ParentKeyConfig) (tpmutil.Handle, bool, error) {
+	srkHandle := parent.Handle
+	_, _, _, err := tpm2.ReadPublic(t.rwc, srkHandle)
 	if err == nil {
 		// Found the persistent handle, assume it's the key we want.
-		return pHnd, false, nil
+		return srkHandle, false, nil
 	}
 	rerr := err // Preserve this failure for later logging, if needed
 
-	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", defaultSRKTemplate)
+	var srkTemplate tpm2.Public
+	switch parent.Algorithm {
+	case RSA:
+		srkTemplate = defaultRSASRKTemplate
+	case ECDSA:
+		srkTemplate = defaultECCSRKTemplate
+	default:
+		return 0, false, fmt.Errorf("unsupported SRK algorithm: %v", parent.Algorithm)
+	}
+	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", srkTemplate)
 	if err != nil {
 		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
 	}
 	defer tpm2.FlushContext(t.rwc, keyHnd)
 
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, pHnd)
+	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, srkHandle)
 	if err != nil {
 		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
 	}
 
-	return pHnd, true, nil
+	return srkHandle, true, nil
 }
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
@@ -214,8 +224,13 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 }
 
 func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
-	// TODO(jsonp): Abstract choice of hierarchy & parent.
-	srk, _, err := t.getStorageRootKeyHandle(commonSrkEquivalentHandle)
+	var parent ParentKeyConfig
+	if opts != nil && opts.Parent != nil {
+		parent = *opts.Parent
+	} else {
+		parent = defaultParentConfig
+	}
+	srk, _, err := t.getStorageRootKeyHandle(parent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
@@ -287,7 +302,13 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 }
 
 func createKey(t *wrappedTPM20, opts *KeyConfig) (tpmutil.Handle, []byte, []byte, []byte, error) {
-	srk, _, err := t.getStorageRootKeyHandle(commonSrkEquivalentHandle)
+	var parent ParentKeyConfig
+	if opts != nil && opts.Parent != nil {
+		parent = *opts.Parent
+	} else {
+		parent = defaultParentConfig
+	}
+	srk, _, err := t.getStorageRootKeyHandle(parent)
 	if err != nil {
 		return 0, nil, nil, nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
@@ -352,7 +373,7 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 	return tmpl, nil
 }
 
-func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *serializedKey, error) {
+func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte, parent ParentKeyConfig) (tpmutil.Handle, *serializedKey, error) {
 	sKey, err := deserializeKey(opaqueBlob, TPMVersion20)
 	if err != nil {
 		return 0, nil, fmt.Errorf("deserializeKey() failed: %v", err)
@@ -361,7 +382,7 @@ func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *s
 		return 0, nil, fmt.Errorf("unsupported key encoding: %x", sKey.Encoding)
 	}
 
-	srk, _, err := t.getStorageRootKeyHandle(commonSrkEquivalentHandle)
+	srk, _, err := t.getStorageRootKeyHandle(parent)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
@@ -373,7 +394,11 @@ func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte) (tpmutil.Handle, *s
 }
 
 func (t *wrappedTPM20) loadAK(opaqueBlob []byte) (*AK, error) {
-	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob)
+	return t.loadAKWithParent(opaqueBlob, defaultParentConfig)
+}
+
+func (t *wrappedTPM20) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error) {
+	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob, parent)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load attestation key: %v", err)
 	}
@@ -381,7 +406,11 @@ func (t *wrappedTPM20) loadAK(opaqueBlob []byte) (*AK, error) {
 }
 
 func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (*Key, error) {
-	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob)
+	return t.loadKeyWithParent(opaqueBlob, defaultParentConfig)
+}
+
+func (t *wrappedTPM20) loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*Key, error) {
+	hnd, sKey, err := t.deserializeAndLoad(opaqueBlob, parent)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load signing key: %v", err)
 	}

@@ -43,7 +43,6 @@ const (
 	nvramECCEkNonceIndex = 0x1c0000b
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
-	commonSrkEquivalentHandle   = 0x81000001
 	commonRSAEkEquivalentHandle = 0x81010001
 	commonECCEkEquivalentHandle = 0x81010002
 )
@@ -61,7 +60,7 @@ var (
 			KeyBits: 2048,
 		},
 	}
-	defaultSRKTemplate = tpm2.Public{
+	defaultRSASRKTemplate = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
 		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
@@ -73,6 +72,23 @@ var (
 			},
 			ModulusRaw: make([]byte, 256),
 			KeyBits:    2048,
+		},
+	}
+	defaultECCSRKTemplate = tpm2.Public{
+		Type:       tpm2.AlgECC,
+		NameAlg:    tpm2.AlgSHA256,
+		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
+		ECCParameters: &tpm2.ECCParams{
+			Symmetric: &tpm2.SymScheme{
+				Alg:     tpm2.AlgAES,
+				KeyBits: 128,
+				Mode:    tpm2.AlgCFB,
+			},
+			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
 		},
 	}
 	// Default RSA and ECC EK templates defined in:
@@ -327,8 +343,10 @@ type tpmBase interface {
 	info() (*TPMInfo, error)
 
 	loadAK(opaqueBlob []byte) (*AK, error)
+	loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error)
 	newAK(opts *AKConfig) (*AK, error)
 	loadKey(opaqueBlob []byte) (*Key, error)
+	loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*Key, error)
 	newKey(ak *AK, opts *KeyConfig) (*Key, error)
 	pcrs(alg HashAlg) ([]PCR, error)
 	measurementLog() ([]byte, error)
@@ -368,6 +386,12 @@ func (t *TPM) Info() (*TPMInfo, error) {
 // to this function.
 func (t *TPM) LoadAK(opaqueBlob []byte) (*AK, error) {
 	return t.tpm.loadAK(opaqueBlob)
+}
+
+// LoadAKWithParent loads a previously-created ak into the TPM
+// under the given parent for use.
+func (t *TPM) LoadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error) {
+	return t.tpm.loadAKWithParent(opaqueBlob, parent)
 }
 
 // MeasurementLog returns the present value of the System Measurement Log.

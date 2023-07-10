@@ -337,11 +337,19 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 	}
 }
 
+func (t *windowsTPM) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (t *windowsTPM) newKey(*AK, *KeyConfig) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (t *windowsTPM) loadKey(opaqueBlob []byte) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (t *windowsTPM) loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
