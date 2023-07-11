@@ -72,6 +72,10 @@ type KeyConfig struct {
 	// Size is used to specify the bit size of the key or elliptic curve. For
 	// example, '256' is used to specify curve P-256.
 	Size int
+	// Parent describes the Storage Root Key that will be used as a parent.
+	// If nil, the default SRK (i.e. RSA with handle 0x81000001) is assumed.
+	// Supported only by TPM 2.0 on Linux.
+	Parent *ParentKeyConfig
 }
 
 // defaultConfig is used when no other configuration is specified.

@@ -99,6 +99,18 @@ const (
 	keyEncodingParameterized
 )
 
+// ParentKeyConfig describes the Storage Root Key that is used
+// as a parent for new keys.
+type ParentKeyConfig struct {
+	Algorithm Algorithm
+	Handle    tpmutil.Handle
+}
+
+var defaultParentConfig = ParentKeyConfig{
+	Algorithm: RSA,
+	Handle:    0x81000001,
+}
+
 type ak interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
@@ -176,9 +188,12 @@ func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, er
 	return k.ak.certify(tpm.tpm, handle)
 }
 
-// AKConfig encapsulates parameters for minting keys. This type is defined
-// now (despite being empty) for future interface compatibility.
+// AKConfig encapsulates parameters for minting keys.
 type AKConfig struct {
+	// Parent describes the Storage Root Key that will be used as a parent.
+	// If nil, the default SRK (i.e. RSA with handle 0x81000001) is assumed.
+	// Supported only by TPM 2.0 on Linux.
+	Parent *ParentKeyConfig
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated

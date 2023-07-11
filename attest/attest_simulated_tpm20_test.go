@@ -260,23 +260,35 @@ func TestSimTPM20PCRs(t *testing.T) {
 }
 
 func TestSimTPM20PersistenceSRK(t *testing.T) {
+	testPersistenceSRK(t, defaultParentConfig)
+}
+
+func TestSimTPM20PersistenceECCSRK(t *testing.T) {
+	parentConfig := ParentKeyConfig{
+		Algorithm: ECDSA,
+		Handle:    0x81000002,
+	}
+	testPersistenceSRK(t, parentConfig)
+}
+
+func testPersistenceSRK(t *testing.T, parentConfig ParentKeyConfig) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	srkHnd, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(commonSrkEquivalentHandle)
+	srkHnd, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
 	if err != nil {
 		t.Fatalf("getStorageRootKeyHandle() failed: %v", err)
 	}
-	if srkHnd != commonSrkEquivalentHandle {
-		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, commonSrkEquivalentHandle)
+	if srkHnd != parentConfig.Handle {
+		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, parentConfig.Handle)
 	}
 
-	srkHnd, p, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(commonSrkEquivalentHandle)
+	srkHnd, p, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
 	if err != nil {
 		t.Fatalf("second getStorageRootKeyHandle() failed: %v", err)
 	}
-	if srkHnd != commonSrkEquivalentHandle {
-		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, commonSrkEquivalentHandle)
+	if srkHnd != parentConfig.Handle {
+		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, parentConfig.Handle)
 	}
 	if p {
 		t.Fatalf("generated a new key the second time; that shouldn't happen")
