@@ -24,9 +24,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 )
 
@@ -36,12 +37,14 @@ const (
 	tpmPtFwVersion1   = 0x00000100 + 11 // PT_FIXED + offset of 11
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities".
-	nvramCertIndex    = 0x1c00002
-	nvramEkNonceIndex = 0x1c00003
+	nvramRSACertIndex    = 0x1c00002
+	nvramRSAEkNonceIndex = 0x1c00003
+	nvramECCCertIndex    = 0x1c0000a
+	nvramECCEkNonceIndex = 0x1c0000b
 
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
-	commonSrkEquivalentHandle = 0x81000001
-	commonEkEquivalentHandle  = 0x81010001
+	commonRSAEkEquivalentHandle = 0x81010001
+	commonECCEkEquivalentHandle = 0x81010002
 )
 
 var (
@@ -57,7 +60,7 @@ var (
 			KeyBits: 2048,
 		},
 	}
-	defaultSRKTemplate = tpm2.Public{
+	defaultRSASRKTemplate = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
 		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
@@ -71,9 +74,26 @@ var (
 			KeyBits:    2048,
 		},
 	}
-	// Default EK template defined in:
+	defaultECCSRKTemplate = tpm2.Public{
+		Type:       tpm2.AlgECC,
+		NameAlg:    tpm2.AlgSHA256,
+		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
+		ECCParameters: &tpm2.ECCParams{
+			Symmetric: &tpm2.SymScheme{
+				Alg:     tpm2.AlgAES,
+				KeyBits: 128,
+				Mode:    tpm2.AlgCFB,
+			},
+			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
+		},
+	}
+	// Default RSA and ECC EK templates defined in:
 	// https://trustedcomputinggroup.org/wp-content/uploads/Credential_Profile_EK_V2.0_R14_published.pdf
-	defaultEKTemplate = tpm2.Public{
+	defaultRSAEKTemplate = tpm2.Public{
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,
 		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
@@ -94,6 +114,32 @@ var (
 			},
 			KeyBits:    2048,
 			ModulusRaw: make([]byte, 256),
+		},
+	}
+	defaultECCEKTemplate = tpm2.Public{
+		Type:    tpm2.AlgECC,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
+			tpm2.FlagAdminWithPolicy | tpm2.FlagRestricted | tpm2.FlagDecrypt,
+		AuthPolicy: []byte{
+			0x83, 0x71, 0x97, 0x67, 0x44, 0x84,
+			0xB3, 0xF8, 0x1A, 0x90, 0xCC, 0x8D,
+			0x46, 0xA5, 0xD7, 0x24, 0xFD, 0x52,
+			0xD7, 0x6E, 0x06, 0x52, 0x0B, 0x64,
+			0xF2, 0xA1, 0xDA, 0x1B, 0x33, 0x14,
+			0x69, 0xAA,
+		},
+		ECCParameters: &tpm2.ECCParams{
+			Symmetric: &tpm2.SymScheme{
+				Alg:     tpm2.AlgAES,
+				KeyBits: 128,
+				Mode:    tpm2.AlgCFB,
+			},
+			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
 		},
 	}
 	// Basic template for an ECDSA key signing outside-TPM objects. Other
@@ -219,10 +265,10 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 	pubHash.Write(ekPub.N.Bytes())
 	pubHash.Write([]byte{0x1, 0x00, 0x01})
 
-	return intelEKCertServiceURL + base64.URLEncoding.EncodeToString(pubHash.Sum(nil))
+	return intelEKCertServiceURL + url.QueryEscape(base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
 }
 
-func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
+func readEKCertFromNVRAM20(tpm io.ReadWriter, nvramCertIndex tpmutil.Handle) (*x509.Certificate, error) {
 	// By passing nvramCertIndex as our auth handle we're using the NV index
 	// itself as the auth hierarchy, which is the same approach
 	// tpm2_getekcertificate takes.
@@ -233,12 +279,9 @@ func readEKCertFromNVRAM20(tpm io.ReadWriter) (*x509.Certificate, error) {
 	return ParseEKCertificate(ekCert)
 }
 
-func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm, nonce []byte) (*Quote, error) {
-	sel := tpm2.PCRSelection{Hash: hashAlg}
-	numPCRs := 24
-	for pcr := 0; pcr < numPCRs; pcr++ {
-		sel.PCRs = append(sel.PCRs, pcr)
-	}
+func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm, nonce []byte, selectedPCRs []int) (*Quote, error) {
+	sel := tpm2.PCRSelection{Hash: hashAlg,
+		PCRs: selectedPCRs}
 
 	quote, sig, err := tpm2.Quote(tpm, akHandle, "", "", nonce, sel, tpm2.AlgNull)
 	if err != nil {
@@ -296,11 +339,14 @@ type tpmBase interface {
 	close() error
 	tpmVersion() TPMVersion
 	eks() ([]EK, error)
+	ekCertificates() ([]EK, error)
 	info() (*TPMInfo, error)
 
 	loadAK(opaqueBlob []byte) (*AK, error)
+	loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error)
 	newAK(opts *AKConfig) (*AK, error)
 	loadKey(opaqueBlob []byte) (*Key, error)
+	loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*Key, error)
 	newKey(ak *AK, opts *KeyConfig) (*Key, error)
 	pcrs(alg HashAlg) ([]PCR, error)
 	measurementLog() ([]byte, error)
@@ -323,6 +369,12 @@ func (t *TPM) EKs() ([]EK, error) {
 	return t.tpm.eks()
 }
 
+// EKCertificates returns the endorsement key certificates burned-in to the platform.
+// It is guaranteed that each EK.Certificate field will be populated.
+func (t *TPM) EKCertificates() ([]EK, error) {
+	return t.tpm.ekCertificates()
+}
+
 // Info returns information about the TPM.
 func (t *TPM) Info() (*TPMInfo, error) {
 	return t.tpm.info()
@@ -334,6 +386,12 @@ func (t *TPM) Info() (*TPMInfo, error) {
 // to this function.
 func (t *TPM) LoadAK(opaqueBlob []byte) (*AK, error) {
 	return t.tpm.loadAK(opaqueBlob)
+}
+
+// LoadAKWithParent loads a previously-created ak into the TPM
+// under the given parent for use.
+func (t *TPM) LoadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error) {
+	return t.tpm.loadAKWithParent(opaqueBlob, parent)
 }
 
 // MeasurementLog returns the present value of the System Measurement Log.
@@ -393,6 +451,7 @@ func (t *TPM) attestPCRs(ak *AK, nonce []byte, alg HashAlg) (*Quote, []PCR, erro
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read %v PCRs: %v", alg, err)
 	}
+
 	quote, err := ak.Quote(t, nonce, alg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to quote using %v: %v", alg, err)

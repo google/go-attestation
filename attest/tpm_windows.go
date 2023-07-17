@@ -29,8 +29,8 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/google/go-tpm/legacy/tpm2"
 	tpm1 "github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
 	"golang.org/x/sys/windows"
 )
@@ -151,6 +151,18 @@ func (t *windowsTPM) info() (*TPMInfo, error) {
 	}
 
 	return &tInfo, nil
+}
+
+func (t *windowsTPM) ekCertificates() ([]EK, error) {
+	ekCerts, err := t.pcp.EKCerts()
+	if err != nil {
+		return nil, fmt.Errorf("could not read EKCerts: %v", err)
+	}
+	var eks []EK
+	for _, cert := range ekCerts {
+		eks = append(eks, EK{Certificate: cert, Public: cert.PublicKey})
+	}
+	return eks, nil
 }
 
 func (t *windowsTPM) eks() ([]EK, error) {
@@ -374,7 +386,15 @@ func (t *windowsTPM) newKey(ak *AK, config *KeyConfig) (*Key, error) {
 	return &Key{key: newWindowsKey20(hnd, name, pub, cp.CreateData, cp.CreateAttestation, cp.CreateSignature), pub: pubKey, tpm: t}, nil
 }
 
+func (t *windowsTPM) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (t *windowsTPM) loadKey(opaqueBlob []byte) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (t *windowsTPM) loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

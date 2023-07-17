@@ -23,8 +23,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpm"
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // TPMVersion is used to configure a preference in
@@ -98,11 +99,23 @@ const (
 	keyEncodingParameterized
 )
 
+// ParentKeyConfig describes the Storage Root Key that is used
+// as a parent for new keys.
+type ParentKeyConfig struct {
+	Algorithm Algorithm
+	Handle    tpmutil.Handle
+}
+
+var defaultParentConfig = ParentKeyConfig{
+	Algorithm: RSA,
+	Handle:    0x81000001,
+}
+
 type ak interface {
 	close(tpmBase) error
 	marshal() ([]byte, error)
-	activateCredential(tpm tpmBase, in EncryptedCredential) ([]byte, error)
-	quote(t tpmBase, nonce []byte, alg HashAlg) (*Quote, error)
+	activateCredential(tpm tpmBase, in EncryptedCredential, ek *EK) ([]byte, error)
+	quote(t tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle interface{}) (*CertificationParameters, error)
 }
@@ -126,11 +139,22 @@ func (k *AK) Marshal() ([]byte, error) {
 }
 
 // ActivateCredential decrypts the secret using the key to prove that the AK
-// was generated on the same TPM as the EK.
+// was generated on the same TPM as the EK. This method can be used with TPMs
+// that have the default EK, i.e. RSA EK with handle 0x81010001.
 //
 // This operation is synonymous with TPM2_ActivateCredential.
 func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte, err error) {
-	return k.ak.activateCredential(tpm.tpm, in)
+	return k.ak.activateCredential(tpm.tpm, in, nil)
+}
+
+// ActivateCredential decrypts the secret using the key to prove that the AK
+// was generated on the same TPM as the EK. This method can be used with TPMs
+// that have an ECC EK. The 'ek' argument must be one of EKs returned from
+// TPM.EKs() or TPM.EKCertificates().
+//
+// This operation is synonymous with TPM2_ActivateCredential.
+func (k *AK) ActivateCredentialWithEK(tpm *TPM, in EncryptedCredential, ek EK) (secret []byte, err error) {
+	return k.ak.activateCredential(tpm.tpm, in, &ek)
 }
 
 // Quote returns a quote over the platform state, signed by the AK.
@@ -138,7 +162,16 @@ func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte
 // This is a low-level API. Consumers seeking to attest the state of the
 // platform should use tpm.AttestPlatform() instead.
 func (k *AK) Quote(tpm *TPM, nonce []byte, alg HashAlg) (*Quote, error) {
-	return k.ak.quote(tpm.tpm, nonce, alg)
+	pcrs := make([]int, 24)
+	for pcr := range pcrs {
+		pcrs[pcr] = pcr
+	}
+	return k.ak.quote(tpm.tpm, nonce, alg, pcrs)
+}
+
+// QuotePCRs is like Quote() but allows the caller to select a subset of the PCRs.
+func (k *AK) QuotePCRs(tpm *TPM, nonce []byte, alg HashAlg, pcrs []int) (*Quote, error) {
+	return k.ak.quote(tpm.tpm, nonce, alg, pcrs)
 }
 
 // AttestationParameters returns information about the AK, typically used to
@@ -155,9 +188,12 @@ func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, er
 	return k.ak.certify(tpm.tpm, handle)
 }
 
-// AKConfig encapsulates parameters for minting keys. This type is defined
-// now (despite being empty) for future interface compatibility.
+// AKConfig encapsulates parameters for minting keys.
 type AKConfig struct {
+	// Parent describes the Storage Root Key that will be used as a parent.
+	// If nil, the default SRK (i.e. RSA with handle 0x81000001) is assumed.
+	// Supported only by TPM 2.0 on Linux.
+	Parent *ParentKeyConfig
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated
@@ -205,6 +241,9 @@ type EK struct {
 	// Public key. Clients or servers can perform an HTTP GET to this URL, and
 	// use ParseEKCertificate on the response body.
 	CertificateURL string
+
+	// The EK persistent handle.
+	handle tpmutil.Handle
 }
 
 // AttestationParameters describes information about a key which is necessary

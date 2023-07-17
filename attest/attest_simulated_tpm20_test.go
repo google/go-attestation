@@ -98,14 +98,16 @@ func TestSimTPM20AKCreateAndLoad(t *testing.T) {
 }
 
 func TestSimTPM20ActivateCredential(t *testing.T) {
+	testActivateCredential(t, false)
+}
+
+func TestSimTPM20ActivateCredentialWithEK(t *testing.T) {
+	testActivateCredential(t, true)
+}
+
+func testActivateCredential(t *testing.T, useEK bool) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-
-	ak, err := tpm.NewAK(nil)
-	if err != nil {
-		t.Fatalf("NewAK() failed: %v", err)
-	}
-	defer ak.Close(tpm)
 
 	EKs, err := tpm.EKs()
 	if err != nil {
@@ -113,17 +115,28 @@ func TestSimTPM20ActivateCredential(t *testing.T) {
 	}
 	ek := chooseEK(t, EKs)
 
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+
 	ap := ActivationParameters{
 		TPMVersion: TPMVersion20,
 		AK:         ak.AttestationParameters(),
-		EK:         ek,
+		EK:         ek.Public,
 	}
 	secret, challenge, err := ap.Generate()
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
 	}
 
-	decryptedSecret, err := ak.ActivateCredential(tpm, *challenge)
+	var decryptedSecret []byte
+	if useEK {
+		decryptedSecret, err = ak.ActivateCredentialWithEK(tpm, *challenge, ek)
+	} else {
+		decryptedSecret, err = ak.ActivateCredential(tpm, *challenge)
+	}
 	if err != nil {
 		t.Errorf("ak.ActivateCredential() failed: %v", err)
 	}
@@ -246,24 +259,69 @@ func TestSimTPM20PCRs(t *testing.T) {
 	}
 }
 
-func TestSimTPM20Persistence(t *testing.T) {
+func TestSimTPM20PersistenceSRK(t *testing.T) {
+	testPersistenceSRK(t, defaultParentConfig)
+}
+
+func TestSimTPM20PersistenceECCSRK(t *testing.T) {
+	parentConfig := ParentKeyConfig{
+		Algorithm: ECDSA,
+		Handle:    0x81000002,
+	}
+	testPersistenceSRK(t, parentConfig)
+}
+
+func testPersistenceSRK(t *testing.T, parentConfig ParentKeyConfig) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	ekHnd, _, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	srkHnd, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
 	if err != nil {
-		t.Fatalf("getPrimaryKeyHandle() failed: %v", err)
+		t.Fatalf("getStorageRootKeyHandle() failed: %v", err)
 	}
-	if ekHnd != commonEkEquivalentHandle {
-		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
+	if srkHnd != parentConfig.Handle {
+		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, parentConfig.Handle)
 	}
 
-	ekHnd, p, err := tpm.tpm.(*wrappedTPM20).getPrimaryKeyHandle(commonEkEquivalentHandle)
+	srkHnd, p, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
 	if err != nil {
-		t.Fatalf("second getPrimaryKeyHandle() failed: %v", err)
+		t.Fatalf("second getStorageRootKeyHandle() failed: %v", err)
 	}
-	if ekHnd != commonEkEquivalentHandle {
-		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, commonEkEquivalentHandle)
+	if srkHnd != parentConfig.Handle {
+		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, parentConfig.Handle)
+	}
+	if p {
+		t.Fatalf("generated a new key the second time; that shouldn't happen")
+	}
+}
+
+func TestSimTPM20PersistenceEK(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	eks, err := tpm.EKs()
+	if err != nil {
+		t.Errorf("EKs() failed: %v", err)
+	}
+	if len(eks) == 0 || (eks[0].Public == nil) {
+		t.Errorf("EKs() = %v, want at least 1 EK with populated fields", eks)
+	}
+
+	ek := eks[0]
+	ekHnd, _, err := tpm.tpm.(*wrappedTPM20).getEndorsementKeyHandle(&ek)
+	if err != nil {
+		t.Fatalf("getStorageRootKeyHandle() failed: %v", err)
+	}
+	if ekHnd != ek.handle {
+		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, ek.handle)
+	}
+
+	ekHnd, p, err := tpm.tpm.(*wrappedTPM20).getEndorsementKeyHandle(&ek)
+	if err != nil {
+		t.Fatalf("second getEndorsementKeyHandle() failed: %v", err)
+	}
+	if ekHnd != ek.handle {
+		t.Fatalf("bad EK-equivalent handle: got 0x%x, wanted 0x%x", ekHnd, ek.handle)
 	}
 	if p {
 		t.Fatalf("generated a new key the second time; that shouldn't happen")
