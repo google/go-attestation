@@ -53,10 +53,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       # See https://github.com/google/go-tpm-tools#macos-dev
-    - name: Install openssl
-      run: brew install openssl@1.1
-    - name: Link openssl
-      run: sudo ln -s $(brew --prefix openssl@1.1)/include/openssl /usr/local/include
     - name: Test
       run: C_INCLUDE_PATH="$(brew --prefix openssl@1.1)/include" LIBRARY_PATH="$(brew --prefix openssl@1.1)/lib" go test ./...
   test-windows:
