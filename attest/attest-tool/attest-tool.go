@@ -140,7 +140,7 @@ func runCommand(tpm *attest.TPM) error {
 		fmt.Printf("Version: %d\n", info.Version)
 		fmt.Printf("Interface: %d\n", info.Interface)
 		fmt.Printf("VendorInfo: %x\n", info.VendorInfo)
-		fmt.Printf("Manufactorer: %v\n", info.Manufacturer)
+		fmt.Printf("Manufacturer: %v\n", info.Manufacturer)
 
 	case "make-ak", "make-aik":
 		k, err := tpm.NewAK(nil)
