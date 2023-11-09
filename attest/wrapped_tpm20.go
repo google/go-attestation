@@ -623,7 +623,9 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	if excess > 0 {
 		ret.Rsh(ret, uint(excess))
 	}
-	digest = ret.Bytes()
+	// call ret.FillBytes() here instead of ret.Bytes() to preserve leading zeroes
+	// that may have been dropped when converting the digest to an integer
+	digest = ret.FillBytes(digest)
 
 	sig, err := tpm2.Sign(rw, key, "", digest, nil, nil)
 	if err != nil {
