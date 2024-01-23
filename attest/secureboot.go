@@ -16,10 +16,10 @@ package attest
 
 import (
 	"bytes"
-	"crypto/x509"
 	"errors"
 	"fmt"
 
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest/internal"
 )
 

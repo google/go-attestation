@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -15,6 +14,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-attestation/attest"
 	"github.com/google/go-attestation/attest/attest-tool/internal"
 )

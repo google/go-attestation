@@ -19,12 +19,13 @@ package attest
 
 import (
 	"bytes"
-	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"syscall"
 	"unsafe"
+
+	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/google/go-tpm/tpmutil"
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"

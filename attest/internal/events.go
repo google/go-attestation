@@ -2,12 +2,13 @@ package internal
 
 import (
 	"bytes"
-	"crypto/x509"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"unicode/utf16"
+
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 const (

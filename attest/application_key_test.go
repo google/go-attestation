@@ -28,10 +28,11 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/asn1"
 	"math/big"
 	"testing"
+
+	"github.com/google/certificate-transparency-go/x509"
 )
 
 func TestSimTPM20KeyCreateAndLoad(t *testing.T) {

@@ -17,12 +17,12 @@ package attest
 
 import (
 	"crypto"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/go-tpm/tpm"
 	"github.com/google/go-tpm/tpm2"
 )

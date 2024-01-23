@@ -20,12 +20,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
-	"encoding/asn1"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 
+	"github.com/google/certificate-transparency-go/asn1"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 )

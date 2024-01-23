@@ -18,13 +18,14 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/google/certificate-transparency-go/asn1"
+	"github.com/google/certificate-transparency-go/x509"
 
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -198,12 +199,12 @@ func ParseEKCertificate(ekCert []byte) (*x509.Certificate, error) {
 	var cert struct {
 		Raw asn1.RawContent
 	}
-	if _, err := asn1.UnmarshalWithParams(ekCert, &cert, "lax"); err != nil {
+	if _, err := asn1.UnmarshalWithParams(ekCert, &cert, "lax"); err != nil && x509.IsFatal(err) {
 		return nil, fmt.Errorf("asn1.Unmarshal() failed: %v, wasWrapped=%v", err, wasWrapped)
 	}
 
 	c, err := x509.ParseCertificate(cert.Raw)
-	if err != nil {
+	if err != nil && x509.IsFatal(err) {
 		return nil, fmt.Errorf("x509.ParseCertificate() failed: %v", err)
 	}
 	return c, nil
