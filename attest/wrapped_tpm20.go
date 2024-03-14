@@ -231,6 +231,9 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 	if i.Manufacturer.String() == manufacturerIntel {
 		certificateURL = intelEKURL(ekPub)
 	}
+	if i.Manufacturer.String() == manufacturerAMD {
+		certificateURL = amdEKURL(ekPub)
+	}
 	return []EK{
 		{
 			Public:         ekPub,
