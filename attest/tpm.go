@@ -16,6 +16,7 @@ package attest
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -350,6 +351,7 @@ type tpmBase interface {
 	newKey(ak *AK, opts *KeyConfig) (*Key, error)
 	pcrs(alg HashAlg) ([]PCR, error)
 	measurementLog() ([]byte, error)
+	hash(alg crypto.Hash, data []byte) ([]byte, any, error)
 }
 
 // TPM interfaces with a TPM device on the system.
