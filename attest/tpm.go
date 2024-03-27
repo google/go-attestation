@@ -365,6 +365,10 @@ func (t *TPM) Close() error {
 }
 
 // EKs returns the endorsement keys burned-in to the platform.
+// Note for Linux clients: for historical reasons, the method assumes that
+// the TPM has a single EK, and the EK's type is RSA. If the EK's type is ECC
+// and the TPM contains an ECC EK Certificate, the EKCertificates() method
+// should be used to retrieve the EKs.
 func (t *TPM) EKs() ([]EK, error) {
 	return t.tpm.eks()
 }

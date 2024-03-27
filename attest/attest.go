@@ -147,7 +147,7 @@ func (k *AK) ActivateCredential(tpm *TPM, in EncryptedCredential) (secret []byte
 	return k.ak.activateCredential(tpm.tpm, in, nil)
 }
 
-// ActivateCredential decrypts the secret using the key to prove that the AK
+// ActivateCredentialWithEK decrypts the secret using the key to prove that the AK
 // was generated on the same TPM as the EK. This method can be used with TPMs
 // that have an ECC EK. The 'ek' argument must be one of EKs returned from
 // TPM.EKs() or TPM.EKCertificates().
