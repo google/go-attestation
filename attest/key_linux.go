@@ -18,6 +18,8 @@
 package attest
 
 import (
+	"crypto"
+	"errors"
 	"fmt"
 
 	"github.com/google/go-tspi/attestation"
@@ -98,4 +100,8 @@ func (k *trousersKey12) attestationParameters() AttestationParameters {
 
 func (k *trousersKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+func (k *trousersKey12) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation any) ([]byte, error) {
+	return nil, errors.New("not implemented")
 }

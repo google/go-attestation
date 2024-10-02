@@ -21,6 +21,7 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 
@@ -182,4 +183,12 @@ func (t *trousersTPM) pcrs(alg HashAlg) ([]PCR, error) {
 
 func (t *trousersTPM) measurementLog() ([]byte, error) {
 	return os.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
+}
+
+func (t *trousersTPM) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation any) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (t *trousersTPM) hash(hashAlg crypto.Hash, data []byte) ([]byte, any, error) {
+	return nil, nil, errors.New("not implemented")
 }
