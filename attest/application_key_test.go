@@ -289,6 +289,18 @@ func testKeySign(t *testing.T, tpm *TPM) {
 			digest: []byte("1234567890123456789012345678901212345678901234567890123456789012"),
 		},
 		{
+			name: "RSA2048-PSS-SHA256, PSSSaltLengthEqualsHash",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthEqualsHash,
+				Hash:       crypto.SHA256,
+			},
+			digest: []byte("12345678901234567890123456789012"),
+		},
+		{
 			name: "RSA2048-PSS-SHA256, explicit salt len",
 			keyOpts: &KeyConfig{
 				Algorithm: RSA,
