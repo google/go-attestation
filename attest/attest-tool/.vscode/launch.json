@@ -1,0 +1,21 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Launch attestor.go",
+        "type": "go",
+        "request": "launch",
+        "program": "c:\\source\\golang\\go-attestation\\attest\\attest-tool\\attestor.go",
+        "args": [
+            "-file",
+            "c:\\windows\\logs\\measuredboot\\0000000032-0000000000.log"
+          ],
+        "cwd": "c:\\source\\golang\\go-attestation\\attest\\attest-tool",
+        "env": {},
+        "buildFlags": "",
+        "mode": "auto",
+        "console": "integratedTerminal"
+      }
+    ]
+  }
+  

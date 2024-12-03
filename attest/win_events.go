@@ -42,6 +42,7 @@ const (
 	sipaTrustPoint                  windowsEvent = 0x00080000
 	sipaELAM                        windowsEvent = 0x00090000
 	sipaVBS                         windowsEvent = 0x000a0000
+	sipaDRTM                        windowsEvent = 0x000C0000
 	trustBoundary                   windowsEvent = 0x40010001
 	elamAggregation                 windowsEvent = 0x40010002
 	loadedModuleAggregation         windowsEvent = 0x40010003
@@ -89,6 +90,7 @@ const (
 	dumpEncryptionEnabled           windowsEvent = 0x00050026
 	dumpEncryptionKeyDigest         windowsEvent = 0x00050027
 	lsaISOConfig                    windowsEvent = 0x00050028
+	bootDMAProtection               windowsEvent = 0x00050030
 	noAuthority                     windowsEvent = 0x00060001
 	authorityPubKey                 windowsEvent = 0x00060002
 	filePath                        windowsEvent = 0x00070001
@@ -102,6 +104,7 @@ const (
 	authoritySHA1Thumbprint         windowsEvent = 0x00070009
 	imageValidated                  windowsEvent = 0x0007000A
 	moduleSVN                       windowsEvent = 0x0007000B
+	modulePluton                    windowsEvent = 0x0007000C
 	quote                           windowsEvent = 0x80080001
 	quoteSignature                  windowsEvent = 0x80080002
 	aikID                           windowsEvent = 0x80080003
@@ -119,6 +122,10 @@ const (
 	vbsHVCIPolicy                   windowsEvent = 0x000A0007
 	vbsMicrosoftBootChainRequired   windowsEvent = 0x000A0008
 	ksrSignature                    windowsEvent = 0x000B0001
+	drtmStateAuth                   windowsEvent = 0x000C0001
+	drtmSMMLevel                    windowsEvent = 0x000C0002
+	drtmAMDSMMHash                  windowsEvent = 0x000C0003
+	drtmAMDSMMSignerKey             windowsEvent = 0x000C0004
 )
 
 type WinCSPAlg uint32
@@ -156,6 +163,74 @@ const (
 	TernaryFalse
 )
 
+type HVCIPolicyStatus uint8
+
+// HVCI policy types
+const (
+	OS_HVCI_DISABLE = 0
+	OS_HVCI_ENABLE  = 1
+	OS_HVCI_STRICT  = 2
+)
+
+// readHVCIPolicy reads and compares a byte value to HVCI policy constants.
+func (w *WinEvents) readHVCIPolicy(header microsoftEventHeader, r *bytes.Reader) error {
+	if header.Size != 1 {
+		return fmt.Errorf("payload was %d bytes, want 1", header.Size)
+	}
+	var b byte
+	if err := binary.Read(r, binary.LittleEndian, &b); err != nil {
+		return fmt.Errorf("reading byte: %w", err)
+	}
+
+	switch b {
+	case OS_HVCI_DISABLE:
+		fmt.Println("HVCI Policy: Disabled")
+	case OS_HVCI_ENABLE:
+		fmt.Println("HVCI Policy: Enabled")
+	case OS_HVCI_STRICT:
+		fmt.Println("HVCI Policy: Strict")
+	default:
+		fmt.Println("HVCI Policy: Unknown")
+	}
+
+	return nil
+}
+
+// Constants
+const (
+	LSA_RUNASPPL_MODE                      = 0x4
+	LSA_ISO_IUM_ENABLED                    = 0x1
+	LSA_ISO_IUM_ENABLED_NOT_UEFI_PERSISTED = 0x2
+	LSA_ISO_RESERVED_1                     = 0x80000000
+
+	LSA_VALID_CFG_FLAGS                = LSA_ISO_IUM_ENABLED | LSA_ISO_IUM_ENABLED_NOT_UEFI_PERSISTED | LSA_ISO_RESERVED_1
+	LSA_VALID_UEFI_PERSISTED_CFG_FLAGS = LSA_ISO_IUM_ENABLED | LSA_ISO_RESERVED_1
+)
+
+// CheckLSAStates checks the current states based on the provided bitmask
+func CheckLSAStates(flags uint32) []string {
+	var states []string
+
+	if flags&LSA_ISO_IUM_ENABLED != 0 {
+		states = append(states, "LSA_ISO_IUM_ENABLED")
+	}
+	if flags&LSA_ISO_IUM_ENABLED_NOT_UEFI_PERSISTED != 0 {
+		states = append(states, "LSA_ISO_IUM_ENABLED_NOT_UEFI_PERSISTED")
+	}
+	if flags&LSA_RUNASPPL_MODE != 0 {
+		states = append(states, "LSA_RUNASPPL_MODE")
+	}
+	if flags&LSA_ISO_RESERVED_1 != 0 {
+		states = append(states, "LSA_ISO_RESERVED_1")
+	}
+
+	if len(states) == 0 {
+		states = append(states, "Unknown or Invalid Configuration")
+	}
+
+	return states
+}
+
 // WinEvents describes information from the event log recorded during
 // bootup of Microsoft Windows.
 type WinEvents struct {
@@ -186,6 +261,15 @@ type WinEvents struct {
 	// TestSigningEnabled is true if test-mode signature verification was
 	// ever reported as enabled.
 	TestSigningEnabled bool
+	// LSAIsoEnabled is true if LSA PPL isolation is enabled via policy and
+	// ever reported as enabled.
+	LSAIsoEnabled Ternary
+
+	HVCIPolicy []HVCIPolicyStatus
+	// Boot DMA is true if Kernel DMA Protection enabled via policy and
+	// ever reported as enabled.
+	BootDMAProtectionEnabled bool
+
 	// BitlockerUnlocks reports the bitlocker status for every instance of
 	// a disk unlock, where bitlocker was used to secure the disk.
 	BitlockerUnlocks []BitlockerStatus
@@ -382,6 +466,10 @@ func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.R
 	case testSigning:
 		w.TestSigningEnabled = w.TestSigningEnabled || isSet
 
+	// case bootDMAProtection:
+	// 	w.BootDMAProtectionEnabled = w.BootDMAProtectionEnabled || isSet
+	// case vbsVSMRequired:
+	// 	w.VBSVSMRequired = w.VBSVSMRequired || isSet
 	// Boolean signals that latch off if the are ever false (ie: attributes
 	// that represent a stronger security state when set).
 	case codeIntegrity:
@@ -390,6 +478,12 @@ func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.R
 		} else if !isSet {
 			w.CodeIntegrityEnabled = TernaryFalse
 		}
+		// case lsaISOConfig:
+		// 	if isSet && w.LSAIsoEnabled == TernaryUnknown {
+		// 		w.LSAIsoEnabled = TernaryTrue
+		// 	} else if !isSet {
+		// 		w.LSAIsoEnabled = TernaryFalse
+		// 	}
 	}
 	return nil
 }
@@ -445,6 +539,35 @@ func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *bytes.Re
 	// launched WinLoad. A different (unknown) value is set if WinResume
 	// is launched.
 	w.ColdBoot = i == 0x1
+	return nil
+}
+
+func (w *WinEvents) readLSAIsoConfig(header microsoftEventHeader, r *bytes.Reader) error {
+	i, err := w.readUint32(header, r)
+	if err != nil {
+		return fmt.Errorf("lsa iso: %v", err)
+	}
+
+	lsaIsoState := CheckLSAStates(i)
+
+	fmt.Printf("%x\n", i)
+	fmt.Println(lsaIsoState)
+
+	return nil
+}
+
+func (w *WinEvents) readVBSPolicy(header microsoftEventHeader, r *bytes.Reader) error {
+	i, err := w.readUint64(header, r)
+	if err != nil {
+		return fmt.Errorf("lsa iso: %v", err)
+	}
+
+	fmt.Printf("%x\n", i)
+	if i == 0x1 {
+		w.VBSVSMRequired = true
+	} else {
+		w.VBSVSMRequired = false
+	}
 	return nil
 }
 
@@ -640,6 +763,8 @@ func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header micros
 			if err := binary.Read(r, binary.LittleEndian, &b); err != nil {
 				return err
 			}
+		//case modulePluton: TODO need to add this
+
 		default:
 			return fmt.Errorf("unknown event in LMA aggregation: %v", h.Type)
 		}
@@ -767,7 +892,14 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
 		return w.readBitlockerUnlock(header, r, pcr)
 	case transferControl:
 		return w.readTransferControl(header, r)
-
+	case lsaISOConfig:
+		return w.readLSAIsoConfig(header, r)
+	case bootDMAProtection:
+		return w.readBooleanByteEvent(header, r)
+	case vbsHVCIPolicy:
+		return w.readVBSPolicy(header, r)
+	// case vbsHVCIPolicy:
+	// 	return w.readLSAIsoConfig(header, r)
 	case osKernelDebug, codeIntegrity, bootDebugging, testSigning: // Parse boolean values.
 		return w.readBooleanByteEvent(header, r)
 	case dataExecutionPrevention: // Parse booleans represented as uint64's.
@@ -802,6 +934,7 @@ func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData, pcr int) er
 		if err := w.readSIPAEvent(r, pcr); err != nil {
 			if errors.Is(err, unknownSIPAEvent) {
 				// Unknown SIPA events are okay as all TCG events are verifiable.
+				fmt.Printf("%x\n", evt.ID)
 				continue
 			}
 			return err
