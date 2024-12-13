@@ -652,8 +652,8 @@ func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.Si
 	}
 
 	if pss, ok := opts.(*rsa.PSSOptions); ok {
-		if pss.SaltLength != rsa.PSSSaltLengthAuto && pss.SaltLength != len(digest) {
-			return nil, fmt.Errorf("PSS salt length %d is incorrect, expected rsa.PSSSaltLengthAuto or %d", pss.SaltLength, len(digest))
+		if pss.SaltLength != rsa.PSSSaltLengthAuto && pss.SaltLength != rsa.PSSSaltLengthEqualsHash && pss.SaltLength != len(digest) {
+			return nil, fmt.Errorf("PSS salt length %d is incorrect, expected rsa.PSSSaltLengthAuto, rsa.PSSSaltLengthEqualsHash or %d", pss.SaltLength, len(digest))
 		}
 		scheme.Alg = tpm2.AlgRSAPSS
 	}
