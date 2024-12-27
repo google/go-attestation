@@ -266,7 +266,16 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}
-	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig)}, nil
+	// Pack the raw structure into a TPMU_SIGNATURE.
+	tpmPub, err := tpm2.DecodePublic(pub)
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %v", err)
+	}
+	pubKey, err := tpmPub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("access public key: %v", err)
+	}
+	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig), pub: pubKey, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
@@ -458,6 +467,23 @@ func (t *wrappedTPM20) measurementLog() ([]byte, error) {
 	return t.rwc.MeasurementLog()
 }
 
+func (t *wrappedTPM20) hash(hashAlg crypto.Hash, data []byte) ([]byte, any, error) {
+
+	// Get TPM hash algorithm
+	alg, err := tpm2.HashToAlgorithm(hashAlg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("incorrect hash algorithm: %v", err)
+	}
+
+	// Hash the data within the TPM, retrieving the digest and validation ticket
+	digest, validation, err := tpm2.Hash(t.rwc, alg, data, tpm2.HandleOwner)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to hash via TPM: %w", err)
+	}
+
+	return digest, validation, nil
+}
+
 // wrappedKey20 represents a key manipulated through a *wrappedTPM20.
 type wrappedKey20 struct {
 	hnd tpmutil.Handle
@@ -597,21 +623,31 @@ func (k *wrappedKey20) certificationParameters() CertificationParameters {
 	}
 }
 
-func (k *wrappedKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
+func (k *wrappedKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation any) ([]byte, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
+
+	var val *tpm2.Ticket = nil
+	if validation != nil {
+		val, ok = validation.(*tpm2.Ticket)
+		if !ok {
+			return nil, fmt.Errorf("expected *tpm2.Ticket, got %T", validation)
+		}
+	}
+
 	switch p := pub.(type) {
+
 	case *ecdsa.PublicKey:
-		return signECDSA(t.rwc, k.hnd, digest, p.Curve)
+		return signECDSA(t.rwc, k.hnd, digest, p.Curve, val)
 	case *rsa.PublicKey:
-		return signRSA(t.rwc, k.hnd, digest, opts)
+		return signRSA(t.rwc, k.hnd, digest, opts, val)
 	}
 	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
 
-func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve) ([]byte, error) {
+func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve, validation *tpm2.Ticket) ([]byte, error) {
 	// https://cs.opensource.google/go/go/+/refs/tags/go1.19.2:src/crypto/ecdsa/ecdsa.go;l=181
 	orderBits := curve.Params().N.BitLen()
 	orderBytes := (orderBits + 7) / 8
@@ -627,7 +663,7 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	// that may have been dropped when converting the digest to an integer
 	digest = ret.FillBytes(digest)
 
-	sig, err := tpm2.Sign(rw, key, "", digest, nil, nil)
+	sig, err := tpm2.Sign(rw, key, "", digest, validation, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)
 	}
@@ -640,7 +676,7 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	}{sig.ECC.R, sig.ECC.S})
 }
 
-func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.SignerOpts, validation *tpm2.Ticket) ([]byte, error) {
 	h, err := tpm2.HashToAlgorithm(opts.HashFunc())
 	if err != nil {
 		return nil, fmt.Errorf("incorrect hash algorithm: %v", err)
@@ -658,7 +694,7 @@ func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.Si
 		scheme.Alg = tpm2.AlgRSAPSS
 	}
 
-	sig, err := tpm2.Sign(rw, key, "", digest, nil, scheme)
+	sig, err := tpm2.Sign(rw, key, "", digest, validation, scheme)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)
 	}
