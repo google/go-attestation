@@ -246,6 +246,16 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 		return nil, fmt.Errorf("failed to get SRK handle: %v", err)
 	}
 
+	var akTemplate tpm2.Public
+	var sigScheme *tpm2.SigScheme
+	// The default is RSA.
+	if opts != nil && opts.Algorithm == ECDSA {
+		akTemplate = akTemplateECC
+		sigScheme = akTemplateECC.ECCParameters.Sign
+	} else {
+		akTemplate = akTemplateRSA
+		sigScheme = akTemplateRSA.RSAParameters.Sign
+	}
 	blob, pub, creationData, creationHash, tix, err := tpm2.CreateKey(t.rwc, srk, tpm2.PCRSelection{}, "", "", akTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("CreateKeyEx() failed: %v", err)
@@ -262,7 +272,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	}()
 
 	// We can only certify the creation immediately afterwards, so we cache the result.
-	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, tpm2.SigScheme{Alg: tpm2.AlgRSASSA, Hash: tpm2.AlgSHA256, Count: 0}, tix)
+	attestation, sig, err := tpm2.CertifyCreation(t.rwc, "", keyHandle, keyHandle, nil, creationHash, *sigScheme, tix)
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}

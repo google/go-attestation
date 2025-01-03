@@ -194,6 +194,9 @@ type AKConfig struct {
 	// If nil, the default SRK (i.e. RSA with handle 0x81000001) is assumed.
 	// Supported only by TPM 2.0 on Linux.
 	Parent *ParentKeyConfig
+
+	// If not specified, the default algorithm (RSA) is assumed.
+	Algorithm Algorithm
 }
 
 // EncryptedCredential represents encrypted parameters which must be activated

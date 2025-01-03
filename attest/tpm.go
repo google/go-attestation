@@ -48,7 +48,7 @@ const (
 )
 
 var (
-	akTemplate = tpm2.Public{
+	akTemplateRSA = tpm2.Public{
 		Type:       tpm2.AlgRSA,
 		NameAlg:    tpm2.AlgSHA256,
 		Attributes: tpm2.FlagSignerDefault | tpm2.FlagNoDA,
@@ -58,6 +58,22 @@ var (
 				Hash: tpm2.AlgSHA256,
 			},
 			KeyBits: 2048,
+		},
+	}
+	akTemplateECC = tpm2.Public{
+		Type:       tpm2.AlgECC,
+		NameAlg:    tpm2.AlgSHA256,
+		Attributes: tpm2.FlagSignerDefault | tpm2.FlagNoDA,
+		ECCParameters: &tpm2.ECCParams{
+			Sign: &tpm2.SigScheme{
+				Alg:  tpm2.AlgECDSA,
+				Hash: tpm2.AlgSHA256,
+			},
+			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
 		},
 	}
 	defaultRSASRKTemplate = tpm2.Public{
