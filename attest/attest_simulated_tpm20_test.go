@@ -67,33 +67,56 @@ func TestSimTPM20Info(t *testing.T) {
 func TestSimTPM20AKCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
+	for _, test := range []struct {
+		name string
+		opts *AKConfig
+	}{
+		{
+			name: "NoConfig",
+			opts: nil,
+		},
+		{
+			name: "EmptyConfig",
+			opts: &AKConfig{},
+		},
+		{
+			name: "RSA",
+			opts: &AKConfig{Algorithm: RSA},
+		},
+		{
+			name: "ECDSA",
+			opts: &AKConfig{Algorithm: ECDSA},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ak, err := tpm.NewAK(test.opts)
+			if err != nil {
+				t.Fatalf("NewAK() failed: %v", err)
+			}
 
-	ak, err := tpm.NewAK(nil)
-	if err != nil {
-		t.Fatalf("NewAK() failed: %v", err)
-	}
+			enc, err := ak.Marshal()
+			if err != nil {
+				ak.Close(tpm)
+				t.Fatalf("ak.Marshal() failed: %v", err)
+			}
+			if err := ak.Close(tpm); err != nil {
+				t.Fatalf("ak.Close() failed: %v", err)
+			}
 
-	enc, err := ak.Marshal()
-	if err != nil {
-		ak.Close(tpm)
-		t.Fatalf("ak.Marshal() failed: %v", err)
-	}
-	if err := ak.Close(tpm); err != nil {
-		t.Fatalf("ak.Close() failed: %v", err)
-	}
+			loaded, err := tpm.LoadAK(enc)
+			if err != nil {
+				t.Fatalf("LoadAK() failed: %v", err)
+			}
+			defer loaded.Close(tpm)
 
-	loaded, err := tpm.LoadAK(enc)
-	if err != nil {
-		t.Fatalf("LoadKey() failed: %v", err)
-	}
-	defer loaded.Close(tpm)
+			k1, k2 := ak.ak.(*wrappedKey20), loaded.ak.(*wrappedKey20)
 
-	k1, k2 := ak.ak.(*wrappedKey20), loaded.ak.(*wrappedKey20)
-
-	if !bytes.Equal(k1.public, k2.public) {
-		t.Error("Original & loaded AK public blobs did not match.")
-		t.Logf("Original = %v", k1.public)
-		t.Logf("Loaded   = %v", k2.public)
+			if !bytes.Equal(k1.public, k2.public) {
+				t.Error("Original & loaded AK public blobs did not match.")
+				t.Logf("Original = %v", k1.public)
+				t.Logf("Loaded   = %v", k2.public)
+			}
+		})
 	}
 }
 
