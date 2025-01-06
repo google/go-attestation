@@ -17,6 +17,7 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
@@ -164,11 +165,6 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	}
 
 	// Check the signature over the attestation data verifies correctly.
-	// TODO: Support ECC certifying keys
-	pk, ok := opts.Public.(*rsa.PublicKey)
-	if !ok {
-		return fmt.Errorf("only RSA verification keys are supported")
-	}
 	if !opts.Hash.Available() {
 		return fmt.Errorf("hash function is unavailable")
 	}
@@ -184,8 +180,17 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
 
-	if err := rsa.VerifyPKCS1v15(pk, opts.Hash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
-		return fmt.Errorf("could not verify attestation: %v", err)
+	switch pk := opts.Public.(type) {
+	case *rsa.PublicKey:
+		if err := rsa.VerifyPKCS1v15(pk, opts.Hash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
+			return fmt.Errorf("could not verify attestation: %v", err)
+		}
+	case *ecdsa.PublicKey:
+		if ok := ecdsa.Verify(pk, hsh.Sum(nil), sig.ECC.R, sig.ECC.S); !ok {
+			return fmt.Errorf("could not verify ECC attestation")
+		}
+	default:
+		return fmt.Errorf("unsupported public key type: %T", pub)
 	}
 
 	return nil
