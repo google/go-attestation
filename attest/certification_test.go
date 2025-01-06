@@ -31,13 +31,19 @@ import (
 	"github.com/google/go-tpm/legacy/tpm2"
 )
 
-func TestSimTPM20CertificationParameters(t *testing.T) {
+func TestSimTPM20CertificationParametersRSA(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-	testCertificationParameters(t, tpm)
+	testCertificationParameters(t, tpm, RSA)
 }
 
-func TestTPM20CertificationParameters(t *testing.T) {
+func TestSimTPM20CertificationParametersECC(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testCertificationParameters(t, tpm, ECDSA)
+}
+
+func TestTPM20CertificationParametersRSA(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -46,11 +52,23 @@ func TestTPM20CertificationParameters(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	testCertificationParameters(t, tpm)
+	testCertificationParameters(t, tpm, RSA)
 }
 
-func testCertificationParameters(t *testing.T, tpm *TPM) {
-	ak, err := tpm.NewAK(nil)
+func TestTPM20CertificationParametersECC(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	tpm, err := OpenTPM(nil)
+	if err != nil {
+		t.Fatalf("OpenTPM() failed: %v", err)
+	}
+	defer tpm.Close()
+	testCertificationParameters(t, tpm, ECDSA)
+}
+
+func testCertificationParameters(t *testing.T, tpm *TPM, akAlg Algorithm) {
+	ak, err := tpm.NewAK(&AKConfig{Algorithm: akAlg})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,12 +77,12 @@ func testCertificationParameters(t *testing.T, tpm *TPM) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pub.Type != tpm2.AlgRSA {
-		t.Fatal("non-RSA verifying key")
-	}
 
-	pk := &rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
-	hash, err := pub.RSAParameters.Sign.Hash.Hash()
+	pk, err := pub.Key()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash, err := pub.NameAlg.Hash()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,13 +188,19 @@ func testCertificationParameters(t *testing.T, tpm *TPM) {
 	}
 }
 
-func TestSimTPM20KeyCertification(t *testing.T) {
+func TestSimTPM20KeyCertificationRSA(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
-	testKeyCertification(t, tpm)
+	testKeyCertification(t, tpm, RSA)
 }
 
-func TestTPM20KeyCertification(t *testing.T) {
+func TestSimTPM20KeyCertificationECC(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testKeyCertification(t, tpm, ECDSA)
+}
+
+func TestTPM20KeyCertificationRSA(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -185,11 +209,23 @@ func TestTPM20KeyCertification(t *testing.T) {
 		t.Fatalf("OpenTPM() failed: %v", err)
 	}
 	defer tpm.Close()
-	testKeyCertification(t, tpm)
+	testKeyCertification(t, tpm, RSA)
 }
 
-func testKeyCertification(t *testing.T, tpm *TPM) {
-	ak, err := tpm.NewAK(nil)
+func TestTPM20KeyCertificationECC(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	tpm, err := OpenTPM(nil)
+	if err != nil {
+		t.Fatalf("OpenTPM() failed: %v", err)
+	}
+	defer tpm.Close()
+	testKeyCertification(t, tpm, ECDSA)
+}
+
+func testKeyCertification(t *testing.T, tpm *TPM, akAlg Algorithm) {
+	ak, err := tpm.NewAK(&AKConfig{Algorithm: akAlg})
 	if err != nil {
 		t.Fatalf("NewAK() failed: %v", err)
 	}
@@ -198,8 +234,11 @@ func testKeyCertification(t *testing.T, tpm *TPM) {
 	if err != nil {
 		t.Fatalf("DecodePublic() failed: %v", err)
 	}
-	pk := &rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
-	hash, err := pub.RSAParameters.Sign.Hash.Hash()
+	pk, err := pub.Key()
+	if err != nil {
+		t.Fatalf("pub.Key() failed: %v", err)
+	}
+	hash, err := pub.NameAlg.Hash()
 	if err != nil {
 		t.Fatalf("cannot access AK's hash function: %v", err)
 	}
