@@ -566,6 +566,27 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential, ek
 	}, k.hnd, ekHnd, credential, secret)
 }
 
+func sigSchemeFromPublicKey(pub []byte) (tpm2.SigScheme, error) {
+	tpmPub, err := tpm2.DecodePublic(pub)
+	if err != nil {
+		return tpm2.SigScheme{}, fmt.Errorf("decode public key: %v", err)
+	}
+	switch tpmPub.Type {
+	case tpm2.AlgRSA:
+		return tpm2.SigScheme{
+			Alg:  tpm2.AlgRSASSA,
+			Hash: tpm2.AlgSHA256,
+		}, nil
+	case tpm2.AlgECC:
+		return tpm2.SigScheme{
+			Alg:  tpm2.AlgECDSA,
+			Hash: tpm2.AlgSHA256,
+		}, nil
+	default:
+		return tpm2.SigScheme{}, fmt.Errorf("public key of alg 0x%x not supported", tpmPub.Type)
+	}
+}
+
 func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
@@ -575,9 +596,9 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 	if !ok {
 		return nil, fmt.Errorf("expected tpmutil.Handle, got %T", handle)
 	}
-	scheme := tpm2.SigScheme{
-		Alg:  tpm2.AlgRSASSA,
-		Hash: tpm2.AlgSHA256,
+	scheme, err := sigSchemeFromPublicKey(k.public)
+	if err != nil {
+		return nil, fmt.Errorf("get signature scheme: %v", err)
 	}
 	return certify(t.rwc, hnd, k.hnd, scheme)
 }
