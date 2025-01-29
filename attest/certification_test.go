@@ -24,6 +24,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"slices"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -224,6 +225,15 @@ func TestTPM20KeyCertificationECC(t *testing.T) {
 	testKeyCertification(t, tpm, ECDSA)
 }
 
+func extraData(t *testing.T, p CertificationParameters) []byte {
+	t.Helper()
+	ad, err := tpm2.DecodeAttestationData(p.CreateAttestation)
+	if err != nil {
+		t.Fatalf("failed to decode attestation data: %v", err)
+	}
+	return ad.ExtraData
+}
+
 func testKeyCertification(t *testing.T, tpm *TPM, akAlg Algorithm) {
 	ak, err := tpm.NewAK(&AKConfig{Algorithm: akAlg})
 	if err != nil {
@@ -249,6 +259,7 @@ func testKeyCertification(t *testing.T, tpm *TPM, akAlg Algorithm) {
 	for _, test := range []struct {
 		name string
 		opts *KeyConfig
+		wantExtraData []byte
 		err  error
 	}{
 		{
@@ -296,6 +307,26 @@ func testKeyCertification(t *testing.T, tpm *TPM, akAlg Algorithm) {
 			},
 			err: nil,
 		},
+		{
+			name: "QualifyingData-RSA",
+			opts: &KeyConfig{
+				Algorithm:      RSA,
+				Size:           2048,
+				QualifyingData: []byte("qualifying data"),
+			},
+			wantExtraData: []byte("qualifying data"),
+			err:           nil,
+		},
+		{
+			name: "QualifyingData-ECDSA",
+			opts: &KeyConfig{
+				Algorithm:      ECDSA,
+				Size:           384,
+				QualifyingData: []byte("qualifying data"),
+			},
+			wantExtraData: []byte("qualifying data"),
+			err:           nil,
+		},		
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			sk, err := tpm.NewKey(ak, test.opts)
@@ -304,6 +335,9 @@ func testKeyCertification(t *testing.T, tpm *TPM, akAlg Algorithm) {
 			}
 			defer sk.Close()
 			p := sk.CertificationParameters()
+			if gotExtraData, wantExtraData := extraData(t, p), test.wantExtraData; !slices.Equal(gotExtraData, wantExtraData) {
+				t.Errorf("ExtraData got = %v, want = %v", gotExtraData, wantExtraData)
+			}			
 			err = p.Verify(verifyOpts)
 			if test.err == nil && err == nil {
 				return

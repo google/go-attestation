@@ -302,7 +302,8 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	}()
 
 	// Certify application key by AK
-	cp, err := k.certify(t, keyHandle)
+	certifyOpts := CertifyOpts{QualifyingData: opts.QualifyingData}
+	cp, err := k.certify(t, keyHandle, certifyOpts)
 	if err != nil {
 		return nil, fmt.Errorf("ak.Certify() failed: %v", err)
 	}
@@ -587,7 +588,7 @@ func sigSchemeFromPublicKey(pub []byte) (tpm2.SigScheme, error) {
 	}
 }
 
-func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *wrappedKey20) certify(tb tpmBase, handle interface{}, opts CertifyOpts) (*CertificationParameters, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
@@ -600,7 +601,7 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 	if err != nil {
 		return nil, fmt.Errorf("get signature scheme: %v", err)
 	}
-	return certify(t.rwc, hnd, k.hnd, scheme)
+	return certify(t.rwc, hnd, k.hnd, opts.QualifyingData, scheme)
 }
 
 func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
