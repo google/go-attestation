@@ -107,7 +107,7 @@ func (k *windowsKey12) attestationParameters() AttestationParameters {
 		Public: k.public,
 	}
 }
-func (k *windowsKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsKey12) certify(tb tpmBase, handle interface{}, _ CertifyOpts) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -185,7 +185,7 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *windowsKey20) certify(tb tpmBase, handle interface{}, _ CertifyOpts) (*CertificationParameters, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
@@ -210,5 +210,5 @@ func (k *windowsKey20) certify(tb tpmBase, handle interface{}) (*CertificationPa
 		Alg:  tpm2.AlgRSASSA,
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
-	return certify(tpm, hnd, akHnd, scheme)
+	return certify(tpm, hnd, akHnd, nil, scheme)
 }
