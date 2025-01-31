@@ -38,6 +38,12 @@ type wrappedTPM20 struct {
 	tpmECCEkTemplate *tpm2.Public
 }
 
+// certifyingKey contains details of a TPM key that could certify other keys.
+type certifyingKey struct {
+	handle tpmutil.Handle
+	alg    Algorithm
+}
+
 func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
 	if t.tpmRSAEkTemplate != nil {
 		return *t.tpmRSAEkTemplate
@@ -285,6 +291,15 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 		return nil, fmt.Errorf("expected *wrappedKey20, got: %T", k)
 	}
 
+	kAlg, err := k.algorithm()
+	if err != nil {
+		return nil, fmt.Errorf("get algorithm: %v", err)
+	}
+	ck := certifyingKey{handle: k.hnd, alg: kAlg}
+	return t.newKeyCertifiedByKey(ck, opts)
+}
+
+func (t *wrappedTPM20) newKeyCertifiedByKey(ck certifyingKey, opts *KeyConfig) (*Key, error) {
 	parent, blob, pub, creationData, err := createKey(t, opts)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create key: %v", err)
@@ -303,9 +318,9 @@ func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 
 	// Certify application key by AK
 	certifyOpts := CertifyOpts{QualifyingData: opts.QualifyingData}
-	cp, err := k.certify(t, keyHandle, certifyOpts)
+	cp, err := certifyByKey(t, keyHandle, ck, certifyOpts)
 	if err != nil {
-		return nil, fmt.Errorf("ak.Certify() failed: %v", err)
+		return nil, fmt.Errorf("certifyByKey() failed: %v", err)
 	}
 	if !bytes.Equal(pub, cp.Public) {
 		return nil, fmt.Errorf("certified incorrect key, expected: %v, certified: %v", pub, cp.Public)
@@ -567,28 +582,36 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential, ek
 	}, k.hnd, ekHnd, credential, secret)
 }
 
-func sigSchemeFromPublicKey(pub []byte) (tpm2.SigScheme, error) {
-	tpmPub, err := tpm2.DecodePublic(pub)
-	if err != nil {
-		return tpm2.SigScheme{}, fmt.Errorf("decode public key: %v", err)
-	}
-	switch tpmPub.Type {
-	case tpm2.AlgRSA:
+func sigSchemeFromAlgorithm(alg Algorithm) (tpm2.SigScheme, error) {
+	switch alg {
+	case RSA:
 		return tpm2.SigScheme{
 			Alg:  tpm2.AlgRSASSA,
 			Hash: tpm2.AlgSHA256,
 		}, nil
-	case tpm2.AlgECC:
+	case ECDSA:
 		return tpm2.SigScheme{
 			Alg:  tpm2.AlgECDSA,
 			Hash: tpm2.AlgSHA256,
 		}, nil
 	default:
-		return tpm2.SigScheme{}, fmt.Errorf("public key of alg 0x%x not supported", tpmPub.Type)
+		return tpm2.SigScheme{}, fmt.Errorf("algorithm %v not supported", alg)
 	}
 }
 
 func (k *wrappedKey20) certify(tb tpmBase, handle interface{}, opts CertifyOpts) (*CertificationParameters, error) {
+	kAlg, err := k.algorithm()
+	if err != nil {
+		return nil, fmt.Errorf("unknown algorithm: %v", err)
+	}
+	ck := certifyingKey{
+		handle: k.hnd,
+		alg: kAlg,
+	}
+	return certifyByKey(tb, handle, ck, opts)
+}
+
+func certifyByKey(tb tpmBase, handle interface{}, ck certifyingKey, opts CertifyOpts) (*CertificationParameters, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
@@ -597,11 +620,11 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}, opts CertifyOpts)
 	if !ok {
 		return nil, fmt.Errorf("expected tpmutil.Handle, got %T", handle)
 	}
-	scheme, err := sigSchemeFromPublicKey(k.public)
+	scheme, err := sigSchemeFromAlgorithm(ck.alg)
 	if err != nil {
 		return nil, fmt.Errorf("get signature scheme: %v", err)
 	}
-	return certify(t.rwc, hnd, k.hnd, opts.QualifyingData, scheme)
+	return certify(t.rwc, hnd, ck.handle, opts.QualifyingData, scheme)
 }
 
 func (k *wrappedKey20) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
@@ -706,4 +729,19 @@ func (k *wrappedKey20) decrypt(tb tpmBase, ctxt []byte) ([]byte, error) {
 
 func (k *wrappedKey20) blobs() ([]byte, []byte, error) {
 	return k.public, k.blob, nil
+}
+
+func (k *wrappedKey20) algorithm() (Algorithm, error) {
+	tpmPub, err := tpm2.DecodePublic(k.public)
+	if err != nil {
+		return "", fmt.Errorf("decode public key: %v", err)
+	}
+	switch tpmPub.Type {
+	case tpm2.AlgRSA:
+		return RSA, nil
+	case tpm2.AlgECC:
+		return ECDSA, nil
+	default:
+		return "", fmt.Errorf("unsupported key type: %v", tpmPub.Type)
+	}
 }
