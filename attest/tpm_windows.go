@@ -345,6 +345,10 @@ func (t *windowsTPM) newKey(*AK, *KeyConfig) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (t *windowsTPM) newKeyCertifiedByKey(ck certifyingKey, opts *KeyConfig) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (t *windowsTPM) loadKey(opaqueBlob []byte) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }

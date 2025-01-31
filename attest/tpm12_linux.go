@@ -112,6 +112,10 @@ func (t *trousersTPM) newKey(*AK, *KeyConfig) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
+func (t *trousersTPM) newKeyCertifiedByKey(ck certifyingKey, opts *KeyConfig) (*Key, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
 func (t *trousersTPM) loadKey(opaqueBlob []byte) (*Key, error) {
 	return nil, fmt.Errorf("not implemented")
 }

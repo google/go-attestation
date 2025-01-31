@@ -364,6 +364,7 @@ type tpmBase interface {
 	loadKey(opaqueBlob []byte) (*Key, error)
 	loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*Key, error)
 	newKey(ak *AK, opts *KeyConfig) (*Key, error)
+	newKeyCertifiedByKey(ck certifyingKey, opts *KeyConfig) (*Key, error)
 	pcrs(alg HashAlg) ([]PCR, error)
 	measurementLog() ([]byte, error)
 }
@@ -447,6 +448,22 @@ func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
 		opts = defaultConfig
 	}
 	return t.tpm.newKey(ak, opts)
+}
+
+// NewKeyCertifiedByKey creates an application key certified by
+// the attestation key. Unlike NewKey(), this method does not require
+// an attest.AK object and only requires the AK handle and its algorithm.
+// Thus it can be used in cases where the attestation key was not created
+// by go-attestation library. If opts is nil then DefaultConfig is used.
+func (t *TPM) NewKeyCertifiedByKey(akHandle tpmutil.Handle, akAlg Algorithm, opts *KeyConfig) (*Key, error) {
+	if opts == nil {
+		opts = defaultConfig
+	}
+	if opts.Algorithm == "" && opts.Size == 0 {
+		opts = defaultConfig
+	}
+	ck := certifyingKey{handle: akHandle, alg: akAlg}
+	return t.tpm.newKeyCertifiedByKey(ck, opts)
 }
 
 // LoadKey loads a previously-created application key into the TPM for use.
