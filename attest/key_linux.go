@@ -96,6 +96,6 @@ func (k *trousersKey12) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *trousersKey12) certify(tb tpmBase, handle interface{}) (*CertificationParameters, error) {
+func (k *trousersKey12) certify(tb tpmBase, handle interface{}, _ CertifyOpts) (*CertificationParameters, error) {
 	return nil, fmt.Errorf("not implemented")
 }

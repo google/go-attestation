@@ -100,6 +100,22 @@ func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 				Size:      2048,
 			},
 		},
+		{
+			name: "QualifyingData-RSA",
+			opts: &KeyConfig{
+				Algorithm:      RSA,
+				Size:           2048,
+				QualifyingData: []byte("qualifying data"),
+			},
+		},
+		{
+			name: "QualifyingData-ECDSA",
+			opts: &KeyConfig{
+				Algorithm:      ECDSA,
+				Size:           256,
+				QualifyingData: []byte("qualifying data"),
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			sk, err := tpm.NewKey(ak, test.opts)

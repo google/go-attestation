@@ -83,6 +83,12 @@ type ActivateOpts struct {
 	VerifierKeyNameDigest *tpm2.HashValue
 }
 
+// CertifyOpts specifies options for the key's certification.
+type CertifyOpts struct {
+	// QualifyingData is the user provided qualifying data.
+	QualifyingData []byte
+}
+
 // NewActivateOpts creates options for use in generating an activation challenge for a certified key.
 // The computed hash is the name digest of the public key used to verify the certification of our key.
 func NewActivateOpts(verifierPubKey tpm2.Public, ek crypto.PublicKey) (*ActivateOpts, error) {
@@ -241,9 +247,9 @@ func (p *CertificationParameters) Generate(rnd io.Reader, verifyOpts VerifyOpts,
 	}, nil
 }
 
-// certify uses AK's handle and the passed signature scheme to certify the key
-// with the `hnd` handle.
-func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, scheme tpm2.SigScheme) (*CertificationParameters, error) {
+// certify uses AK's handle, the passed user qualifying data, and the passed
+// signature scheme to certify the key with the `hnd` handle.
+func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, qualifyingData []byte, scheme tpm2.SigScheme) (*CertificationParameters, error) {
 	pub, _, _, err := tpm2.ReadPublic(tpm, hnd)
 	if err != nil {
 		return nil, fmt.Errorf("tpm2.ReadPublic() failed: %v", err)
@@ -252,7 +258,7 @@ func certify(tpm io.ReadWriteCloser, hnd, akHnd tpmutil.Handle, scheme tpm2.SigS
 	if err != nil {
 		return nil, fmt.Errorf("could not encode public key: %v", err)
 	}
-	att, sig, err := tpm2.CertifyEx(tpm, "", "", hnd, akHnd, nil, scheme)
+	att, sig, err := tpm2.CertifyEx(tpm, "", "", hnd, akHnd, qualifyingData, scheme)
 	if err != nil {
 		return nil, fmt.Errorf("tpm2.Certify() failed: %v", err)
 	}
