@@ -399,41 +399,30 @@ func (a *AKPublic) VerifyAll(quotes []Quote, pcrs []PCR, nonce []byte) error {
 // HashAlg identifies a hashing Algorithm.
 type HashAlg uint8
 
-// Valid hash algorithms.
+// Known valid hash algorithms.
 var (
 	HashSHA1   = HashAlg(tpm2.AlgSHA1)
 	HashSHA256 = HashAlg(tpm2.AlgSHA256)
+	HashSHA384 = HashAlg(tpm2.AlgSHA384)
+	HashSHA512 = HashAlg(tpm2.AlgSHA512)
 )
 
 func (a HashAlg) cryptoHash() crypto.Hash {
-	switch a {
-	case HashSHA1:
-		return crypto.SHA1
-	case HashSHA256:
-		return crypto.SHA256
+	g := a.goTPMAlg()
+	h, err := g.Hash()
+	if err != nil {
+		panic(fmt.Sprintf("HashAlg %v (corresponding to TPM2.Algorithm %v) has no corresponding crypto.Hash", a, g))
 	}
-	return 0
+	return h
 }
 
 func (a HashAlg) goTPMAlg() tpm2.Algorithm {
-	switch a {
-	case HashSHA1:
-		return tpm2.AlgSHA1
-	case HashSHA256:
-		return tpm2.AlgSHA256
-	}
-	return 0
+	return tpm2.Algorithm(a)
 }
 
 // String returns a human-friendly representation of the hash algorithm.
 func (a HashAlg) String() string {
-	switch a {
-	case HashSHA1:
-		return "SHA1"
-	case HashSHA256:
-		return "SHA256"
-	}
-	return fmt.Sprintf("HashAlg<%d>", int(a))
+	return a.goTPMAlg().String()
 }
 
 // PlatformParameters encapsulates the set of information necessary to attest
