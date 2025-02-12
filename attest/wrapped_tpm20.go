@@ -462,6 +462,10 @@ func (t *wrappedTPM20) loadKeyWithParent(opaqueBlob []byte, parent ParentKeyConf
 	return &Key{key: newWrappedKey20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
+func (t *wrappedTPM20) pcrbanks() ([]HashAlg, error) {
+	return pcrbanks(t.rwc)
+}
+
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
 	PCRs, err := readAllPCRs20(t.rwc, alg.goTPMAlg())
 	if err != nil {

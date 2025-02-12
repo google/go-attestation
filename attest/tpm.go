@@ -29,6 +29,7 @@ import (
 
 	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpmutil"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -312,6 +313,27 @@ func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm,
 	}, err
 }
 
+func pcrbanks(tpm io.ReadWriter) ([]HashAlg, error) {
+	vals, _, err := tpm2.GetCapability(tpm, tpm2.CapabilityPCRs, 1024, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TPM available PCR banks: %w", err)
+	}
+
+	var hAlgs []HashAlg
+	var errs error
+	for i, v := range vals {
+		pcrb, ok := v.(tpm2.PCRSelection)
+		if !ok {
+			errs = multierr.Append(errs, fmt.Errorf("failed to convert value %d to tpm2.PCRSelection: %v", i, v))
+			continue
+		}
+
+		hAlgs = append(hAlgs, HashAlg(pcrb.Hash))
+	}
+
+	return hAlgs, errs
+}
+
 func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, error) {
 	numPCRs := 24
 	out := map[uint32][]byte{}
@@ -357,6 +379,7 @@ type tpmBase interface {
 	eks() ([]EK, error)
 	ekCertificates() ([]EK, error)
 	info() (*TPMInfo, error)
+	pcrbanks() ([]HashAlg, error)
 
 	loadAK(opaqueBlob []byte) (*AK, error)
 	loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error)
@@ -483,6 +506,14 @@ func (t *TPM) PCRs(alg HashAlg) ([]PCR, error) {
 	return t.tpm.pcrs(alg)
 }
 
+// PCRBanks returns the list of supported PCR banks on the TPM.
+//
+// This is a low-level API. Consumers seeking to attest the state of the
+// platform should use tpm.AttestPlatform() instead.
+func (t *TPM) PCRBanks() ([]HashAlg, error) {
+	return t.tpm.pcrbanks()
+}
+
 func (t *TPM) attestPCRs(ak *AK, nonce []byte, alg HashAlg) (*Quote, []PCR, error) {
 	pcrs, err := t.PCRs(alg)
 	if err != nil {
@@ -514,9 +545,9 @@ func (t *TPM) attestPlatform(ak *AK, nonce []byte, eventLog []byte) (*PlatformPa
 		EventLog:   eventLog,
 	}
 
-	algs := []HashAlg{HashSHA1}
-	if t.Version() == TPMVersion20 {
-		algs = []HashAlg{HashSHA1, HashSHA256}
+	algs, err := t.PCRBanks()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get PCR banks: %w", err)
 	}
 
 	var lastErr error
