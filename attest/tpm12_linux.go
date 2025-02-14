@@ -163,6 +163,10 @@ func allPCRs12(ctx *tspi.Context) (map[uint32][]byte, error) {
 	return PCRs, nil
 }
 
+func (t *trousersTPM) pcrbanks() ([]HashAlg, error) {
+	return []HashAlg{HashSHA1}, nil
+}
+
 func (t *trousersTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	if alg != HashSHA1 {
 		return nil, fmt.Errorf("non-SHA1 algorithm %v is not supported on TPM 1.2", alg)

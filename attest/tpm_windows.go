@@ -376,6 +376,23 @@ func allPCRs12(tpm io.ReadWriter) (map[uint32][]byte, error) {
 	return out, nil
 }
 
+func (t *windowsTPM) pcrbanks() ([]HashAlg, error) {
+	switch t.version {
+	case TPMVersion12:
+		return []HashAlg{HashSHA1}, nil
+
+	case TPMVersion20:
+		tpm, err := t.pcp.TPMCommandInterface()
+		if err != nil {
+			return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+		}
+		return pcrbanks(tpm)
+
+	default:
+		return nil, fmt.Errorf("unsupported TPM version: %x", t.version)
+	}
+}
+
 func (t *windowsTPM) pcrs(alg HashAlg) ([]PCR, error) {
 	var PCRs map[uint32][]byte
 

@@ -533,15 +533,7 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 			return nil, fmt.Errorf("failed to parse spec ID event: %v", err)
 		}
 		for _, alg := range specID.algs {
-			switch tpm2.Algorithm(alg.ID) {
-			case tpm2.AlgSHA1:
-				el.Algs = append(el.Algs, HashSHA1)
-			case tpm2.AlgSHA256:
-				el.Algs = append(el.Algs, HashSHA256)
-			}
-		}
-		if len(el.Algs) == 0 {
-			return nil, fmt.Errorf("measurement log didn't use sha1 or sha256 digests")
+			el.Algs = append(el.Algs, HashAlg(alg.ID))
 		}
 		// Switch to parsing crypto agile events. Don't include this in the
 		// replayed events since it intentionally doesn't extend the PCRs.
