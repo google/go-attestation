@@ -328,6 +328,10 @@ func pcrbanks(tpm io.ReadWriter) ([]HashAlg, error) {
 			continue
 		}
 
+		if len(pcrb.PCRs) == 0 {
+			// ignore empty PCR banks.
+			continue
+		}
 		hAlgs = append(hAlgs, HashAlg(pcrb.Hash))
 	}
 
