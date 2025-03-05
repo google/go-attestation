@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Test
       run: go test ./...
   test-linux-tpm12:
@@ -31,11 +31,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Install libtspi
       run: sudo apt-get install -y libtspi-dev
     - name: Test
@@ -47,11 +47,11 @@ jobs:
     runs-on: macos-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       # See https://github.com/google/go-tpm-tools#macos-dev
     - name: Test
       run: C_INCLUDE_PATH="$(brew --prefix openssl@1.1)/include" LIBRARY_PATH="$(brew --prefix openssl@1.1)/lib" go test ./...
@@ -62,10 +62,10 @@ jobs:
     runs-on: windows-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Test
       run: go build ./...
