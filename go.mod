@@ -2,6 +2,8 @@ module github.com/google/go-attestation
 
 go 1.24
 
+toolchain go1.24.1
+
 require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-tpm v0.9.3
