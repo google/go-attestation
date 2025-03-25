@@ -63,6 +63,13 @@ type Algorithm string
 const (
 	ECDSA Algorithm = "ECDSA"
 	RSA   Algorithm = "RSA"
+
+	// Windows specific ECDSA CNG algorithm identifiers.
+	// NOTE: Using ECDSA will default to ECDSA_P256.
+	// Ref: https://learn.microsoft.com/en-us/windows/win32/SecCNG/cng-algorithm-identifiers
+	ECDSA_P256 Algorithm = "ECDSA_P256"
+	ECDSA_P384 Algorithm = "ECDSA_P384"
+	ECDSA_P521 Algorithm = "ECDSA_P521"
 )
 
 // KeyConfig encapsulates parameters for minting keys.
@@ -86,6 +93,24 @@ type KeyConfig struct {
 var defaultConfig = &KeyConfig{
 	Algorithm: ECDSA,
 	Size:      256,
+}
+
+// Size returns the bit size associated with an algorithm.
+func (a Algorithm) Size() int {
+	switch a {
+	case RSA:
+		return 2048
+	case ECDSA:
+		return 256
+	case ECDSA_P256:
+		return 256
+	case ECDSA_P384:
+		return 384
+	case ECDSA_P521:
+		return 521
+	default:
+		return 0
+	}
 }
 
 // Public returns the public key corresponding to the private key.

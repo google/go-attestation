@@ -131,12 +131,13 @@ func TestAKCreateAndLoad(t *testing.T) {
 			}
 			defer loaded.Close(tpm)
 
-			k1, k2 := ak.ak.(*wrappedKey20), loaded.ak.(*wrappedKey20)
+			k1 := ak.ak.attestationParameters()
+			k2 := loaded.ak.attestationParameters()
 
-			if !bytes.Equal(k1.public, k2.public) {
+			if !bytes.Equal(k1.Public, k2.Public) {
 				t.Error("Original & loaded AK public blobs did not match.")
-				t.Logf("Original = %v", k1.public)
-				t.Logf("Loaded   = %v", k2.public)
+				t.Logf("Original = %v", k1.Public)
+				t.Logf("Loaded   = %v", k2.Public)
 			}
 		})
 	}

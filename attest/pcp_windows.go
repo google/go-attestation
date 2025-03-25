@@ -453,19 +453,19 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 }
 
 // NewAK creates a persistent attestation key of the specified name.
-func (h *winPCP) NewAK(name string) (uintptr, error) {
+func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
 	var kh uintptr
 	utf16Name, err := windows.UTF16FromString(name)
 	if err != nil {
 		return 0, err
 	}
-	utf16RSA, err := windows.UTF16FromString("RSA")
+	utf16Alg, err := windows.UTF16FromString(string(alg))
 	if err != nil {
 		return 0, err
 	}
 
 	// Create a persistent RSA key of the specified name.
-	r, _, msg := nCryptCreatePersistedKey.Call(h.hProv, uintptr(unsafe.Pointer(&kh)), uintptr(unsafe.Pointer(&utf16RSA[0])), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
+	r, _, msg := nCryptCreatePersistedKey.Call(h.hProv, uintptr(unsafe.Pointer(&kh)), uintptr(unsafe.Pointer(&utf16Alg[0])), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
 	if r != 0 {
 		if tpmErr := maybeWinErr(r); tpmErr != nil {
 			msg = tpmErr
@@ -477,7 +477,7 @@ func (h *winPCP) NewAK(name string) (uintptr, error) {
 	if err != nil {
 		return 0, err
 	}
-	var length uint32 = 2048
+	var length uint32 = uint32(alg.Size())
 	r, _, msg = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
 	if r != 0 {
 		if tpmErr := maybeWinErr(r); tpmErr != nil {
