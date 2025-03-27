@@ -67,3 +67,33 @@ func TestActivationTPM20(t *testing.T) {
 		t.Fatalf("secret = %v, want %v", got, want)
 	}
 }
+
+func TestECCActivationTPM20(t *testing.T) {
+	priv := ekCertSigner(t)
+	rand := rand.New(rand.NewSource(123456))
+
+	// These parameters represent an ECC P256 AK generated on a real-world,
+	// Google vTPM.
+	params := ActivationParameters{
+		TPMVersion: TPMVersion20,
+		AK: AttestationParameters{
+			Public:            decodeBase64("ACMACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAGAAEAAMAEAAgydcfFWW6O7PjW9vnOE4IDx3545TxylD1iVHP8MIFI78AIJuD/QM9EbqM+3SEl7PgiXlWV1NhmvnmE2AHiEfI/hUn", t),
+			CreateData:        decodeBase64("AAAAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUBAAsAIgALLEyPGewwEIKqPNw9Lx7QXsfp0MsOZFt4EzHFT4tSXekAIgALf7O+OxqTNzTuIhi1YGQoulPZoyxsNKHpBgT4dHqT3+UAAA==", t),
+			CreateAttestation: decodeBase64("/1RDR4AaACIAC8Uqr5OAkfcyLJ2gLU2oSvIoPi8XdoLHGdpS5h/JJz8aAAAAAAAEXezQqarG49k44bBnAUna81DZr1xhACIAC3AoqIzDrusUtdH3uAwqbqUrybtu35H1XPQDyLBHVGF+ACCKEKpwL1LFbw/IG+vtJ6CtXHIYBhVWyrkAqYLkHleYMw==", t),
+			CreateSignature:   decodeBase64("ABgABAAgbTEBcZvjb9uEEYZCiSqPh/XO0BZQS+egnJ8WKtpSbmkAIDNgvF9iyiOCvd5480hOCzjRj7GP3YZ3XqjEVvN3Q3Ca", t),
+		},
+		EK: &rsa.PublicKey{
+			E: priv.E,
+			N: priv.N,
+		},
+		Rand: rand,
+	}
+
+	secret, _, err := params.Generate()
+	if err != nil {
+		t.Fatalf("Generate() returned err: %v", err)
+	}
+	if got, want := secret, decodeBase64("0vhS7HtORX9uf/iyQ8Sf9WkpJuoJ1olCfTjSZuyNNxY=", t); !bytes.Equal(got, want) {
+		t.Fatalf("secret = %v, want %v", got, want)
+	}
+}

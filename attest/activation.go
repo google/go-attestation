@@ -3,6 +3,7 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
@@ -20,6 +21,8 @@ import (
 const (
 	// minRSABits is the minimum accepted bit size of an RSA key.
 	minRSABits = 2048
+	// minECCBits is the minimum accepted bit size of an ECC key.
+	minECCBits = 256
 	// activationSecretLen is the size in bytes of the generated secret
 	// which is generated for credential activation.
 	activationSecretLen = 32
@@ -115,6 +118,12 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 		if pub.RSAParameters.KeyBits < minRSABits {
 			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minRSABits, pub.RSAParameters.KeyBits)
 		}
+	case tpm2.AlgECC:
+		if len(pub.ECCParameters.Point.XRaw)*8 < minECCBits {
+			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minECCBits, len(pub.ECCParameters.Point.XRaw)*8)
+		} else if len(pub.ECCParameters.Point.YRaw)*8 < minECCBits {
+			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minECCBits, len(pub.ECCParameters.Point.YRaw)*8)
+		}
 	default:
 		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
 	}
@@ -160,6 +169,17 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 	}
 
 	// Check the signature over the attestation data verifies correctly.
+	switch pub.Type {
+	case tpm2.AlgRSA:
+		return verifyRSASignature(pub, p)
+	case tpm2.AlgECC:
+		return verifyECDSASignature(pub, p)
+	default:
+		return fmt.Errorf("public key of alg 0x%x not supported", pub.Type)
+	}
+}
+
+func verifyRSASignature(pub tpm2.Public, p *ActivationParameters) error {
 	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
 	signHash, err := pub.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
@@ -185,6 +205,40 @@ func (p *ActivationParameters) checkTPM20AKParameters() error {
 		return fmt.Errorf("could not verify attestation: %v", err)
 	}
 
+	return nil
+}
+
+func verifyECDSASignature(pub tpm2.Public, p *ActivationParameters) error {
+	key, err := pub.Key()
+	if err != nil {
+		return nil
+	}
+	pk, ok := key.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("expected *ecdsa.PublicKey, got %T", key)
+	}
+	signHash, err := pub.ECCParameters.Sign.Hash.Hash()
+	if err != nil {
+		return err
+	}
+	hsh := signHash.New()
+	_, err = hsh.Write(p.AK.CreateAttestation)
+	if err != nil {
+		return err
+	}
+
+	if len(p.AK.CreateSignature) < 8 {
+		return fmt.Errorf("signature invalid: length of %d is shorter than 8", len(p.AK.CreateSignature))
+	}
+
+	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AK.CreateSignature))
+	if err != nil {
+		return fmt.Errorf("DecodeSignature() failed: %v", err)
+	}
+
+	if !ecdsa.Verify(pk, hsh.Sum(nil), sig.ECC.R, sig.ECC.S) {
+		return fmt.Errorf("unable to verify attestation for ecdsa credential")
+	}
 	return nil
 }
 

@@ -190,6 +190,8 @@ func (k *AK) Certify(tpm *TPM, handle interface{}) (*CertificationParameters, er
 
 // AKConfig encapsulates parameters for minting keys.
 type AKConfig struct {
+	// Optionally set unique name for AK on Windows.
+	Name string
 	// Parent describes the Storage Root Key that will be used as a parent.
 	// If nil, the default SRK (i.e. RSA with handle 0x81000001) is assumed.
 	// Supported only by TPM 2.0 on Linux.
