@@ -337,7 +337,7 @@ type microsoftEventHeader struct {
 // not handled. Unlike other events in the TCG log, it is safe to skip
 // unhandled SIPA events, as they are embedded within EventTag structures,
 // and these structures should match the event digest.
-var unknownSIPAEvent = errors.New("unknown event")
+var errUnknownSIPAEvent = errors.New("unknown event")
 
 func (w *WinEvents) readBooleanInt64Event(header microsoftEventHeader, r *bytes.Reader) error {
 	if header.Size != 8 {
@@ -783,7 +783,7 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
 			return fmt.Errorf("reading unknown data section of length %d: %w", header.Size, err)
 		}
 
-		return unknownSIPAEvent
+		return errUnknownSIPAEvent
 	}
 }
 
@@ -800,7 +800,7 @@ func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData, pcr int) er
 
 	for r.Len() > 0 {
 		if err := w.readSIPAEvent(r, pcr); err != nil {
-			if errors.Is(err, unknownSIPAEvent) {
+			if errors.Is(err, errUnknownSIPAEvent) {
 				// Unknown SIPA events are okay as all TCG events are verifiable.
 				continue
 			}

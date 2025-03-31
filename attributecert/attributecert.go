@@ -447,13 +447,14 @@ type PlatformConfigurationV1 struct {
 }
 
 func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
-	if v.Tag == asn1.TagSet {
+	switch v.Tag {
+	case asn1.TagSet:
 		var e pkix.AttributeTypeAndValue
 		if _, err := asn1.Unmarshal(v.Bytes, &e); err != nil {
 			return nil, err
 		}
 		return []pkix.AttributeTypeAndValue{e}, nil
-	} else if v.Tag == asn1.TagOctetString {
+	case asn1.TagOctetString:
 		var attributes []pkix.AttributeTypeAndValue
 		var platformData PlatformDataSequence
 		rest, err := asn1.Unmarshal(v.Bytes, &platformData)
@@ -468,8 +469,9 @@ func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
 			}
 		}
 		return attributes, nil
+	default:
+		return nil, fmt.Errorf("attributecert: unexpected SAN type %v", v.Tag)
 	}
-	return nil, fmt.Errorf("attributecert: unexpected SAN type %v", v.Tag)
 }
 
 func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate, error) {

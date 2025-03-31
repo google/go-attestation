@@ -27,6 +27,6 @@ func probeSystemTPMs() ([]probedTPM, error) {
 	return nil, errUnsupported
 }
 
-func openTPM(tpm probedTPM) (*TPM, error) {
+func openTPM(probedTPM) (*TPM, error) {
 	return nil, errUnsupported
 }
