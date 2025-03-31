@@ -221,7 +221,7 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 
 	i, err := t.info()
 	if err != nil {
-		return nil, fmt.Errorf("Retrieving TPM info failed: %v", err)
+		return nil, fmt.Errorf("retrieving TPM info failed: %v", err)
 	}
 	ekPub := &rsa.PublicKey{
 		E: int(pub.RSAParameters.Exponent()),
