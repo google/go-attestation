@@ -10,7 +10,7 @@ require (
 	github.com/google/go-tpm-tools v0.4.5
 	github.com/google/go-tspi v0.3.0
 	go.uber.org/multierr v1.11.0
-	golang.org/x/sys v0.31.0
+	golang.org/x/sys v0.32.0
 )
 
 require (
