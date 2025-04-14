@@ -15,5 +15,5 @@ require (
 
 require (
 	github.com/google/certificate-transparency-go v1.1.2 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 )
