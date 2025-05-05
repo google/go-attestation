@@ -34,6 +34,8 @@ var (
 	PlatformConfigurationV1    = []int{2, 23, 133, 5, 1, 7, 1}
 	PlatformConfigurationV2    = []int{2, 23, 133, 5, 1, 7, 2}
 	EKCertificate              = []int{2, 23, 133, 8, 1}
+	VerifiedTPMResidency       = []int{2, 23, 133, 11, 1, 1}
+	VerifiedTPMFixed           = []int{2, 23, 133, 11, 1, 2}
 	VerifiedTPMRestricted      = []int{2, 23, 133, 11, 1, 3}
 	EKPermIDSHA256             = []int{2, 23, 133, 12, 1}
 )
