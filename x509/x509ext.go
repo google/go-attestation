@@ -89,6 +89,8 @@ func ParseSubjectAltName(ext pkix.Extension) (*SubjectAltName, error) {
 				return nil, fmt.Errorf("parsePermanentIdentifier: %v", err)
 			}
 			out.PermanentIdentifiers = append(out.PermanentIdentifiers, permID)
+		} else {
+			return nil, fmt.Errorf("expected type id %v, got %v", oidPermanentIdentifier, otherName.TypeID)
 		}
 	}
 	return &out, nil
