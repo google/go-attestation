@@ -581,9 +581,9 @@ type PlatformAttestConfig struct {
 
 // AttestPlatform computes the set of information necessary to attest the
 // state of the platform. For TPM 2.0 devices, AttestPlatform will attempt
-// to read both SHA1 & SHA256 PCR banks and quote both of them, so bugs in
+// to read all supported PCR banks and quote all of them, so bugs in
 // platform firmware which break replay for one PCR bank can be mitigated
-// using the other.
+// using any other.
 // The provided config, if not nil, can be used to configure aspects of the
 // platform attestation.
 func (t *TPM) AttestPlatform(ak *AK, nonce []byte, config *PlatformAttestConfig) (*PlatformParameters, error) {
