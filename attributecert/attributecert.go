@@ -177,7 +177,7 @@ type userNotice struct {
 // RFC 5755 4.1
 type objectDigestInfo struct {
 	DigestedObjectType asn1.Enumerated
-	OtherObjectTypeID  asn1.ObjectIdentifier
+	OtherObjectTypeID  asn1.ObjectIdentifier `asn1:"optional"`
 	DigestAlgorithm    pkix.AlgorithmIdentifier
 	ObjectDigest       asn1.BitString
 }
