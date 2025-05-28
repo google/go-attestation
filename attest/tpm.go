@@ -285,6 +285,25 @@ func intelEKURL(ekPub *rsa.PublicKey) string {
 	return intelEKCertServiceURL + url.QueryEscape(base64.URLEncoding.EncodeToString(pubHash.Sum(nil)))
 }
 
+const (
+	manufacturerAMD     = "AMD"
+	amdEKCertServiceURL = "https://ftpm.amd.com/pki/aia/"
+)
+
+func amdEKURL(ekPub *rsa.PublicKey) string {
+	pubHash := sha256.New()
+	pubHash.Write([]byte{0x00, 0x00, 0x22, 0x22})
+	exp := ekPub.E
+	if exp == 0 {
+		exp = int(0x00010001)
+	}
+	expBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(expBytes, uint32(ekPub.E))
+	pubHash.Write(expBytes)
+	pubHash.Write(ekPub.N.Bytes())
+	return amdEKCertServiceURL + url.QueryEscape(fmt.Sprintf("%X", pubHash.Sum(nil)[0:16]))
+}
+
 func readEKCertFromNVRAM20(tpm io.ReadWriter, nvramCertIndex tpmutil.Handle) (*x509.Certificate, error) {
 	// By passing nvramCertIndex as our auth handle we're using the NV index
 	// itself as the auth hierarchy, which is the same approach
