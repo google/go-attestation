@@ -62,9 +62,9 @@ type ActivationParameters struct {
 	Rand io.Reader
 }
 
-// checkAKParameters examines properties of an AK and a creation
+// CheckAKParameters examines properties of an AK and a creation
 // attestation, to determine if it is suitable for use as an attestation key.
-func (p *ActivationParameters) checkAKParameters() error {
+func (p *ActivationParameters) CheckAKParameters() error {
 	switch p.TPMVersion {
 	case TPMVersion12:
 		return p.checkTPM12AKParameters()
@@ -246,12 +246,15 @@ func verifyECDSASignature(pub tpm2.Public, p *ActivationParameters) error {
 // to the TPM to verify the AK parameters given are authentic & the AK
 // is present on the same TPM as the EK.
 //
+// It will call CheckAKParameters() at the beginning and return the error if
+// there is any.
+//
 // The caller is expected to verify the secret returned from the TPM as
 // as result of calling ActivateCredential() matches the secret returned here.
 // The caller should use subtle.ConstantTimeCompare to avoid potential
 // timing attack vectors.
 func (p *ActivationParameters) Generate() (secret []byte, ec *EncryptedCredential, err error) {
-	if err := p.checkAKParameters(); err != nil {
+	if err := p.CheckAKParameters(); err != nil {
 		return nil, nil, err
 	}
 
