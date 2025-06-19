@@ -26,7 +26,7 @@ pE3GeajzKTjdgZfina6Dn1tMoPXeJ8lSLCPFThws5XhZUlEYvURwsYGA7veK5CZ7
 zQIDAQAB
 -----END PUBLIC KEY-----`)
 
-// Created by downloading the binary PEM data from 
+// Created by downloading the binary PEM data from
 // https://ftpm.amd.com/pki/aia/D027B3CE6A9B6B56846D2B9935884A88
 // extracting its public key, and formatting it to PEM using
 //
@@ -75,9 +75,9 @@ func TestIntelEKURL(t *testing.T) {
 }
 
 func TestAMDEKURL(t *testing.T) {
-	want:= "https://ftpm.amd.com/pki/aia/D027B3CE6A9B6B56846D2B9935884A88"
+	want := "https://ftpm.amd.com/pki/aia/D027B3CE6A9B6B56846D2B9935884A88"
 	got := amdEKURL(testAMDRSAKey)
 	if got != want {
-		t.Fatalf("amdEKURL(), got=%q, want=%q",got,want)
+		t.Fatalf("amdEKURL(), got=%q, want=%q", got, want)
 	}
 }

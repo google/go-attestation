@@ -293,15 +293,22 @@ const (
 func amdEKURL(ekPub *rsa.PublicKey) string {
 	pubHash := sha256.New()
 	pubHash.Write([]byte{0x00, 0x00, 0x22, 0x22})
-	exp := ekPub.E
-	if exp == 0 {
-		exp = int(0x00010001)
-	}
 	expBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(expBytes, uint32(ekPub.E))
 	pubHash.Write(expBytes)
 	pubHash.Write(ekPub.N.Bytes())
 	return amdEKCertServiceURL + url.QueryEscape(fmt.Sprintf("%X", pubHash.Sum(nil)[0:16]))
+}
+
+func ekCertURL(ekPub *rsa.PublicKey, manufacturer string) string {
+	var CertURL string
+	switch manufacturer {
+	case intelEKCertServiceURL:
+		CertURL = intelEKURL(ekPub)
+	case amdEKCertServiceURL:
+		CertURL = amdEKURL(ekPub)
+	}
+	return CertURL
 }
 
 func readEKCertFromNVRAM20(tpm io.ReadWriter, nvramCertIndex tpmutil.Handle) (*x509.Certificate, error) {
