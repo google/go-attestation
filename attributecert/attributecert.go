@@ -34,11 +34,13 @@ var (
 )
 
 var (
-	oidSignatureRSASha1   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
-	oidSignatureRSAPSS    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
-	oidSignatureRSASha256 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
-	oidSignatureRSASha384 = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12}
-	oidSignatureEd25519   = asn1.ObjectIdentifier{1, 3, 101, 112}
+	oidSignatureRSASha1     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
+	oidSignatureRSAPSS      = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+	oidSignatureRSASha256   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
+	oidSignatureRSASha384   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12}
+	oidSignatureEd25519     = asn1.ObjectIdentifier{1, 3, 101, 112}
+	oidSignatureECDSASha256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
+	oidSignatureECDSASha512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
 
 	oidSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 	oidSHA384 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
@@ -61,6 +63,8 @@ var signatureAlgorithmDetails = []struct {
 	{x509.SHA384WithRSAPSS, "SHA384-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA384},
 	{x509.SHA512WithRSAPSS, "SHA512-RSAPSS", oidSignatureRSAPSS, x509.RSA, crypto.SHA512},
 	{x509.PureEd25519, "Ed25519", oidSignatureEd25519, x509.Ed25519, crypto.Hash(0) /* no pre-hashing */},
+	{x509.ECDSAWithSHA256, "ecdsaWithSHA256", oidSignatureECDSASha256, x509.ECDSA, crypto.SHA256},
+	{x509.ECDSAWithSHA512, "ecdsaWithSHA512", oidSignatureECDSASha512, x509.ECDSA, crypto.SHA512},
 }
 
 // pssParameters reflects the parameters in an AlgorithmIdentifier that
