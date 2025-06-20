@@ -187,9 +187,7 @@ func (t *windowsTPM) eks() ([]EK, error) {
 	if err != nil {
 		return nil, err
 	}
-	if i.Manufacturer.String() == manufacturerIntel {
-		ek.CertificateURL = intelEKURL(pub)
-	}
+	ek.CertificateURL = ekCertURL(pub, i.Manufacturer.String())
 	return []EK{ek}, nil
 }
 

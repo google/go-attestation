@@ -227,10 +227,7 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 		E: int(pub.RSAParameters.Exponent()),
 		N: pub.RSAParameters.Modulus(),
 	}
-	var certificateURL string
-	if i.Manufacturer.String() == manufacturerIntel {
-		certificateURL = intelEKURL(ekPub)
-	}
+	certificateURL := ekCertURL(ekPub, i.Manufacturer.String())
 	return []EK{
 		{
 			Public:         ekPub,
