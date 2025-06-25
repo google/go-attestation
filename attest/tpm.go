@@ -175,19 +175,19 @@ var (
 	rsaKeyTemplate = tpm2.Public{
 		Type:          tpm2.AlgRSA,
 		NameAlg:       tpm2.AlgSHA256,
-		Attributes:    tpm2.FlagSignerDefault ^ tpm2.FlagRestricted,
+		Attributes:    tpm2.FlagSignerDefault ^ tpm2.FlagRestricted | tpm2.FlagDecrypt,
 		RSAParameters: &tpm2.RSAParams{},
 	}
 )
 
-type tpm20Info struct {
+type tpmInfo struct {
 	vendor       string
 	manufacturer TCGVendorID
 	fwMajor      int
 	fwMinor      int
 }
 
-func readTPM2VendorAttributes(tpm io.ReadWriter) (tpm20Info, error) {
+func readVendorAttributes(tpm io.ReadWriter) (tpmInfo, error) {
 	var vendorInfo string
 	// The Vendor String is split up into 4 sections of 4 bytes,
 	// for a maximum length of 16 octets of ASCII text. We iterate
@@ -196,11 +196,11 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (tpm20Info, error) {
 	for i := 0; i < 4; i++ {
 		caps, _, err := tpm2.GetCapability(tpm, tpm2.CapabilityTPMProperties, 1, tpmPtVendorString+uint32(i))
 		if err != nil {
-			return tpm20Info{}, fmt.Errorf("tpm2.GetCapability(PT_VENDOR_STRING_%d) failed: %v", i+1, err)
+			return tpmInfo{}, fmt.Errorf("tpm2.GetCapability(PT_VENDOR_STRING_%d) failed: %v", i+1, err)
 		}
 		subset, ok := caps[0].(tpm2.TaggedProperty)
 		if !ok {
-			return tpm20Info{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
+			return tpmInfo{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
 		}
 		// Reconstruct the 4 ASCII octets from the uint32 value.
 		b := make([]byte, 4)
@@ -210,23 +210,23 @@ func readTPM2VendorAttributes(tpm io.ReadWriter) (tpm20Info, error) {
 
 	caps, _, err := tpm2.GetCapability(tpm, tpm2.CapabilityTPMProperties, 1, tpmPtManufacturer)
 	if err != nil {
-		return tpm20Info{}, fmt.Errorf("tpm2.GetCapability(PT_MANUFACTURER) failed: %v", err)
+		return tpmInfo{}, fmt.Errorf("tpm2.GetCapability(PT_MANUFACTURER) failed: %v", err)
 	}
 	manu, ok := caps[0].(tpm2.TaggedProperty)
 	if !ok {
-		return tpm20Info{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
+		return tpmInfo{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
 	}
 
 	caps, _, err = tpm2.GetCapability(tpm, tpm2.CapabilityTPMProperties, 1, tpmPtFwVersion1)
 	if err != nil {
-		return tpm20Info{}, fmt.Errorf("tpm2.GetCapability(PT_FIRMWARE_VERSION_1) failed: %v", err)
+		return tpmInfo{}, fmt.Errorf("tpm2.GetCapability(PT_FIRMWARE_VERSION_1) failed: %v", err)
 	}
 	fw, ok := caps[0].(tpm2.TaggedProperty)
 	if !ok {
-		return tpm20Info{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
+		return tpmInfo{}, fmt.Errorf("got capability of type %T, want tpm2.TaggedProperty", caps[0])
 	}
 
-	return tpm20Info{
+	return tpmInfo{
 		vendor:       strings.Trim(vendorInfo, "\x00"),
 		manufacturer: TCGVendorID(manu.Value),
 		fwMajor:      int((fw.Value & 0xffff0000) >> 16),
@@ -333,7 +333,6 @@ func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm,
 
 	rawSig, err := tpmutil.Pack(sig.Alg, sig.RSA.HashAlg, sig.RSA.Signature)
 	return &Quote{
-		Version:   TPMVersion20,
 		Quote:     quote,
 		Signature: rawSig,
 	}, err
@@ -364,7 +363,7 @@ func pcrbanks(tpm io.ReadWriter) ([]HashAlg, error) {
 	return hAlgs, errs
 }
 
-func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, error) {
+func readAllPCRs(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, error) {
 	numPCRs := 24
 	out := map[uint32][]byte{}
 
@@ -405,7 +404,6 @@ func readAllPCRs20(tpm io.ReadWriter, alg tpm2.Algorithm) (map[uint32][]byte, er
 // tpmBase defines the implementation of a TPM invariant.
 type tpmBase interface {
 	close() error
-	tpmVersion() TPMVersion
 	eks() ([]EK, error)
 	ekCertificates() ([]EK, error)
 	info() (*TPMInfo, error)
@@ -479,7 +477,6 @@ func (t *TPM) MeasurementLog() ([]byte, error) {
 	}
 
 	// A valid event log contains at least one SpecID event header (28 bytes).
-	// For TPM 1.2, we would expect at least an event header (32 bytes).
 	if minValidSize := 28; len(el) < minValidSize {
 		return nil, fmt.Errorf("event log too short: %d < %d", len(el), minValidSize)
 	}
@@ -557,7 +554,7 @@ func (t *TPM) attestPCRs(ak *AK, nonce []byte, alg HashAlg) (*Quote, []PCR, erro
 
 	// Make sure that the pcrs and quote values are consistent. See details in Section 17.6.2 of
 	// https://trustedcomputinggroup.org/wp-content/uploads/TCG_TPM2_r1p59_Part1_Architecture_pub.pdf
-	pub, err := ParseAKPublic(t.Version(), ak.AttestationParameters().Public)
+	pub, err := ParseAKPublic(ak.AttestationParameters().Public)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse AK public: %v", err)
 	}
@@ -570,9 +567,8 @@ func (t *TPM) attestPCRs(ak *AK, nonce []byte, alg HashAlg) (*Quote, []PCR, erro
 
 func (t *TPM) attestPlatform(ak *AK, nonce []byte, eventLog []byte) (*PlatformParameters, error) {
 	out := PlatformParameters{
-		TPMVersion: t.Version(),
-		Public:     ak.AttestationParameters().Public,
-		EventLog:   eventLog,
+		Public:   ak.AttestationParameters().Public,
+		EventLog: eventLog,
 	}
 
 	algs, err := t.PCRBanks()
@@ -628,9 +624,4 @@ func (t *TPM) AttestPlatform(ak *AK, nonce []byte, config *PlatformAttestConfig)
 	}
 
 	return t.attestPlatform(ak, nonce, el)
-}
-
-// Version returns the version of the TPM.
-func (t *TPM) Version() TPMVersion {
-	return t.tpm.tpmVersion()
 }

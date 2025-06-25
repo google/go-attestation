@@ -285,7 +285,8 @@ func ParseAttributeCertificate(asn1Data []byte) (*AttributeCertificate, error) {
 	rest, err := asn1.Unmarshal(asn1Data, &cert)
 	if err != nil {
 		return nil, err
-	} else if len(rest) != 0 {
+	}
+	if len(rest) != 0 {
 		return nil, asn1.SyntaxError{Msg: "attributecert: trailing data"}
 	}
 
@@ -464,7 +465,8 @@ func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
 		rest, err := asn1.Unmarshal(v.Bytes, &platformData)
 		if err != nil {
 			return nil, err
-		} else if len(rest) != 0 {
+		}
+		if len(rest) != 0 {
 			return nil, errors.New("attributecert: trailing data after X.509 subject")
 		}
 		for _, e := range platformData {
@@ -607,7 +609,8 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
 			if err != nil {
 				return nil, err
-			} else if len(rest) != 0 {
+			}
+			if len(rest) != 0 {
 				return nil, errors.New("attributecert: trailing data after X.509 extension")
 			}
 			rest = seq.Bytes
@@ -636,7 +639,6 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 						out.PlatformManufacturer = e.Value.(string)
 					case e.Type.Equal(oid.PlatformManufacturerID):
 						// We can't parse these out at present
-						break
 					case e.Type.Equal(oid.PlatformModel):
 						out.PlatformModel = e.Value.(string)
 					case e.Type.Equal(oid.PlatformVersion):
@@ -654,7 +656,8 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			rest, err := asn1.Unmarshal(extension.Value, &seq)
 			if err != nil {
 				return nil, err
-			} else if len(rest) != 0 {
+			}
+			if len(rest) != 0 {
 				return nil, errors.New("attributecert: trailing data after X.509 extension")
 			}
 			rest = seq.Bytes
@@ -738,9 +741,9 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 			}
 			for _, v := range aia {
 				if v.Method.Equal(oidAuthorityInfoAccessOcsp) {
-					//TODO
+					// TODO
 				} else if v.Method.Equal(oidAuthorityInfoAccessIssuers) {
-					//TODO
+					// TODO
 				} else {
 					return nil, fmt.Errorf("attributecert: unhandled Authority Info Access type %v", v.Method)
 				}

@@ -26,7 +26,7 @@ type otherName struct {
 	Value  asn1.RawValue
 }
 
-func marshalOtherName(typeID asn1.ObjectIdentifier, value interface{}) (asn1.RawValue, error) {
+func marshalOtherName(typeID asn1.ObjectIdentifier, value any) (asn1.RawValue, error) {
 	valueBytes, err := asn1.MarshalWithParams(value, "explicit,tag:0")
 	if err != nil {
 		return asn1.RawValue{}, err
@@ -128,7 +128,8 @@ func forEachSAN(extension []byte, callback func(ext asn1.RawValue) error) error 
 	rest, err := asn1.Unmarshal(extension, &seq)
 	if err != nil {
 		return err
-	} else if len(rest) != 0 {
+	}
+	if len(rest) != 0 {
 		return errors.New("x509: trailing data after X.509 extension")
 	}
 	if !seq.IsCompound || seq.Tag != 16 || seq.Class != 0 {

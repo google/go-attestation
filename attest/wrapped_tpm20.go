@@ -78,10 +78,6 @@ func (t *wrappedTPM20) eccEkTemplate() tpm2.Public {
 	return *t.tpmECCEkTemplate
 }
 
-func (t *wrappedTPM20) tpmVersion() TPMVersion {
-	return TPMVersion20
-}
-
 func (t *wrappedTPM20) close() error {
 	return t.rwc.Close()
 }
@@ -90,14 +86,13 @@ func (t *wrappedTPM20) close() error {
 func (t *wrappedTPM20) info() (*TPMInfo, error) {
 	var (
 		tInfo = TPMInfo{
-			Version:   TPMVersion20,
 			Interface: t.interf,
 		}
-		t2Info tpm20Info
+		t2Info tpmInfo
 		err    error
 	)
 
-	if t2Info, err = readTPM2VendorAttributes(t.rwc); err != nil {
+	if t2Info, err = readVendorAttributes(t.rwc); err != nil {
 		return nil, err
 	}
 	tInfo.Manufacturer = t2Info.manufacturer
@@ -408,7 +403,7 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 }
 
 func (t *wrappedTPM20) deserializeAndLoad(opaqueBlob []byte, parent ParentKeyConfig) (tpmutil.Handle, *serializedKey, error) {
-	sKey, err := deserializeKey(opaqueBlob, TPMVersion20)
+	sKey, err := deserializeKey(opaqueBlob)
 	if err != nil {
 		return 0, nil, fmt.Errorf("deserializeKey() failed: %v", err)
 	}
@@ -464,7 +459,7 @@ func (t *wrappedTPM20) pcrbanks() ([]HashAlg, error) {
 }
 
 func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
-	PCRs, err := readAllPCRs20(t.rwc, alg.goTPMAlg())
+	PCRs, err := readAllPCRs(t.rwc, alg.goTPMAlg())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read PCRs: %v", err)
 	}
@@ -525,7 +520,7 @@ func newWrappedKey20(hnd tpmutil.Handle, blob, public, createData, createAttesta
 func (k *wrappedKey20) marshal() ([]byte, error) {
 	return (&serializedKey{
 		Encoding:   keyEncodingEncrypted,
-		TPMVersion: TPMVersion20,
+		TPMVersion: 2,
 
 		Blob:              k.blob,
 		Public:            k.public,
@@ -604,7 +599,7 @@ func sigSchemeFromAlgorithm(alg Algorithm) (tpm2.SigScheme, error) {
 	}
 }
 
-func (k *wrappedKey20) certify(tb tpmBase, handle interface{}, opts CertifyOpts) (*CertificationParameters, error) {
+func (k *wrappedKey20) certify(tb tpmBase, handle any, opts CertifyOpts) (*CertificationParameters, error) {
 	kAlg, err := k.algorithm()
 	if err != nil {
 		return nil, fmt.Errorf("unknown algorithm: %v", err)
@@ -616,7 +611,7 @@ func (k *wrappedKey20) certify(tb tpmBase, handle interface{}, opts CertifyOpts)
 	return certifyByKey(tb, handle, ck, opts)
 }
 
-func certifyByKey(tb tpmBase, handle interface{}, ck certifyingKey, opts CertifyOpts) (*CertificationParameters, error) {
+func certifyByKey(tb tpmBase, handle any, ck certifyingKey, opts CertifyOpts) (*CertificationParameters, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)

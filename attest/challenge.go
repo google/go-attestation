@@ -2,13 +2,8 @@ package attest
 
 import (
 	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rsa"
 	"crypto/sha1"
 	"encoding/binary"
-	"fmt"
-	"io"
 )
 
 const (
@@ -60,81 +55,4 @@ func makeActivationBlob(symKey, akpub []byte) (blob []byte, err error) {
 	out.Write(akHash[:])
 	out.Write(makeEmptyPCRInfo())
 	return out.Bytes(), nil
-}
-
-type ekBlobHeader struct {
-	Tag     uint16
-	EkType  uint16
-	BlobLen uint32
-}
-
-func makeEkBlob(activationBlob []byte) []byte {
-	var out bytes.Buffer
-	binary.Write(&out, binary.BigEndian, ekBlobHeader{
-		Tag:     ekBlobTag,
-		EkType:  ekTypeActivate,
-		BlobLen: uint32(len(activationBlob)),
-	})
-	out.Write(activationBlob)
-
-	return out.Bytes()
-}
-
-func pad(plaintext []byte, bsize int) []byte {
-	pad := bsize - (len(plaintext) % bsize)
-	if pad == 0 {
-		pad = bsize
-	}
-	for i := 0; i < pad; i++ {
-		plaintext = append(plaintext, byte(pad))
-	}
-	return plaintext
-}
-
-// generateChallenge12 generates a TPM_EK_BLOB challenge for a TPM 1.2 device.
-// This process is defined in section 15.1 of the TPM 1.2 commands spec,
-// available at: https://trustedcomputinggroup.org/wp-content/uploads/TPM-Main-Part-3-Commands_v1.2_rev116_01032011.pdf
-//
-// asymenc is a TPM_EK_BLOB structure containing a TPM_EK_BLOB_ACTIVATE structure,
-// encrypted with the EK of the TPM. The contained credential is the aes key
-// for symenc.
-// symenc is a structure with TPM_SYM_MODE_CBC leading, then the IV, and then
-// the secret encrypted with the session key credential contained in asymenc.
-// To use this, pass asymenc as the input to the TPM_ActivateIdentity command.
-// Use the returned credential as the aes key to decode the secret in symenc.
-func generateChallenge12(rand io.Reader, pubkey *rsa.PublicKey, akpub, secret []byte) (asymenc []byte, symenc []byte, err error) {
-	aeskey := make([]byte, 16)
-	iv := make([]byte, 16)
-	if _, err = io.ReadFull(rand, aeskey); err != nil {
-		return nil, nil, err
-	}
-	if _, err = io.ReadFull(rand, iv); err != nil {
-		return nil, nil, err
-	}
-
-	activationBlob, err := makeActivationBlob(aeskey, akpub)
-	if err != nil {
-		return nil, nil, err
-	}
-	label := []byte{'T', 'C', 'P', 'A'}
-	asymenc, err = rsa.EncryptOAEP(sha1.New(), rand, pubkey, makeEkBlob(activationBlob), label)
-	if err != nil {
-		return nil, nil, fmt.Errorf("EncryptOAEP() failed: %v", err)
-	}
-
-	block, err := aes.NewCipher(aeskey)
-	if err != nil {
-		return nil, nil, err
-	}
-	cbc := cipher.NewCBCEncrypter(block, iv)
-	secret = pad(secret, len(iv))
-	symenc = make([]byte, len(secret))
-	cbc.CryptBlocks(symenc, secret)
-
-	var symOut bytes.Buffer
-	binary.Write(&symOut, binary.BigEndian, uint32(0x02)) // TPM_SYM_MODE_CBC
-	symOut.Write(iv)
-	symOut.Write(symenc)
-
-	return asymenc, symOut.Bytes(), nil
 }

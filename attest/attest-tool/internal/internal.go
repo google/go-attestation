@@ -9,8 +9,7 @@ import (
 // Dump describes the layout of serialized information from the dump command.
 type Dump struct {
 	Static struct {
-		TPMVersion attest.TPMVersion
-		EKPem      []byte
+		EKPem []byte
 	}
 
 	AK attest.AttestationParameters

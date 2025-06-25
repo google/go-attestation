@@ -70,9 +70,8 @@ func ExampleAK_credentialActivation() {
 
 	// Generate a credential activation challenge (usually done on the server).
 	activation := attest.ActivationParameters{
-		TPMVersion: tpm.Version(),
-		EK:         ek[0].Public,
-		AK:         ap,
+		EK: ek[0].Public,
+		AK: ap,
 	}
 	secret, challenge, err := activation.Generate()
 	if err != nil {
@@ -118,9 +117,8 @@ func ExampleAK_credentialActivationWithEK() {
 	for _, ek := range ekCerts {
 		// Generate a credential activation challenge (usually done on the server).
 		activation := attest.ActivationParameters{
-			TPMVersion: tpm.Version(),
-			EK:         ek.Public,
-			AK:         ap,
+			EK: ek.Public,
+			AK: ap,
 		}
 		secret, challenge, err := activation.Generate()
 		if err != nil {
@@ -186,7 +184,7 @@ func ExampleTPM_AttestPlatform() {
 
 	// Construct an AKPublic struct from the parameters of the key. This
 	// will be used to  verify the quote signatures.
-	pub, err := attest.ParseAKPublic(tpm.Version(), ak.AttestationParameters().Public)
+	pub, err := attest.ParseAKPublic(ak.AttestationParameters().Public)
 	if err != nil {
 		log.Fatalf("Failed to parse AK public: %v", err)
 	}

@@ -62,9 +62,8 @@ func selftestCredentialActivation(tpm *attest.TPM, ak *attest.AK) error {
 
 	// Test credential activation.
 	ap := attest.ActivationParameters{
-		TPMVersion: tpm.Version(),
-		EK:         ek,
-		AK:         ak.AttestationParameters(),
+		EK: ek,
+		AK: ak.AttestationParameters(),
 	}
 	secret, ec, err := ap.Generate()
 	if err != nil {
@@ -85,7 +84,7 @@ func selftestAttest(tpm *attest.TPM, ak *attest.AK) error {
 	// it's set to an arbitrary value.
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}
 
-	pub, err := attest.ParseAKPublic(tpm.Version(), ak.AttestationParameters().Public)
+	pub, err := attest.ParseAKPublic(ak.AttestationParameters().Public)
 	if err != nil {
 		return fmt.Errorf("failed to parse ak public: %v", err)
 	}
@@ -137,7 +136,6 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Version: %d\n", info.Version)
 		fmt.Printf("Interface: %d\n", info.Interface)
 		fmt.Printf("VendorInfo: %x\n", info.VendorInfo)
 		fmt.Printf("Manufacturer: %v\n", info.Manufacturer)
@@ -226,9 +224,8 @@ func runCommand(tpm *attest.TPM) error {
 		if err != nil {
 			fmt.Println("FAIL")
 			return err
-		} else {
-			fmt.Println("PASS")
 		}
+		fmt.Println("PASS")
 
 	default:
 		return fmt.Errorf("no such command %q", flag.Arg(0))
@@ -269,7 +266,6 @@ func runDump(tpm *attest.TPM) (*internal.Dump, error) {
 		err error
 	)
 
-	out.Static.TPMVersion = tpm.Version()
 	if out.Static.EKPem, err = rsaEKPEM(tpm); err != nil {
 		return nil, err
 	}

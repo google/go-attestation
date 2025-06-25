@@ -33,12 +33,11 @@ func parseEvents(t *testing.T, testdata string) []attest.Event {
 		t.Fatalf("parsing test data: %v", err)
 	}
 
-	ak, err := attest.ParseAKPublic(dump.Static.TPMVersion, dump.AK.Public)
+	ak, err := attest.ParseAKPublic(dump.AK.Public)
 	if err != nil {
 		t.Fatalf("parsing AK: %v", err)
 	}
 	if err := ak.Verify(attest.Quote{
-		Version:   dump.Static.TPMVersion,
 		Quote:     dump.Quote.Quote,
 		Signature: dump.Quote.Signature,
 	}, dump.Log.PCRs, dump.Quote.Nonce); err != nil {
@@ -86,20 +85,4 @@ func TestParseSecureBootWindows(t *testing.T) {
 	isEmpty(t, "dbt", sb.DBT)
 	isEmpty(t, "dbr", sb.DBR)
 	notEmpty(t, "Authority", sb.Authority)
-}
-
-func TestParseSecureBootLinux(t *testing.T) {
-	events := parseEvents(t, "../../../testdata/linux_tpm12.json")
-	sb, err := ParseSecureBoot(events)
-	if err != nil {
-		t.Errorf("parse secure boot: %v", err)
-	}
-	if sb.Enabled {
-		t.Errorf("expected secure boot to be disabled")
-	}
-	notEmpty(t, "db", sb.DB)
-	notEmpty(t, "dbx", sb.DBX)
-	isEmpty(t, "dbt", sb.DBT)
-	isEmpty(t, "dbr", sb.DBR)
-	isEmpty(t, "Authority", sb.Authority)
 }

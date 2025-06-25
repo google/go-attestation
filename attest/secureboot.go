@@ -72,7 +72,9 @@ type SecurebootState struct {
 type DriverLoadSource uint8
 
 const (
+	// UnknownSource indicates that the driver load source is unknown.
 	UnknownSource DriverLoadSource = iota
+	// PciMmioSource indicates that the driver load source is PCI-MMIO.
 	PciMmioSource
 )
 

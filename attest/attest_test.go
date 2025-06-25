@@ -143,18 +143,6 @@ func TestAKCreateAndLoad(t *testing.T) {
 	}
 }
 
-// chooseEK selects the EK which will be activated against.
-func chooseEK(t *testing.T, eks []EK) EK {
-	t.Helper()
-
-	for _, ek := range eks {
-		return ek
-	}
-
-	t.Fatalf("No suitable EK found")
-	return EK{}
-}
-
 func TestPCRs(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
@@ -185,7 +173,7 @@ func TestBug139(t *testing.T) {
 	// https://github.com/google/go-attestation/issues/139
 	badBlob := []byte{0, 1, 0, 4, 0, 1, 0, 0, 0, 0, 0, 6, 0, 128, 0, 67, 0, 16, 8, 0, 0, 1, 0, 1, 0, 0}
 	msg := "parsing public key: missing rsa signature scheme"
-	if _, err := ParseAKPublic(TPMVersion20, badBlob); err == nil || err.Error() != msg {
+	if _, err := ParseAKPublic(badBlob); err == nil || err.Error() != msg {
 		t.Errorf("ParseAKPublic() err = %v, want %v", err, msg)
 	}
 }

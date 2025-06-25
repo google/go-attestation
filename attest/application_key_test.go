@@ -12,10 +12,8 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build (!localtest || !tpm12) && cgo && !gofuzz
-// +build !localtest !tpm12
-// +build cgo
-// +build !gofuzz
+//go:build !localtest && cgo && !gofuzz
+// +build !localtest,cgo,!gofuzz
 
 // NOTE: simulator requires cgo, hence the build tag.
 
@@ -34,13 +32,13 @@ import (
 	"testing"
 )
 
-func TestSimTPM20KeyCreateAndLoad(t *testing.T) {
+func TestSimKeyCreateAndLoad(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testKeyCreateAndLoad(t, tpm)
 }
 
-func TestTPM20KeyCreateAndLoad(t *testing.T) {
+func TestKeyCreateAndLoad(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -178,13 +176,13 @@ func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 	}
 }
 
-func TestSimTPM20KeySign(t *testing.T) {
+func TestSimKeySign(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testKeySign(t, tpm)
 }
 
-func TestTPM20KeySign(t *testing.T) {
+func TestKeySign(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -404,13 +402,13 @@ func verifyRSA(t *testing.T, pub crypto.PublicKey, digest, sig []byte, opts cryp
 	}
 }
 
-func TestSimTPM20KeyOpts(t *testing.T) {
+func TestSimKeyOpts(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testKeyOpts(t, tpm)
 }
 
-func TestTPM20KeyOpts(t *testing.T) {
+func TestKeyOpts(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}

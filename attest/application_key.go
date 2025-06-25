@@ -65,11 +65,11 @@ const (
 	RSA   Algorithm = "RSA"
 
 	// Windows specific ECDSA CNG algorithm identifiers.
-	// NOTE: Using ECDSA will default to ECDSA_P256.
+	// NOTE: Using ECDSA will default to P256.
 	// Ref: https://learn.microsoft.com/en-us/windows/win32/SecCNG/cng-algorithm-identifiers
-	ECDSA_P256 Algorithm = "ECDSA_P256"
-	ECDSA_P384 Algorithm = "ECDSA_P384"
-	ECDSA_P521 Algorithm = "ECDSA_P521"
+	P256 Algorithm = "ECDSA_P256"
+	P384 Algorithm = "ECDSA_P384"
+	P521 Algorithm = "ECDSA_P521"
 )
 
 // KeyConfig encapsulates parameters for minting keys.
@@ -102,11 +102,11 @@ func (a Algorithm) Size() int {
 		return 2048
 	case ECDSA:
 		return 256
-	case ECDSA_P256:
+	case P256:
 		return 256
-	case ECDSA_P384:
+	case P384:
 		return 384
-	case ECDSA_P521:
+	case P521:
 		return 521
 	default:
 		return 0

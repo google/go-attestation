@@ -28,8 +28,7 @@ import (
 // Dump describes the layout of serialized information from the dump command.
 type Dump struct {
 	Static struct {
-		TPMVersion TPMVersion
-		EKPem      []byte
+		EKPem []byte
 	}
 
 	AK AttestationParameters
@@ -50,10 +49,6 @@ type Dump struct {
 
 func TestParseEventLogWindows(t *testing.T) {
 	testParseEventLog(t, "testdata/windows_gcp_shielded_vm.json")
-}
-
-func TestParseEventLogLinux(t *testing.T) {
-	testParseEventLog(t, "testdata/linux_tpm12.json")
 }
 
 func testParseEventLog(t *testing.T, testdata string) {
@@ -80,10 +75,6 @@ func TestParseCryptoAgileEventLog(t *testing.T) {
 	}
 }
 
-func TestEventLogLinux(t *testing.T) {
-	testEventLog(t, "testdata/linux_tpm12.json")
-}
-
 func TestEventLog(t *testing.T) {
 	testEventLog(t, "testdata/windows_gcp_shielded_vm.json")
 }
@@ -98,12 +89,11 @@ func testEventLog(t *testing.T, testdata string) {
 		t.Fatalf("parsing test data: %v", err)
 	}
 
-	ak, err := ParseAKPublic(dump.Static.TPMVersion, dump.AK.Public)
+	ak, err := ParseAKPublic(dump.AK.Public)
 	if err != nil {
 		t.Fatalf("parsing AK: %v", err)
 	}
 	if err := ak.Verify(Quote{
-		Version:   dump.Static.TPMVersion,
 		Quote:     dump.Quote.Quote,
 		Signature: dump.Quote.Signature,
 	}, dump.Log.PCRs, dump.Quote.Nonce); err != nil {

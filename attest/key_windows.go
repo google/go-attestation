@@ -21,95 +21,7 @@ import (
 	"fmt"
 
 	"github.com/google/go-tpm/legacy/tpm2"
-	tpm1 "github.com/google/go-tpm/tpm"
 )
-
-// windowsKey12 represents a Windows-managed key on a TPM1.2 TPM.
-type windowsKey12 struct {
-	hnd        uintptr
-	pcpKeyName string
-	public     []byte
-}
-
-func newWindowsKey12(hnd uintptr, pcpKeyName string, public []byte) ak {
-	return &windowsKey12{
-		hnd:        hnd,
-		pcpKeyName: pcpKeyName,
-		public:     public,
-	}
-}
-
-func (k *windowsKey12) marshal() ([]byte, error) {
-	out := serializedKey{
-		Encoding:   keyEncodingOSManaged,
-		TPMVersion: TPMVersion12,
-		Name:       k.pcpKeyName,
-		Public:     k.public,
-	}
-	return out.Serialize()
-}
-
-func (k *windowsKey12) activateCredential(t tpmBase, in EncryptedCredential, ek *EK) ([]byte, error) {
-	tpm, ok := t.(*windowsTPM)
-	if !ok {
-		return nil, fmt.Errorf("expected *windowsTPM, got %T", t)
-	}
-	secretKey, err := tpm.pcp.ActivateCredential(k.hnd, in.Credential)
-	if err != nil {
-		return nil, err
-	}
-	return decryptCredential(secretKey, in.Secret)
-}
-
-func (k *windowsKey12) quote(tb tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error) {
-	if alg != HashSHA1 {
-		return nil, fmt.Errorf("only SHA1 algorithms supported on TPM 1.2, not %v", alg)
-	}
-	t, ok := tb.(*windowsTPM)
-	if !ok {
-		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
-	}
-
-	tpmKeyHnd, err := t.pcp.TPMKeyHandle(k.hnd)
-	if err != nil {
-		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
-	}
-
-	tpm, err := t.pcp.TPMCommandInterface()
-	if err != nil {
-		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
-	}
-
-	sig, pcrc, err := tpm1.Quote(tpm, tpmKeyHnd, nonce, selectedPCRs[:], wellKnownAuth[:])
-	if err != nil {
-		return nil, fmt.Errorf("Quote() failed: %v", err)
-	}
-	// Construct and return TPM_QUOTE_INFO
-	// Returning TPM_QUOTE_INFO allows us to verify the Quote at a higher resolution
-	// and matches what go-tspi returns.
-	quote, err := tpm1.NewQuoteInfo(nonce, selectedPCRs[:], pcrc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct Quote Info: %v", err)
-	}
-	return &Quote{
-		Version:   TPMVersion12,
-		Quote:     quote,
-		Signature: sig,
-	}, nil
-}
-
-func (k *windowsKey12) close(tpm tpmBase) error {
-	return closeNCryptObject(k.hnd)
-}
-
-func (k *windowsKey12) attestationParameters() AttestationParameters {
-	return AttestationParameters{
-		Public: k.public,
-	}
-}
-func (k *windowsKey12) certify(tb tpmBase, handle interface{}, _ CertifyOpts) (*CertificationParameters, error) {
-	return nil, fmt.Errorf("not implemented")
-}
 
 // windowsKey20 represents a key bound to a TPM 2.0.
 type windowsKey20 struct {
@@ -136,7 +48,7 @@ func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createA
 func (k *windowsKey20) marshal() ([]byte, error) {
 	out := serializedKey{
 		Encoding:   keyEncodingOSManaged,
-		TPMVersion: TPMVersion20,
+		TPMVersion: 2,
 		Name:       k.pcpKeyName,
 
 		Public:            k.public,
@@ -185,7 +97,7 @@ func (k *windowsKey20) attestationParameters() AttestationParameters {
 	}
 }
 
-func (k *windowsKey20) certify(tb tpmBase, handle interface{}, _ CertifyOpts) (*CertificationParameters, error) {
+func (k *windowsKey20) certify(tb tpmBase, handle any, _ CertifyOpts) (*CertificationParameters, error) {
 	t, ok := tb.(*windowsTPM)
 	if !ok {
 		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)

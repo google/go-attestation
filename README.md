@@ -27,13 +27,6 @@ testing is not covered by CI.
 
 The go-attestation package is installable using go get: `go get github.com/google/go-attestation/attest`
 
-### TPM1.2
-By default, go-attestation does not build in TPM1.2 support on Linux.
-Linux users must install [`libtspi`](http://trousers.sourceforge.net/) and its headers if they need TPM 1.2 support. This can be installed on debian-based systems using: `sudo apt-get install libtspi-dev`.
-Then, build go-attestation with the `tspi` [build tag](https://pkg.go.dev/go/build#hdr-Build_Constraints) `go build --tags=tspi`.
-
-Windows users can use go-attestation with TPM1.2 by default.
-
 ## Example: device identity
 
 TPMs can be used to identify a device remotely and provision unique per-device

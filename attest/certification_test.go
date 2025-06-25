@@ -12,10 +12,8 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build (!localtest || !tpm12) && cgo && !gofuzz
-// +build !localtest !tpm12
-// +build cgo
-// +build !gofuzz
+//go:build !localtest && cgo && !gofuzz
+// +build !localtest,cgo,!gofuzz
 
 package attest
 
@@ -32,19 +30,19 @@ import (
 	"github.com/google/go-tpm/legacy/tpm2"
 )
 
-func TestSimTPM20CertificationParametersRSA(t *testing.T) {
+func TestSimCertificationParametersRSA(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testCertificationParameters(t, tpm, RSA)
 }
 
-func TestSimTPM20CertificationParametersECC(t *testing.T) {
+func TestSimCertificationParametersECC(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testCertificationParameters(t, tpm, ECDSA)
 }
 
-func TestTPM20CertificationParametersRSA(t *testing.T) {
+func TestCertificationParametersRSA(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -56,7 +54,7 @@ func TestTPM20CertificationParametersRSA(t *testing.T) {
 	testCertificationParameters(t, tpm, RSA)
 }
 
-func TestTPM20CertificationParametersECC(t *testing.T) {
+func TestCertificationParametersECC(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -189,19 +187,19 @@ func testCertificationParameters(t *testing.T, tpm *TPM, akAlg Algorithm) {
 	}
 }
 
-func TestSimTPM20KeyCertificationRSA(t *testing.T) {
+func TestSimKeyCertificationRSA(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testKeyCertification(t, tpm, RSA)
 }
 
-func TestSimTPM20KeyCertificationECC(t *testing.T) {
+func TestSimKeyCertificationECC(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 	testKeyCertification(t, tpm, ECDSA)
 }
 
-func TestTPM20KeyCertificationRSA(t *testing.T) {
+func TestKeyCertificationRSA(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -213,7 +211,7 @@ func TestTPM20KeyCertificationRSA(t *testing.T) {
 	testKeyCertification(t, tpm, RSA)
 }
 
-func TestTPM20KeyCertificationECC(t *testing.T) {
+func TestKeyCertificationECC(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
@@ -349,7 +347,7 @@ func testKeyCertification(t *testing.T, tpm *TPM, akAlg Algorithm) {
 	}
 }
 
-func TestKeyActivationTPM20(t *testing.T) {
+func TestKeyActivation(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -447,7 +445,8 @@ func TestKeyActivationTPM20(t *testing.T) {
 				}
 
 				return
-			} else if err != nil {
+			}
+			if err != nil {
 				t.Errorf("unexpected p.Generate() error: %v", err)
 				return
 			}
@@ -459,7 +458,8 @@ func TestKeyActivationTPM20(t *testing.T) {
 				}
 
 				return
-			} else if err != nil {
+			}
+			if err != nil {
 				t.Errorf("unexpected p.ActivateCredential() error: %v", err)
 				return
 			}
