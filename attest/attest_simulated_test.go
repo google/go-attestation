@@ -22,9 +22,14 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-tpm-tools/simulator"
+	"github.com/google/go-tpm/legacy/tpm2"
 )
 
 func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
@@ -348,5 +353,82 @@ func TestSimPersistenceEK(t *testing.T) {
 	}
 	if p {
 		t.Fatalf("generated a new key the second time; that shouldn't happen")
+	}
+}
+
+func TestTPMHash(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	sizes := []int{
+		tpm2BMaxBufferSize / 2,
+		tpm2BMaxBufferSize - 1,
+		tpm2BMaxBufferSize,
+		tpm2BMaxBufferSize + 1,
+		tpm2BMaxBufferSize * 1.5,
+		tpm2BMaxBufferSize*2 - 1,
+		tpm2BMaxBufferSize * 2,
+		tpm2BMaxBufferSize*2 + 1,
+	}
+
+	for _, size := range sizes {
+		t.Run(fmt.Sprintf("size=%d", size), func(t *testing.T) {
+			msg := make([]byte, size)
+			rand.Read(msg)
+
+			digest, validation, err := tpmHash(tpm.tpm.(*wrappedTPM20).rwc, msg, crypto.SHA256)
+			if err != nil {
+				t.Fatalf("Hash() failed: %v", err)
+			}
+
+			trueDigest := sha256.Sum256(msg)
+			if !bytes.Equal(digest, trueDigest[:]) {
+				t.Errorf("Hash() = %v, want %v", digest, trueDigest[:])
+			}
+
+			if validation.Hierarchy == tpm2.HandleNull {
+				t.Errorf("Hash() validation.Hierarchy = tpm2.HandleNull")
+			}
+		})
+	}
+}
+
+func TestTPMHashMsgTooShort(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	// TPM will refuse to hash a message that is too short.
+	sizes := []int{0, 1, 2}
+
+	for _, size := range sizes {
+		t.Run(fmt.Sprintf("size=%d", size), func(t *testing.T) {
+			msg := make([]byte, size)
+			_, _, err := tpmHash(tpm.tpm.(*wrappedTPM20).rwc, msg, crypto.SHA256)
+			if err == nil {
+				t.Errorf("Hash() succeeded, want error")
+			}
+		})
+	}
+}
+
+func TestSignMsg(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+
+	msg := []byte("hello world")
+	hashed := sha256.Sum256(msg)
+
+	sig, err := ak.SignMsg(tpm, msg, crypto.SHA256)
+	if err != nil {
+		t.Fatalf("SignMsg() failed: %v", err)
+	}
+
+	if err := rsa.VerifyPKCS1v15(ak.Public().(*rsa.PublicKey), crypto.SHA256, hashed[:], sig); err != nil {
+		t.Errorf("rsa.VerifyPKCS1v15() failed: %v", err)
 	}
 }
