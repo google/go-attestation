@@ -409,15 +409,14 @@ var (
 	HashSHA512 = HashAlg(tpm2.AlgSHA512)
 )
 
-func (a HashAlg) cryptoHash() crypto.Hash {
+func (a HashAlg) cryptoHash() (crypto.Hash, error) {
 	g := a.goTPMAlg()
 	h, err := g.Hash()
 	if err != nil {
-		panic(fmt.Sprintf("HashAlg %v (corresponding to TPM2.Algorithm %v) has no corresponding crypto.Hash", a, g))
+		return 0, fmt.Errorf("HashAlg %v (corresponding to TPM2.Algorithm %v) has no corresponding crypto.Hash", a, g)
 	}
-	return h
+	return h, nil
 }
-
 func (a HashAlg) goTPMAlg() tpm2.Algorithm {
 	return tpm2.Algorithm(a)
 }

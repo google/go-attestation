@@ -14,6 +14,8 @@
 
 package attest
 
+import "fmt"
+
 type elWorkaround struct {
 	id          string
 	affectedPCR int
@@ -47,9 +49,13 @@ func inject(e *EventLog, pcr int, data string) error {
 		sequence: e.rawEvents[len(e.rawEvents)-1].sequence + 1,
 	}
 	for _, alg := range e.Algs {
-		h := alg.cryptoHash().New()
+		hash, err := alg.cryptoHash()
+		if err != nil {
+			return fmt.Errorf("unknown algorithm ID %x: %v", alg, err)
+		}
+		h := hash.New()
 		h.Write([]byte(data))
-		evt.digests = append(evt.digests, digest{hash: alg.cryptoHash(), data: h.Sum(nil)})
+		evt.digests = append(evt.digests, digest{hash: hash, data: h.Sum(nil)})
 	}
 	e.rawEvents = append(e.rawEvents, evt)
 	return nil

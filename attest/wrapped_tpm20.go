@@ -471,10 +471,14 @@ func (t *wrappedTPM20) pcrs(alg HashAlg) ([]PCR, error) {
 
 	out := make([]PCR, len(PCRs))
 	for index, digest := range PCRs {
+		digestAlg, err := alg.cryptoHash()
+		if err != nil {
+			return nil, fmt.Errorf("unknown algorithm ID %x: %v", alg, err)
+		}
 		out[int(index)] = PCR{
 			Index:     int(index),
 			Digest:    digest,
-			DigestAlg: alg.cryptoHash(),
+			DigestAlg: digestAlg,
 		}
 	}
 
