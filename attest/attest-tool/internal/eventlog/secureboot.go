@@ -180,7 +180,7 @@ func ParseSecureBoot(events []attest.Event) (*SecureBoot, error) {
 	return &sb, nil
 }
 
-func binaryRead(r io.Reader, i interface{}) error {
+func binaryRead(r io.Reader, i any) error {
 	return binary.Read(r, binary.LittleEndian, i)
 }
 

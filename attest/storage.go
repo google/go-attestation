@@ -24,10 +24,9 @@ type serializedKey struct {
 	// Encoding describes the strategy by which the key should be
 	// loaded/unloaded.
 	Encoding keyEncoding `json:"KeyEncoding"`
-	// TPMVersion describes the version of the TPM which the key was generated
-	// on. deserializeKey() returns an error if it attempts to deserialize a key
-	// which is from a different TPM version to the currently opened TPM.
-	TPMVersion TPMVersion
+
+	// Unused and retained for backwards compatibility with existing keys.
+	TPMVersion uint8
 
 	// Public represents the public key, in a TPM-specific format. This
 	// field is populated on all platforms and TPM versions.
@@ -54,14 +53,14 @@ func (k *serializedKey) Serialize() ([]byte, error) {
 	return json.Marshal(k)
 }
 
-func deserializeKey(b []byte, version TPMVersion) (*serializedKey, error) {
+func deserializeKey(b []byte) (*serializedKey, error) {
 	var k serializedKey
 	var err error
 	if err = json.Unmarshal(b, &k); err != nil {
 		return nil, fmt.Errorf("json.Unmarshal() failed: %v", err)
 	}
 
-	if k.TPMVersion != version {
+	if k.TPMVersion != 2 {
 		return nil, fmt.Errorf("key for different TPM version: %v", k.TPMVersion)
 	}
 

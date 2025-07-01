@@ -23,10 +23,10 @@ import (
 
 var errUnsupported = errors.New("tpm operations not supported from given build parameters")
 
-func probeSystemTPMs() ([]probedTPM, error) {
+func probeSystemTPMs() ([]string, error) {
 	return nil, errUnsupported
 }
 
-func openTPM(probedTPM) (*TPM, error) {
+func openTPM(string) (*TPM, error) {
 	return nil, errUnsupported
 }

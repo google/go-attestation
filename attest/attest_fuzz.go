@@ -17,22 +17,10 @@
 
 package attest
 
-// FuzzParseAKPublic12 is an exported entrypoint for fuzzers to test
-// ParseAKPublic TPM 1.2 blobs. This method should not be used for any
-// other purpose.
-func FuzzParseAKPublic12(data []byte) int {
-	_, err := ParseAKPublic(TPMVersion12, data)
-	if err != nil {
-		return 0
-	}
-	return 1
-}
-
-// FuzzParseAKPublic20 is an exported entrypoint for fuzzers to test
-// ParseAKPublic TPM 2.0 blobs. This method should not be used for any
-// other purpose.
-func FuzzParseAKPublic20(data []byte) int {
-	_, err := ParseAKPublic(TPMVersion20, data)
+// FuzzParseAKPublic is an exported entrypoint for fuzzers to test
+// ParseAKPublic. This method should not be used for any other purpose.
+func FuzzParseAKPublic(data []byte) int {
+	_, err := ParseAKPublic(data)
 	if err != nil {
 		return 0
 	}

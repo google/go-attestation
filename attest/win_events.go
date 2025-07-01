@@ -121,6 +121,7 @@ const (
 	ksrSignature                    windowsEvent = 0x000B0001
 )
 
+// WinCSPAlg describes the hash algorithm used by a Windows CSP.
 type WinCSPAlg uint32
 
 // Valid CSP Algorithm IDs.

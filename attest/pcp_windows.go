@@ -646,7 +646,10 @@ func (h *winPCP) LoadKeyByName(name string) (uintptr, error) {
 	var hKey uintptr
 	r, _, msg := nCryptOpenKey.Call(h.hProv, uintptr(unsafe.Pointer(&hKey)), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
 	if r != 0 {
-		return 0, msg
+		if tpmErr := maybeWinErr(r); tpmErr != nil {
+			msg = tpmErr
+		}
+		return 0, fmt.Errorf("NCryptOpenKey returned %X (%v) for key %q", r, msg, name)
 	}
 	return hKey, nil
 }

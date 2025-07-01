@@ -18,8 +18,6 @@
 package attest
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -32,9 +30,6 @@ const (
 	tpmRoot = "/sys/class/tpm"
 )
 
-// This will be initialized if we build with CGO (needed for TPM 1.2 support).
-var getTPM12Impl func() (*TPM, error)
-
 // InjectSimulatedTPMForTest returns a fake TPM that interfaces with
 // the provided simulated TPM. This method should be used for testing
 // only.
@@ -45,8 +40,8 @@ func InjectSimulatedTPMForTest(rwc io.ReadWriteCloser) *TPM {
 	}}
 }
 
-func probeSystemTPMs() ([]probedTPM, error) {
-	var tpms []probedTPM
+func probeSystemTPMs() ([]string, error) {
+	var tpms []string
 
 	tpmDevs, err := os.ReadDir(tpmRoot)
 	if err != nil && !os.IsNotExist(err) {
@@ -55,19 +50,14 @@ func probeSystemTPMs() ([]probedTPM, error) {
 	if err == nil {
 		for _, tpmDev := range tpmDevs {
 			if strings.HasPrefix(tpmDev.Name(), "tpm") {
-				tpm := probedTPM{
-					Path: path.Join(tpmRoot, tpmDev.Name()),
-				}
+				tpmPath := path.Join(tpmRoot, tpmDev.Name())
 
-				if _, err := os.Stat(path.Join(tpm.Path, "caps")); err != nil {
-					if !os.IsNotExist(err) {
-						return nil, err
-					}
-					tpm.Version = TPMVersion20
-				} else {
-					tpm.Version = TPMVersion12
+				if _, err := os.Stat(path.Join(tpmPath, "caps")); err == nil {
+					continue
+				} else if !os.IsNotExist(err) {
+					return nil, err
 				}
-				tpms = append(tpms, tpm)
+				tpms = append(tpms, tpmPath)
 			}
 		}
 	}
@@ -84,40 +74,28 @@ func (cc *linuxCmdChannel) MeasurementLog() ([]byte, error) {
 	return os.ReadFile("/sys/kernel/security/tpm0/binary_bios_measurements")
 }
 
-func openTPM(tpm probedTPM) (*TPM, error) {
-	switch tpm.Version {
-	case TPMVersion12:
-		if getTPM12Impl == nil {
-			return nil, errors.New("support for Linux TPM 1.2 disabled (build with CGO to enable)")
-		}
-		return getTPM12Impl()
-
-	case TPMVersion20:
-		interf := TPMInterfaceDirect
-		// If the TPM has a kernel-provided resource manager, we should
-		// use that instead of communicating directly.
-		devPath := path.Join("/dev", path.Base(tpm.Path))
-		f, err := os.ReadDir(path.Join(tpm.Path, "device", "tpmrm"))
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return nil, err
-			}
-		} else if len(f) > 0 {
-			devPath = path.Join("/dev", f[0].Name())
-			interf = TPMInterfaceKernelManaged
-		}
-
-		rwc, err := tpm2.OpenTPM(devPath)
-		if err != nil {
+func openTPM(tpmPath string) (*TPM, error) {
+	interf := TPMInterfaceDirect
+	// If the TPM has a kernel-provided resource manager, we should
+	// use that instead of communicating directly.
+	devPath := path.Join("/dev", path.Base(tpmPath))
+	f, err := os.ReadDir(path.Join(tpmPath, "device", "tpmrm"))
+	if err != nil {
+		if !os.IsNotExist(err) {
 			return nil, err
 		}
-
-		return &TPM{tpm: &wrappedTPM20{
-			interf: interf,
-			rwc:    &linuxCmdChannel{rwc},
-		}}, nil
-
-	default:
-		return nil, fmt.Errorf("unsuported TPM version: %v", tpm.Version)
+	} else if len(f) > 0 {
+		devPath = path.Join("/dev", f[0].Name())
+		interf = TPMInterfaceKernelManaged
 	}
+
+	rwc, err := tpm2.OpenTPM(devPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TPM{tpm: &wrappedTPM20{
+		interf: interf,
+		rwc:    &linuxCmdChannel{rwc},
+	}}, nil
 }

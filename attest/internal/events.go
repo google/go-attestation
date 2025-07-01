@@ -1,3 +1,5 @@
+// Package internal contains internal structures and functions for parsing
+// TCG event logs.
 package internal
 
 import (
@@ -59,7 +61,7 @@ const (
 	EventTag             EventType = 0x00000006
 	SCRTMContents        EventType = 0x00000007
 	SCRTMVersion         EventType = 0x00000008
-	CpuMicrocode         EventType = 0x00000009
+	CPUMicrocode         EventType = 0x00000009
 	PlatformConfigFlags  EventType = 0x0000000A
 	TableOfDevices       EventType = 0x0000000B
 	CompactHash          EventType = 0x0000000C
@@ -119,7 +121,7 @@ var eventTypeNames = map[EventType]string{
 	EventTag:             "Event Tag",
 	SCRTMContents:        "S-CRTM Contents",
 	SCRTMVersion:         "S-CRTM Version",
-	CpuMicrocode:         "CPU Microcode",
+	CPUMicrocode:         "CPU Microcode",
 	PlatformConfigFlags:  "Platform Config Flags",
 	TableOfDevices:       "Table of Devices",
 	CompactHash:          "Compact Hash",
@@ -257,10 +259,12 @@ func ParseUEFIVariableData(r io.Reader) (ret UEFIVariableData, err error) {
 	return
 }
 
+// VarName returns the variable name from the UEFI variable data.
 func (v *UEFIVariableData) VarName() string {
 	return string(utf16.Decode(v.UnicodeName))
 }
 
+// SignatureData returns the signature data from the UEFI variable data.
 func (v *UEFIVariableData) SignatureData() (certs []x509.Certificate, hashes [][]byte, err error) {
 	return parseEfiSignatureList(v.VariableData)
 }
@@ -279,10 +283,10 @@ func ParseUEFIVariableAuthority(v UEFIVariableData) (UEFIVariableAuthority, erro
 	if v.Header.VariableName == shimLockGUID && (
 	// Skip parsing new SBAT section logged by shim.
 	// See https://github.com/rhboot/shim/blob/main/SBAT.md for more.
-	unicodeNameEquals(v, shimSbatVarName) || //https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/include/sbat.h#L9-L12
+	unicodeNameEquals(v, shimSbatVarName) || // https://github.com/rhboot/shim/blob/20e4d9486fcae54ee44d2323ae342ffe68c920e6/include/sbat.h#L9-L12
 		// Skip parsing new MokListTrusted section logged by shim.
 		// See https://github.com/rhboot/shim/blob/main/MokVars.txt for more.
-		unicodeNameEquals(v, shimMokListTrustedVarName)) { //https://github.com/rhboot/shim/blob/4e513405b4f1641710115780d19dcec130c5208f/mok.c#L169-L182
+		unicodeNameEquals(v, shimMokListTrustedVarName)) { // https://github.com/rhboot/shim/blob/4e513405b4f1641710115780d19dcec130c5208f/mok.c#L169-L182
 		return UEFIVariableAuthority{}, nil
 	}
 	certs, err := parseEfiSignature(v.VariableData)
@@ -333,8 +337,8 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 	}
 	signatures := efiSignatureList{}
 	buf := bytes.NewReader(b)
-	certificates := []x509.Certificate{}
-	hashes := [][]byte{}
+	var certificates []x509.Certificate
+	var hashes [][]byte
 
 	for buf.Len() > 0 {
 		err := binary.Read(buf, binary.LittleEndian, &signatures.Header)
@@ -424,7 +428,7 @@ type EFISignatureData struct {
 }
 
 func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
-	certificates := []x509.Certificate{}
+	var certificates []x509.Certificate
 
 	if len(b) < 16 {
 		return nil, fmt.Errorf("invalid signature: buffer smaller than header (%d < %d)", len(b), 16)
@@ -457,6 +461,7 @@ func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
 	return certificates, err
 }
 
+// EFIDevicePathElement represents an EFI_DEVICE_PATH_ELEMENT structure.
 type EFIDevicePathElement struct {
 	Type    EFIDeviceType
 	Subtype uint8
@@ -469,6 +474,7 @@ type EFIImageLoad struct {
 	DevPathData []byte
 }
 
+// EFIImageLoadHeader represents the EFI_IMAGE_LOAD_EVENT structure.
 type EFIImageLoadHeader struct {
 	LoadAddr      uint64
 	Length        uint64
@@ -504,6 +510,7 @@ func parseDevicePathElement(r io.Reader) (EFIDevicePathElement, error) {
 	return out, nil
 }
 
+// DevicePath returns the device path elements from the EFI_IMAGE_LOAD_EVENT structure.
 func (h *EFIImageLoad) DevicePath() ([]EFIDevicePathElement, error) {
 	var (
 		r   = bytes.NewReader(h.DevPathData)
