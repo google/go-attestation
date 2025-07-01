@@ -197,7 +197,7 @@ func (e *EventLog) Events(hash HashAlg) []Event {
 		}
 
 		for _, digest := range re.digests {
-			if hash.cryptoHash() != digest.hash {
+			if hash, err := hash.cryptoHash(); hash != digest.hash || err != nil {
 				continue
 			}
 			ev.Digest = digest.data
@@ -354,7 +354,10 @@ func (a *AKPublic) validate20Quote(quote Quote, pcrs []PCR, nonce []byte) error 
 	}
 
 	pcrByIndex := map[int][]byte{}
-	pcrDigestAlg := HashAlg(att.AttestedQuoteInfo.PCRSelection.Hash).cryptoHash()
+	pcrDigestAlg, err := HashAlg(att.AttestedQuoteInfo.PCRSelection.Hash).cryptoHash()
+	if err != nil {
+		return fmt.Errorf("invalid PCR selection hash: %v", err)
+	}
 	for _, pcr := range pcrs {
 		if pcr.DigestAlg == pcrDigestAlg {
 			pcrByIndex[pcr.Index] = pcr.Digest
@@ -724,7 +727,10 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
 			}
 			digest.data = make([]byte, alg.Size)
-			digest.hash = HashAlg(alg.ID).cryptoHash()
+			digest.hash, err = HashAlg(alg.ID).cryptoHash()
+			if err != nil {
+				return event, fmt.Errorf("unknown algorithm ID %x: %v", algID, err)
+			}
 		}
 		if len(digest.data) == 0 {
 			return event, fmt.Errorf("unknown algorithm ID %x", algID)
