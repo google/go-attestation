@@ -40,18 +40,6 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 	return tpm, attestTPM
 }
 
-// chooseEK selects the EK which will be activated against.
-func chooseEK(t *testing.T, eks []EK) EK {
-	t.Helper()
-
-	for _, ek := range eks {
-		return ek
-	}
-
-	t.Fatalf("No suitable EK found")
-	return EK{}
-}
-
 func TestSimEK(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
@@ -146,7 +134,10 @@ func testActivateCredential(t *testing.T, useEK bool) {
 	if err != nil {
 		t.Fatalf("EKs() failed: %v", err)
 	}
-	ek := chooseEK(t, EKs)
+	if len(EKs) == 0 {
+		t.Fatalf("No suitable EK found")
+	}
+	ek := EKs[0]
 
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
