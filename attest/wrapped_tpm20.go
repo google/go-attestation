@@ -30,6 +30,10 @@ import (
 	"github.com/google/go-tpm/tpmutil"
 )
 
+// The size of TPM2B_MAX_BUFFER is TPM-dependent. The value here is what all
+// TPMs support. See TPM 2.0 spec, part 2, section 10.4.8 TPM2B_MAX_BUFFER.
+const tpm2BMaxBufferSize = 1024
+
 // wrappedTPM20 interfaces with a TPM 2.0 command channel.
 type wrappedTPM20 struct {
 	interf           TPMInterface
@@ -274,7 +278,20 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CertifyCreation failed: %v", err)
 	}
-	return &AK{ak: newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig)}, nil
+
+	tpmPub, err := tpm2.DecodePublic(pub)
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %v", err)
+	}
+	pubKey, err := tpmPub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("access public key: %v", err)
+	}
+
+	return &AK{
+		ak:  newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig),
+		pub: pubKey,
+	}, nil
 }
 
 func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
@@ -484,6 +501,56 @@ func (t *wrappedTPM20) measurementLog() ([]byte, error) {
 	return t.rwc.MeasurementLog()
 }
 
+func tpmHash(rwc CommandChannelTPM20, msg []byte, h crypto.Hash) ([]byte, *tpm2.Ticket, error) {
+	alg, err := tpm2.HashToAlgorithm(h)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert hash algorithm: %v", err)
+	}
+
+	hnd, err := tpm2.HashSequenceStart(rwc, "", alg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to start hash sequence: %v", err)
+	}
+	flushHandle := true
+	defer func() {
+		if flushHandle {
+			tpm2.FlushContext(rwc, hnd)
+		}
+	}()
+
+	i := 0
+	// Handle all but the last chunk.
+	for {
+		end := i + tpm2BMaxBufferSize
+		if end >= len(msg) {
+			break
+		}
+		if err := tpm2.SequenceUpdate(rwc, "", hnd, msg[i:end]); err != nil {
+			return nil, nil, fmt.Errorf("failed to update hash sequence: %v", err)
+		}
+		i = end
+	}
+
+	// Handle the last chunk.
+	//
+	// Hardcoding tpm2.HandleOwner here should be fine --- "The hierarchy
+	// parameter is not related to the signing key hierarchy". See TPM 2.0
+	// spec, Part 3, Section 17.6 TPM2_SequenceComplete.
+	digest, validation, err := tpm2.SequenceComplete(rwc, "", hnd, tpm2.HandleOwner, msg[i:])
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to complete hash sequence: %v", err)
+	}
+	// "If this command completes successfully, the sequenceHandle object will
+	// be flushed." --- we don't need to flush it ourselves.
+	flushHandle = false
+
+	if validation.Hierarchy == tpm2.HandleNull {
+		return nil, nil, fmt.Errorf("validation ticket has a null hierarchy. msg might be too short or starts with TPM_GENERATED_VALUE")
+	}
+
+	return digest, validation, nil
+}
+
 // wrappedKey20 represents a key manipulated through a *wrappedTPM20.
 type wrappedKey20 struct {
 	hnd tpmutil.Handle
@@ -652,21 +719,38 @@ func (k *wrappedKey20) certificationParameters() CertificationParameters {
 	}
 }
 
+func (k *wrappedKey20) signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
+	t, ok := tb.(*wrappedTPM20)
+	if !ok {
+		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
+	}
+	digest, validation, err := tpmHash(t.rwc, msg, opts.HashFunc())
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash message: %v", err)
+	}
+
+	return k.signWithValidation(tb, digest, pub, opts, validation)
+}
+
 func (k *wrappedKey20) sign(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
+	return k.signWithValidation(tb, digest, pub, opts, nil)
+}
+
+func (k *wrappedKey20) signWithValidation(tb tpmBase, digest []byte, pub crypto.PublicKey, opts crypto.SignerOpts, validation *tpm2.Ticket) ([]byte, error) {
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
 	}
 	switch p := pub.(type) {
 	case *ecdsa.PublicKey:
-		return signECDSA(t.rwc, k.hnd, digest, p.Curve)
+		return signECDSA(t.rwc, k.hnd, digest, p.Curve, validation)
 	case *rsa.PublicKey:
-		return signRSA(t.rwc, k.hnd, digest, opts)
+		return signRSA(t.rwc, k.hnd, digest, opts, validation)
 	}
 	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
 
-func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve) ([]byte, error) {
+func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve, validation *tpm2.Ticket) ([]byte, error) {
 	// https://cs.opensource.google/go/go/+/refs/tags/go1.19.2:src/crypto/ecdsa/ecdsa.go;l=181
 	orderBits := curve.Params().N.BitLen()
 	orderBytes := (orderBits + 7) / 8
@@ -682,7 +766,7 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	// that may have been dropped when converting the digest to an integer
 	digest = ret.FillBytes(digest)
 
-	sig, err := tpm2.Sign(rw, key, "", digest, nil, nil)
+	sig, err := tpm2.Sign(rw, key, "", digest, validation, nil)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)
 	}
@@ -695,7 +779,7 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	}{sig.ECC.R, sig.ECC.S})
 }
 
-func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.SignerOpts, validation *tpm2.Ticket) ([]byte, error) {
 	h, err := tpm2.HashToAlgorithm(opts.HashFunc())
 	if err != nil {
 		return nil, fmt.Errorf("incorrect hash algorithm: %v", err)
@@ -713,7 +797,7 @@ func signRSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, opts crypto.Si
 		scheme.Alg = tpm2.AlgRSAPSS
 	}
 
-	sig, err := tpm2.Sign(rw, key, "", digest, nil, scheme)
+	sig, err := tpm2.Sign(rw, key, "", digest, validation, scheme)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)
 	}

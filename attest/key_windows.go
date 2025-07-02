@@ -18,6 +18,7 @@
 package attest
 
 import (
+	"crypto"
 	"fmt"
 
 	"github.com/google/go-tpm/legacy/tpm2"
@@ -123,4 +124,8 @@ func (k *windowsKey20) certify(tb tpmBase, handle any, _ CertifyOpts) (*Certific
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
 	return certify(tpm, hnd, akHnd, nil, scheme)
+}
+
+func (k *windowsKey20) signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
+	return nil, fmt.Errorf("not implemented")
 }

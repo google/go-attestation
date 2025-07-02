@@ -101,11 +101,19 @@ type ak interface {
 	quote(t tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle any, opts CertifyOpts) (*CertificationParameters, error)
+	signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error)
 }
 
 // AK represents a key which can be used for attestation.
 type AK struct {
-	ak ak
+	ak  ak
+	pub crypto.PublicKey
+}
+
+// Public returns the public key for the AK. This is only supported for TPM 2.0
+// on Linux currently.
+func (k *AK) Public() crypto.PublicKey {
+	return k.pub
 }
 
 // Close unloads the AK from the system.
@@ -169,6 +177,12 @@ func (k *AK) AttestationParameters() AttestationParameters {
 // types (e.g., tpmutil.Handle on Linux or uintptr on Windows).
 func (k *AK) Certify(tpm *TPM, handle any) (*CertificationParameters, error) {
 	return k.ak.certify(tpm.tpm, handle, CertifyOpts{})
+}
+
+// SignMsg signs the message (not the digest) with the AK. Note that AK is a
+// restricted signing key, it cannot sign a digest directly.
+func (k *AK) SignMsg(tpm *TPM, msg []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return k.ak.signMsg(tpm.tpm, msg, k.pub, opts)
 }
 
 // AKConfig encapsulates parameters for minting keys.
