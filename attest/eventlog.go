@@ -17,6 +17,7 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -257,6 +258,7 @@ func (a *AKPublic) validateQuote(quote Quote, pcrs []PCR, nonce []byte) error {
 
 	sigHash := a.Hash.New()
 	sigHash.Write(quote.Quote)
+	digest := sigHash.Sum(nil)
 
 	switch pub := a.Public.(type) {
 	case *rsa.PublicKey:
@@ -264,11 +266,17 @@ func (a *AKPublic) validateQuote(quote Quote, pcrs []PCR, nonce []byte) error {
 			return fmt.Errorf("rsa public key provided for ec signature")
 		}
 		sigBytes := []byte(sig.RSA.Signature)
-		if err := rsa.VerifyPKCS1v15(pub, a.Hash, sigHash.Sum(nil), sigBytes); err != nil {
+		if err := rsa.VerifyPKCS1v15(pub, a.Hash, digest, sigBytes); err != nil {
 			return fmt.Errorf("invalid quote signature: %v", err)
 		}
+	case *ecdsa.PublicKey:
+		if sig.ECC == nil {
+			return fmt.Errorf("ecdsa public key provided for rsa signature")
+		}
+		if !ecdsa.Verify(pub, digest, sig.ECC.R, sig.ECC.S) {
+			return fmt.Errorf("invalid quote signature")
+		}
 	default:
-		// TODO(ericchiang): support ecdsa
 		return fmt.Errorf("unsupported public key type %T", pub)
 	}
 

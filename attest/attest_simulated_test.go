@@ -193,47 +193,62 @@ func TestParseAKPublic(t *testing.T) {
 func TestSimQuoteAndVerifyAll(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
+	for _, test := range []struct {
+		name string
+		opts *AKConfig
+	}{
+		{
+			name: "RSA",
+			opts: &AKConfig{Algorithm: RSA},
+		},
+		{
+			name: "ECDSA",
+			opts: &AKConfig{Algorithm: ECDSA},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ak, err := tpm.NewAK(test.opts)
+			if err != nil {
+				t.Fatalf("NewAK() failed: %v", err)
+			}
+			defer ak.Close(tpm)
 
-	ak, err := tpm.NewAK(nil)
-	if err != nil {
-		t.Fatalf("NewAK() failed: %v", err)
-	}
-	defer ak.Close(tpm)
+			nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+			quote256, err := ak.Quote(tpm, nonce, HashSHA256)
+			if err != nil {
+				t.Fatalf("ak.Quote(SHA256) failed: %v", err)
+			}
+			quote1, err := ak.Quote(tpm, nonce, HashSHA1)
+			if err != nil {
+				t.Fatalf("ak.Quote(SHA1) failed: %v", err)
+			}
 
-	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	quote256, err := ak.Quote(tpm, nonce, HashSHA256)
-	if err != nil {
-		t.Fatalf("ak.Quote(SHA256) failed: %v", err)
-	}
-	quote1, err := ak.Quote(tpm, nonce, HashSHA1)
-	if err != nil {
-		t.Fatalf("ak.Quote(SHA1) failed: %v", err)
-	}
+			// Providing both PCR banks to AKPublic.Verify() ensures we can handle
+			// the case where extra PCRs of a different digest algorithm are provided.
+			var pcrs []PCR
+			for _, alg := range []HashAlg{HashSHA256, HashSHA1} {
+				p, err := tpm.PCRs(alg)
+				if err != nil {
+					t.Fatalf("tpm.PCRs(%v) failed: %v", alg, err)
+				}
+				pcrs = append(pcrs, p...)
+			}
 
-	// Providing both PCR banks to AKPublic.Verify() ensures we can handle
-	// the case where extra PCRs of a different digest algorithm are provided.
-	var pcrs []PCR
-	for _, alg := range []HashAlg{HashSHA256, HashSHA1} {
-		p, err := tpm.PCRs(alg)
-		if err != nil {
-			t.Fatalf("tpm.PCRs(%v) failed: %v", alg, err)
-		}
-		pcrs = append(pcrs, p...)
-	}
+			pub, err := ParseAKPublic(ak.AttestationParameters().Public)
+			if err != nil {
+				t.Fatalf("ParseAKPublic() failed: %v", err)
+			}
 
-	pub, err := ParseAKPublic(ak.AttestationParameters().Public)
-	if err != nil {
-		t.Fatalf("ParseAKPublic() failed: %v", err)
-	}
+			// Ensure VerifyAll fails if a quote is missing and hence not all PCR
+			// banks are covered.
+			if err := pub.VerifyAll([]Quote{*quote256}, pcrs, nonce); err == nil {
+				t.Error("VerifyAll().err returned nil, expected failure")
+			}
 
-	// Ensure VerifyAll fails if a quote is missing and hence not all PCR
-	// banks are covered.
-	if err := pub.VerifyAll([]Quote{*quote256}, pcrs, nonce); err == nil {
-		t.Error("VerifyAll().err returned nil, expected failure")
-	}
-
-	if err := pub.VerifyAll([]Quote{*quote256, *quote1}, pcrs, nonce); err != nil {
-		t.Errorf("quote verification failed: %v", err)
+			if err := pub.VerifyAll([]Quote{*quote256, *quote1}, pcrs, nonce); err != nil {
+				t.Errorf("quote verification failed: %v", err)
+			}
+		})
 	}
 }
 

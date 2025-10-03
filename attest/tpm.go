@@ -331,7 +331,7 @@ func quote20(tpm io.ReadWriter, akHandle tpmutil.Handle, hashAlg tpm2.Algorithm,
 		return nil, err
 	}
 
-	rawSig, err := tpmutil.Pack(sig.Alg, sig.RSA.HashAlg, sig.RSA.Signature)
+	rawSig, err := sig.Encode()
 	return &Quote{
 		Quote:     quote,
 		Signature: rawSig,
