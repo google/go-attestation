@@ -402,6 +402,120 @@ func verifyRSA(t *testing.T, pub crypto.PublicKey, digest, sig []byte, opts cryp
 	}
 }
 
+func TestSimKeySignErrors(t *testing.T) {
+	testKeySignErrors(t, true)
+}
+
+func TestKeySignErrors(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	testKeySignErrors(t, false)
+}
+
+func testKeySignErrors(t *testing.T, sim bool) {
+	for _, test := range []struct {
+		name     string
+		keyOpts  *KeyConfig
+		signOpts crypto.SignerOpts
+		digest   []byte
+	}{
+		{
+			name: "ECDSAP256-SHA256 - Short Digest",
+			keyOpts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      256,
+			},
+			signOpts: nil,
+			digest:   []byte("12345678901234567890"),
+		},
+		{
+			name: "RSA2048-PKCS1v15-SHA256 - Short Digest",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: crypto.SHA256,
+			digest:   []byte("12345678901234567890"),
+		},
+		{
+			name: "ECDSAP256 with RSA PSS Options",
+			keyOpts: &KeyConfig{
+				Algorithm: ECDSA,
+				Size:      256,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthAuto,
+				Hash:       crypto.SHA256,
+			},
+			digest: []byte("12345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PKCS1v15-SHA256 - Mismatched Hash Opts",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: crypto.SHA384,
+			digest:   []byte("12345678901234567890123456789012"),
+		},
+		{
+			name: "RSA2048-PSS-SHA256 - Mismatched Hash Opts",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: rsa.PSSSaltLengthAuto,
+				Hash:       crypto.SHA384,
+			},
+			digest: []byte("12345678901234567890123456789012"),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var tpm *TPM
+			var err error
+			if sim {
+				s, tmpTpm := setupSimulatedTPM(t)
+				defer s.Close()
+				tpm = tmpTpm
+			} else {
+				tpm, err = OpenTPM(nil)
+				if err != nil {
+					t.Fatalf("OpenTPM() failed: %v", err)
+				}
+				defer tpm.Close()
+			}
+
+			ak, err := tpm.NewAK(nil)
+			if err != nil {
+				t.Fatalf("NewAK() failed: %v", err)
+			}
+			defer ak.Close(tpm)
+
+			sk, err := tpm.NewKey(ak, test.keyOpts)
+			if err != nil {
+				t.Fatalf("NewKey() failed: %v", err)
+			}
+			defer sk.Close()
+
+			pub := sk.Public()
+			priv, err := sk.Private(pub)
+			if err != nil {
+				t.Fatalf("sk.Private() failed: %v", err)
+			}
+			signer, ok := priv.(crypto.Signer)
+			if !ok {
+				t.Fatalf("want crypto.Signer, got %T", priv)
+			}
+			_, err = signer.Sign(rand.Reader, test.digest, test.signOpts)
+			if err == nil {
+				t.Errorf("signer.Sign() succeeded, want error")
+			}
+		})
+	}
+}
+
 func TestSimKeyOpts(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
