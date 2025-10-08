@@ -743,14 +743,17 @@ func (k *wrappedKey20) signWithValidation(tb tpmBase, digest []byte, pub crypto.
 	}
 	switch p := pub.(type) {
 	case *ecdsa.PublicKey:
-		return signECDSA(t.rwc, k.hnd, digest, p.Curve, validation)
+		return signECDSA(t.rwc, k.hnd, digest, p.Curve, opts, validation)
 	case *rsa.PublicKey:
 		return signRSA(t.rwc, k.hnd, digest, opts, validation)
 	}
 	return nil, fmt.Errorf("unsupported signing key type: %T", pub)
 }
 
-func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve, validation *tpm2.Ticket) ([]byte, error) {
+func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve elliptic.Curve, opts crypto.SignerOpts, validation *tpm2.Ticket) ([]byte, error) {
+	if _, ok := opts.(*rsa.PSSOptions); ok {
+		return nil, fmt.Errorf("cannot use rsa.PSSOptions with ECDSA key")
+	}
 	// https://cs.opensource.google/go/go/+/refs/tags/go1.19.2:src/crypto/ecdsa/ecdsa.go;l=181
 	orderBits := curve.Params().N.BitLen()
 	orderBytes := (orderBits + 7) / 8
