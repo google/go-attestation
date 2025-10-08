@@ -15,8 +15,10 @@ Talks on this project:
 
 ## Status
 
-Go-Attestation is under active development. Expect
-API changes at any time.
+Go-Attestation is has reached initial maturity. It supports the initial design
+goals and is actively used at Google. It is still under development, and API
+changes may occur at any time. One caveat is that support for Windows is still
+relatively immature compared to support for Linux.
 
 Please note that this is not an official Google product.
 
