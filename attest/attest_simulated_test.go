@@ -301,7 +301,7 @@ func TestSimEventLog(t *testing.T) {
   }
   // TODO: #454 - Adjust the simulated TPM to return the event log with the 
   // full set of hash algoritms.
-  wantAlgs := []HashAlg{HashSHA256}
+  wantAlgs := []HashAlg{HashSHA1, HashSHA256, HashSHA384, HashSHA512}
   if diff := cmp.Diff(wantAlgs, el.Algs); diff != "" {
     t.Errorf("Event log has unexpected algorithms (-want +got):\n%s", diff)
   }
