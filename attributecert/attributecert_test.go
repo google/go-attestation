@@ -39,20 +39,22 @@ func TestVerifyAttributeCert(t *testing.T) {
 	}
 
 	for _, filename := range testfiles {
-		data, err = os.ReadFile(filename)
-		if err != nil {
-			t.Fatalf("failed to read %s: %v", filename, err)
-		}
+		t.Run(filename, func(t *testing.T) {
+			data, err = os.ReadFile(filename)
+			if err != nil {
+				t.Fatalf("failed to read %s: %v", filename, err)
+			}
 
-		attributecert, err := ParseAttributeCertificate(data)
-		if err != nil {
-			t.Fatalf("failed to parse %s: %v", filename, err)
-		}
+			attributecert, err := ParseAttributeCertificate(data)
+			if err != nil {
+				t.Fatalf("failed to parse %s: %v", filename, err)
+			}
 
-		err = attributecert.CheckSignatureFrom(cert)
-		if err != nil {
-			t.Fatalf("failed to verify signature on %s: %v", filename, err)
-		}
+			err = attributecert.CheckSignatureFrom(cert)
+			if err != nil {
+				t.Fatalf("failed to verify signature on %s: %v", filename, err)
+			}
+		})
 	}
 }
 
@@ -62,32 +64,35 @@ func TestParseAttributeCerts(t *testing.T) {
 		t.Fatalf("failed to read test dir: %v", err)
 	}
 	for _, file := range files {
-		if strings.Contains(file.Name(), "Signing") {
+		filename := file.Name()
+		if strings.Contains(filename, "Signing") {
 			continue
 		}
-		if strings.HasSuffix(file.Name(), ".json") {
+		if strings.HasSuffix(filename, ".json") {
 			continue
 		}
-		filename := "testdata/" + file.Name()
-		jsonfile := filename + ".json"
-		data, err := os.ReadFile(filename)
-		if err != nil {
-			t.Fatalf("failed to read test data %s: %v", filename, err)
-		}
-		got, err := ParseAttributeCertificate(data)
-		if err != nil {
-			t.Fatalf("failed to parse test data %s: %v", filename, err)
-		}
-		jsondata, err := os.ReadFile(jsonfile)
-		if err != nil {
-			t.Fatalf("failed to read json test data %s: %v", jsonfile, err)
-		}
-		var want AttributeCertificate
-		if err := json.Unmarshal(jsondata, &want); err != nil {
-			t.Fatalf("failed to unmarshal file %s: %v", filename, err)
-		}
-		if !reflect.DeepEqual(&want, got) {
-			t.Fatalf("%s fails to match test data", filename)
-		}
+		t.Run(filename, func(t *testing.T) {
+			filename := "testdata/" + filename
+			jsonfile := filename + ".json"
+			data, err := os.ReadFile(filename)
+			if err != nil {
+				t.Fatalf("failed to read test data %s: %v", filename, err)
+			}
+			got, err := ParseAttributeCertificate(data)
+			if err != nil {
+				t.Fatalf("failed to parse test data %s: %v", filename, err)
+			}
+			jsondata, err := os.ReadFile(jsonfile)
+			if err != nil {
+				t.Fatalf("failed to read json test data %s: %v", jsonfile, err)
+			}
+			var want AttributeCertificate
+			if err := json.Unmarshal(jsondata, &want); err != nil {
+				t.Fatalf("failed to unmarshal file %s: %v", filename, err)
+			}
+			if !reflect.DeepEqual(&want, got) {
+				t.Fatalf("%s fails to match test data", filename)
+			}
+		})
 	}
 }
