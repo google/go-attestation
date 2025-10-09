@@ -94,7 +94,7 @@ type signatureAlgorithmDetail struct {
 var signatureAlgorithmDetails = []signatureAlgorithmDetail{
 	// SHA1WithRSA is deprecated, but we still support it for legacy reasons.
 	// See testdata/Intel_nuc_pc2.cer for example.
-	// TODO: b/427365167 - Remove SHA1WithRSA once we no longer need to support it.
+	// TODO: Remove SHA1WithRSA once we no longer need to support it.
 	{x509.SHA1WithRSA, "SHA1-RSA", oidSignatureSHA1WithRSA, asn1.NullRawValue, x509.RSA, crypto.SHA1, false},
 	{x509.SHA256WithRSA, "SHA256-RSA", oidSignatureSHA256WithRSA, asn1.NullRawValue, x509.RSA, crypto.SHA256, false},
 	{x509.SHA384WithRSA, "SHA384-RSA", oidSignatureSHA384WithRSA, asn1.NullRawValue, x509.RSA, crypto.SHA384, false},
