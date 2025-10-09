@@ -77,4 +77,3 @@ func generateSpecIDEventHeader(algs []HashAlg) []byte {
 
 	return specIDEventHeaderBytes.Bytes()
 }
-
