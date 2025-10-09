@@ -13,6 +13,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/google/go-attestation/attest"
@@ -24,6 +25,7 @@ var (
 	nonceHex    = flag.String("nonce", "", "Hex string to use as nonce when quoting")
 	randomNonce = flag.Bool("random-nonce", false, "Generate a random nonce instead of using one provided")
 	useSHA256   = flag.Bool("sha256", false, "Use SHA256 for quote operatons")
+	useECDSAEK  = flag.Bool("ecdsaek", false, "Use ECDSA EK Key")
 )
 
 func main() {
@@ -51,31 +53,50 @@ func main() {
 }
 
 func selftestCredentialActivation(tpm *attest.TPM, ak *attest.AK) error {
-	eks, err := tpm.EKs()
+	eks, err := tpm.EKCertificates()
+	//eks, err := tpm.EKs()
 	if err != nil {
 		return fmt.Errorf("EKs() failed: %v", err)
 	}
 	if len(eks) == 0 {
 		return errors.New("no EK present")
 	}
+	log.Printf("selftestCredentialActivation after tpm.EKs() %+v", eks)
 	ek := eks[0].Public
+	// This selection is terrible, but we need to start to test
+	if *useECDSAEK && len(eks) > 1 {
+		ek = eks[1].Public
+	}
+
+	log.Printf("ektype=%T", ek)
+	printPubKeyDetails(ek)
 
 	// Test credential activation.
 	ap := attest.ActivationParameters{
 		EK: ek,
 		AK: ak.AttestationParameters(),
 	}
+	//check atestation params
+	err = ap.CheckAKParameters()
+	if err != nil {
+		return fmt.Errorf(" selftestCredentialActivation CheckAKParameters fail err=%w ", err)
+	}
+	log.Printf("selftest ap.CheckAParameters passed")
+
 	secret, ec, err := ap.Generate()
 	if err != nil {
 		return fmt.Errorf("failed to generate activation challenge: %v", err)
 	}
+	log.Printf("selftestCredentialActivation after ap.Generate")
 	decryptedSecret, err := ak.ActivateCredential(tpm, *ec)
 	if err != nil {
 		return fmt.Errorf("failed to generate activate credential: %v", err)
 	}
+	log.Printf("selftestCredentialActivation after ak.ActivateCredential")
 	if !bytes.Equal(secret, decryptedSecret) {
 		return errors.New("credential activation produced incorrect secret")
 	}
+	log.Printf("selftestCredentialActivation done")
 	return nil
 }
 
@@ -114,15 +135,47 @@ func selftestAttest(tpm *attest.TPM, ak *attest.AK) error {
 	return nil
 }
 
+func printPubKeyDetails(pub interface{}) {
+	switch k := pub.(type) {
+	case *rsa.PublicKey:
+		log.Printf("rsa, size=%d", k.Size()*8)
+	case *ecdsa.PublicKey:
+		log.Printf("ecdsa bitsize=%d", k.Curve.Params().BitSize)
+	//case *ed25519.PublicKey, ed25519.PublicKey:
+	//    return true, nil
+	default:
+		log.Printf("uknown type")
+	}
+}
+
 func selftest(tpm *attest.TPM) error {
+	/*
+		var ecdsaParentConfig = attest.ParentKeyConfig{
+			Algorithm: attest.ECDSA,
+			Handle:    0x81000002,
+		}
+
+		akConfig := attest.AKConfig{
+			Parent:    &ecdsaParentConfig,
+			Algorithm: attest.ECDSA,
+		}
+
+		ak, err := tpm.NewAK(&akConfig)
+	*/
 	ak, err := tpm.NewAK(nil)
 	if err != nil {
 		return fmt.Errorf("NewAK() failed: %v", err)
 	}
+	log.Printf("self-test after NewAK ak=%+v", ak)
+	log.Printf("ak type=%T", ak)
+	akPub := ak.Public()
+	log.Printf("akpub type =%T", akPub)
+	printPubKeyDetails(akPub)
 	defer ak.Close(tpm)
 	if err := selftestCredentialActivation(tpm, ak); err != nil {
 		return fmt.Errorf("credential activation failed: %v", err)
 	}
+	log.Printf("self-test after selftestCredentialActivation")
 	if err := selftestAttest(tpm, ak); err != nil {
 		return fmt.Errorf("state attestation failed: %v", err)
 	}
@@ -180,7 +233,7 @@ func runCommand(tpm *attest.TPM) error {
 		fmt.Printf("Signature: %x\n", q.Signature)
 
 	case "list-eks":
-		eks, err := tpm.EKs()
+		eks, err := tpm.EKCertificates()
 		if err != nil {
 			return fmt.Errorf("failed to read EKs: %v", err)
 		}
