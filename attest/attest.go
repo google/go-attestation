@@ -404,6 +404,22 @@ func (a HashAlg) String() string {
 	return a.goTPMAlg().String()
 }
 
+// FromTPMAlg returns the HashAlg corresponding to the given tpm2.Algorithm.
+func FromTPMAlg(h tpm2.Algorithm) (HashAlg, error) {
+	switch h {
+	case tpm2.AlgSHA1:
+		return HashSHA1, nil
+	case tpm2.AlgSHA256:
+		return HashSHA256, nil
+	case tpm2.AlgSHA384:
+		return HashSHA384, nil
+	case tpm2.AlgSHA512:
+		return HashSHA512, nil
+	default:
+		return 0, fmt.Errorf("tpm2.Algorithm %v has no corresponding HashAlg", h)
+	}
+}
+
 // PlatformParameters encapsulates the set of information necessary to attest
 // the booted state of the machine the TPM is attached to.
 //

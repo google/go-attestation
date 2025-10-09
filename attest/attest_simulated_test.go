@@ -26,6 +26,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
+  "io"
 	"testing"
 
   "github.com/google/go-cmp/cmp"
@@ -279,34 +280,107 @@ func TestSimAttestPlatform(t *testing.T) {
 	}
 }
 
-func TestSimEventLog(t *testing.T) {
-  sim, tpm := setupSimulatedTPM(t)
-  defer sim.Close()
-
-  ak, err := tpm.NewAK(nil)
-  if err != nil {
-    t.Fatalf("NewAK() failed: %v", err)
-  }
-  defer ak.Close(tpm)
-  ml, err := tpm.MeasurementLog()
-  if err != nil {
-    t.Fatalf("MeasurementLog() failed: %v", err)
-  }
-  if len(ml) == 0 {
-    t.Fatalf("Event log is empty")
-  }
-  el, err := ParseEventLog(ml)
-  if err != nil {
-    t.Errorf("Failed to parse event log: %v", err)
-  }
-  // TODO: #454 - Adjust the simulated TPM to return the event log with the 
-  // full set of hash algoritms.
-  wantAlgs := []HashAlg{HashSHA1, HashSHA256, HashSHA384, HashSHA512}
-  if diff := cmp.Diff(wantAlgs, el.Algs); diff != "" {
-    t.Errorf("Event log has unexpected algorithms (-want +got):\n%s", diff)
-  }
+func testEventLogHelper(t *testing.T, tpm *TPM, wantAlgs []HashAlg) {
+	ml, err := tpm.MeasurementLog()
+	if err != nil {
+		t.Fatalf("MeasurementLog() failed: %v", err)
+	}
+	if len(ml) == 0 {
+		t.Fatalf("Event log is empty")
+	}
+	el, err := ParseEventLog(ml)
+	if err != nil {
+		t.Errorf("Failed to parse event log: %v", err)
+	}
+	if diff := cmp.Diff(wantAlgs, el.Algs); diff != "" {
+		t.Errorf("Event log has unexpected algorithms (-want +got):\n%s", diff)
+	}
 }
 
+func TestSimEventLog(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	wantAlgs := []HashAlg{HashSHA1, HashSHA256, HashSHA384, HashSHA512}
+	testEventLogHelper(t, tpm, wantAlgs)
+}
+
+func fetchPCRBanksOrDie(t *testing.T, tpm io.ReadWriter) []tpm2.PCRSelection {
+	vals, _, err := tpm2.GetCapability(tpm, tpm2.CapabilityPCRs, 1024, 0)
+	if err != nil {
+		t.Fatalf("failed to get TPM available PCR banks: %v", err)
+	}
+
+	var pcrs []tpm2.PCRSelection
+
+	for i, v := range vals {
+		pcrb, ok := v.(tpm2.PCRSelection)
+		if !ok {
+			t.Fatalf("failed to convert value %d to tpm2.PCRSelection: %v", i, v)
+			continue
+		}
+
+		pcrs = append(pcrs, pcrb)
+	}
+	if len(pcrs) < 4 {
+		t.Fatalf("Expecting at least 4 PCR banks, got %d: %+v", len(pcrs), pcrs)
+	}
+	return pcrs
+}
+
+func updatePCRBanksOrDie(t *testing.T, tpm *simulator.Simulator, pcrs []tpm2.PCRSelection) {
+	// Allocate the new PCR banks on the TPM
+	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
+	err := tpm2.PCRAllocate(tpm, tpm2.HandlePlatform, auth, pcrs)
+	if err != nil {
+		t.Fatalf("failed to allocate PCR bank: %v", err)
+	}
+
+	// Reset is needed after sending TPM2_PCR_Allocate.
+	err = tpm.Reset()
+	if err != nil {
+		t.Fatalf("failed to reset TPM: %v", err)
+	}
+}
+
+func TestSimEventLogPCRBanks(t *testing.T) {
+
+	// Fetch all PCR banks from the TPM.
+	// Close the TPM simulator after fetching the PCR banks, so that each test can start with a clean TPM.
+	pcrs := func() []tpm2.PCRSelection {
+		sim, _ := setupSimulatedTPM(t)
+		defer sim.Close()
+		// Fetch all PCR banks from the TPM.
+		return fetchPCRBanksOrDie(t, sim)
+	}()
+
+	for _, pcr := range pcrs {
+		t.Run(fmt.Sprintf("Disable %s", pcr.Hash.String()), func(t *testing.T) {
+			sim, tpm := setupSimulatedTPM(t)
+			defer sim.Close()
+			// tpm := s.SimulatorTPM()
+			// Generate a new list of PCR banks with the PCR bank pcr.Hash disabled.
+			var newPCRs []tpm2.PCRSelection
+			var wantAlgs []HashAlg
+			for _, p := range pcrs {
+				if p.Hash == pcr.Hash {
+					disabled := tpm2.PCRSelection{Hash: p.Hash, PCRs: []int{}}
+					newPCRs = append(newPCRs, disabled)
+					continue
+				}
+				newPCRs = append(newPCRs, p)
+				alg, err := FromTPMAlg(p.Hash)
+				if err != nil {
+					t.Fatalf("PCR bank %s has no corresponding HashAlg: %v", p.Hash.String(), err)
+				}
+				wantAlgs = append(wantAlgs, alg)
+			}
+			updatePCRBanksOrDie(t, sim, newPCRs)
+
+			testEventLogHelper(t, tpm, wantAlgs)
+		})
+	}
+}
 
 func TestSimPCRs(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
