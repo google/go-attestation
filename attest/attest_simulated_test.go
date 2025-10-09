@@ -344,7 +344,6 @@ func updatePCRBanksOrDie(t *testing.T, tpm *simulator.Simulator, pcrs []tpm2.PCR
 }
 
 func TestSimEventLogPCRBanks(t *testing.T) {
-
 	// Fetch all PCR banks from the TPM.
 	// Close the TPM simulator after fetching the PCR banks, so that each test can start with a clean TPM.
 	pcrs := func() []tpm2.PCRSelection {
@@ -358,7 +357,7 @@ func TestSimEventLogPCRBanks(t *testing.T) {
 		t.Run(fmt.Sprintf("Disable %s", pcr.Hash.String()), func(t *testing.T) {
 			sim, tpm := setupSimulatedTPM(t)
 			defer sim.Close()
-			// tpm := s.SimulatorTPM()
+
 			// Generate a new list of PCR banks with the PCR bank pcr.Hash disabled.
 			var newPCRs []tpm2.PCRSelection
 			var wantAlgs []HashAlg
