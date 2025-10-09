@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"testing"
 
+  "github.com/google/go-cmp/cmp"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/legacy/tpm2"
 )
@@ -277,6 +278,35 @@ func TestSimAttestPlatform(t *testing.T) {
 		t.Errorf("quote verification failed: %v", err)
 	}
 }
+
+func TestSimEventLog(t *testing.T) {
+  sim, tpm := setupSimulatedTPM(t)
+  defer sim.Close()
+
+  ak, err := tpm.NewAK(nil)
+  if err != nil {
+    t.Fatalf("NewAK() failed: %v", err)
+  }
+  defer ak.Close(tpm)
+  ml, err := tpm.MeasurementLog()
+  if err != nil {
+    t.Fatalf("MeasurementLog() failed: %v", err)
+  }
+  if len(ml) == 0 {
+    t.Fatalf("Event log is empty")
+  }
+  el, err := ParseEventLog(ml)
+  if err != nil {
+    t.Errorf("Failed to parse event log: %v", err)
+  }
+  // TODO: #454 - Adjust the simulated TPM to return the event log with the 
+  // full set of hash algoritms.
+  wantAlgs := []HashAlg{HashSHA256}
+  if diff := cmp.Diff(wantAlgs, el.Algs); diff != "" {
+    t.Errorf("Event log has unexpected algorithms (-want +got):\n%s", diff)
+  }
+}
+
 
 func TestSimPCRs(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
