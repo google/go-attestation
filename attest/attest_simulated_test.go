@@ -214,19 +214,20 @@ func TestSimQuoteAndVerifyAll(t *testing.T) {
 			defer ak.Close(tpm)
 
 			nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-			quote256, err := ak.Quote(tpm, nonce, HashSHA256)
-			if err != nil {
-				t.Fatalf("ak.Quote(SHA256) failed: %v", err)
-			}
-			quote1, err := ak.Quote(tpm, nonce, HashSHA1)
-			if err != nil {
-				t.Fatalf("ak.Quote(SHA1) failed: %v", err)
+			algos := []HashAlg{HashSHA1, HashSHA256, HashSHA384, HashSHA512}
+			var quotes []Quote
+			for _, algo := range algos {
+				quote, err := ak.Quote(tpm, nonce, algo)
+				if err != nil {
+					t.Fatalf("ak.Quote(%v) failed: %v", algo, err)
+				}
+				quotes = append(quotes, *quote)
 			}
 
 			// Providing both PCR banks to AKPublic.Verify() ensures we can handle
 			// the case where extra PCRs of a different digest algorithm are provided.
 			var pcrs []PCR
-			for _, alg := range []HashAlg{HashSHA256, HashSHA1} {
+			for _, alg := range algos {
 				p, err := tpm.PCRs(alg)
 				if err != nil {
 					t.Fatalf("tpm.PCRs(%v) failed: %v", alg, err)
@@ -241,11 +242,11 @@ func TestSimQuoteAndVerifyAll(t *testing.T) {
 
 			// Ensure VerifyAll fails if a quote is missing and hence not all PCR
 			// banks are covered.
-			if err := pub.VerifyAll([]Quote{*quote256}, pcrs, nonce); err == nil {
+			if err := pub.VerifyAll(quotes[:1], pcrs, nonce); err == nil {
 				t.Error("VerifyAll().err returned nil, expected failure")
 			}
 
-			if err := pub.VerifyAll([]Quote{*quote256, *quote1}, pcrs, nonce); err != nil {
+			if err := pub.VerifyAll(quotes, pcrs, nonce); err != nil {
 				t.Errorf("quote verification failed: %v", err)
 			}
 		})
@@ -281,24 +282,32 @@ func TestSimPCRs(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
-	PCRs, err := tpm.PCRs(HashSHA256)
-	if err != nil {
-		t.Fatalf("PCRs() failed: %v", err)
-	}
-	if len(PCRs) != 24 {
-		t.Errorf("len(PCRs) = %d, want %d", len(PCRs), 24)
-	}
+	for _, algo := range []HashAlg{HashSHA1, HashSHA256, HashSHA384, HashSHA512} {
+		cryptoHash, err := algo.cryptoHash()
+		if err != nil {
+			t.Fatalf("Failed to get crypto.Hash for %v: %v", algo, err)
+		}
+		t.Run(cryptoHash.String(), func(t *testing.T) {
+			PCRs, err := tpm.PCRs(algo)
+			if err != nil {
+				t.Fatalf("PCRs() failed: %v", err)
+			}
+			if len(PCRs) != 24 {
+				t.Errorf("len(PCRs) = %d, want %d", len(PCRs), 24)
+			}
 
-	for i, pcr := range PCRs {
-		if len(pcr.Digest) != pcr.DigestAlg.Size() {
-			t.Errorf("PCR %d len(digest) = %d, expected match with digest algorithm size (%d)", pcr.Index, len(pcr.Digest), pcr.DigestAlg.Size())
-		}
-		if pcr.Index != i {
-			t.Errorf("PCR index %d does not match map index %d", pcr.Index, i)
-		}
-		if pcr.DigestAlg != crypto.SHA256 {
-			t.Errorf("pcr.DigestAlg = %v, expected crypto.SHA256", pcr.DigestAlg)
-		}
+			for i, pcr := range PCRs {
+				if len(pcr.Digest) != pcr.DigestAlg.Size() {
+					t.Errorf("PCR %d len(digest) = %d, expected match with digest algorithm size (%d)", pcr.Index, len(pcr.Digest), pcr.DigestAlg.Size())
+				}
+				if pcr.Index != i {
+					t.Errorf("PCR index %d does not match map index %d", pcr.Index, i)
+				}
+				if pcr.DigestAlg != cryptoHash {
+					t.Errorf("pcr.DigestAlg = %v, expected %v", pcr.DigestAlg, cryptoHash)
+				}
+			}
+		})
 	}
 }
 
