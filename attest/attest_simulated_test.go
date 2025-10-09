@@ -26,10 +26,10 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
-  "io"
+	"io"
 	"testing"
 
-  "github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/legacy/tpm2"
 )
