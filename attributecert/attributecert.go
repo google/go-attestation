@@ -275,7 +275,7 @@ type Component struct {
 	Model            string
 	Serial           string
 	Revision         string
-	ManufacturerID   int
+	ManufacturerID   int64
 	FieldReplaceable bool
 	Addresses        []ComponentAddress
 }
@@ -435,7 +435,7 @@ type ComponentIdentifierV2 struct {
 	ComponentModel           string
 	ComponentSerial          string                `asn1:"optional,utf8,tag:0"`
 	ComponentRevision        string                `asn1:"optional,utf8,tag:1"`
-	ComponentManufacturerID  int                   `asn1:"optional,tag:2"`
+	ComponentManufacturerID  int64                 `asn1:"optional,tag:2"`
 	FieldReplaceable         bool                  `asn1:"optional,tag:3"`
 	ComponentAddresses       []ComponentAddress    `asn1:"optional,tag:4"`
 	ComponentPlatformCert    CertificateIdentifier `asn1:"optional,tag:5"`
@@ -469,7 +469,7 @@ type ComponentIdentifierV1 struct {
 	ComponentModel          string
 	ComponentSerial         string             `asn1:"optional,utf8,tag:0"`
 	ComponentRevision       string             `asn1:"optional,utf8,tag:1"`
-	ComponentManufacturerID int                `asn1:"optional,tag:2"`
+	ComponentManufacturerID int64              `asn1:"optional,tag:2"`
 	FieldReplaceable        bool               `asn1:"optional,tag:3"`
 	ComponentAddresses      []ComponentAddress `asn1:"optional,tag:4"`
 }
