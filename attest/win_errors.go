@@ -123,7 +123,7 @@ var (
 		0x8028004D: {"TPM_E_DELEGATE_ADMIN", "Delegation table management not enabled."},
 		0x8028004E: {"TPM_E_TRANSPORT_NOTEXCLUSIVE", "There was a command executed outside of an exclusive transport session."},
 		0x8028004F: {"TPM_E_OWNER_CONTROL", "Attempt to context save an owner evict controlled key."},
-		0x80280050: {"TPM_E_DAA_RESOURCES", "The DAA command has no resources availble to execute the command."},
+		0x80280050: {"TPM_E_DAA_RESOURCES", "The DAA command has no resources available to execute the command."},
 		0x80280051: {"TPM_E_DAA_INPUT_DATA0", "The consistency check on DAA parameter inputData0 has failed."},
 		0x80280052: {"TPM_E_DAA_INPUT_DATA1", "The consistency check on DAA parameter inputData1 has failed."},
 		0x80280053: {"TPM_E_DAA_ISSUER_SETTINGS", "The consistency check on DAA_issuerSettings has failed."},
