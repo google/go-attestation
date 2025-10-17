@@ -23,7 +23,7 @@ var (
 	keyPath     = flag.String("key", "ak.json", "Path to the key file")
 	nonceHex    = flag.String("nonce", "", "Hex string to use as nonce when quoting")
 	randomNonce = flag.Bool("random-nonce", false, "Generate a random nonce instead of using one provided")
-	useSHA256   = flag.Bool("sha256", false, "Use SHA256 for quote operatons")
+	useSHA256   = flag.Bool("sha256", false, "Use SHA256 for quote operations")
 )
 
 func main() {

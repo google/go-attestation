@@ -98,12 +98,12 @@ func (e EventType) String() string {
 	if s, ok := eventTypeStrings[uint32(e)]; ok {
 		return s
 	}
-	// NOTE: 0x00000013-0x0000FFFF are reserverd. Should we include that
+	// NOTE: 0x00000013-0x0000FFFF are reserved. Should we include that
 	// information in the formatting?
 	return fmt.Sprintf("EventType(0x%08x)", uint32(e))
 }
 
-// Event is a single event from a TCG event log. This reports descrete items such
+// Event is a single event from a TCG event log. This reports discrete items such
 // as BIOS measurements or EFI states.
 //
 // There are many pitfalls for using event log events correctly to determine the
@@ -566,7 +566,7 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 
 	var vendorInfoSize uint8
 	if err := binary.Read(r, binary.LittleEndian, &vendorInfoSize); err != nil {
-		return nil, fmt.Errorf("reading vender info size: %v", err)
+		return nil, fmt.Errorf("reading vendor info size: %v", err)
 	}
 	if r.Len() != int(vendorInfoSize) {
 		return nil, fmt.Errorf("reading vendor info, expected %d remaining bytes, got %d", vendorInfoSize, r.Len())
