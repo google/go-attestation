@@ -395,6 +395,7 @@ func (a HashAlg) cryptoHash() (crypto.Hash, error) {
 	}
 	return h, nil
 }
+
 func (a HashAlg) goTPMAlg() tpm2.Algorithm {
 	return tpm2.Algorithm(a)
 }
@@ -417,6 +418,22 @@ func FromTPMAlg(h tpm2.Algorithm) (HashAlg, error) {
 		return HashSHA512, nil
 	default:
 		return 0, fmt.Errorf("tpm2.Algorithm %v has no corresponding HashAlg", h)
+	}
+}
+
+// FromCryptoHash returns the HashAlg corresponding to the given crypto.Hash.
+func FromCryptoHash(h crypto.Hash) (HashAlg, error) {
+	switch h {
+	case crypto.SHA1:
+		return HashSHA1, nil
+	case crypto.SHA256:
+		return HashSHA256, nil
+	case crypto.SHA384:
+		return HashSHA384, nil
+	case crypto.SHA512:
+		return HashSHA512, nil
+	default:
+		return 0, fmt.Errorf("crypto.Hash %v has no corresponding HashAlg", h)
 	}
 }
 

@@ -16,6 +16,7 @@ package attest
 
 import (
 	"bytes"
+	"crypto"
 	"flag"
 	"fmt"
 	"reflect"
@@ -185,5 +186,44 @@ func TestBug142(t *testing.T) {
 	wantErr := fmt.Errorf("parsing nvram header: ekCert size %d smaller than specified cert length %d", len(input), 65535)
 	if _, err := ParseEKCertificate(input); !reflect.DeepEqual(err, wantErr) {
 		t.Errorf("ParseEKCertificate() = %v, want %v", err, wantErr)
+	}
+}
+
+func TestFromCryptoHash(t *testing.T) {
+	tests := []struct {
+		hash crypto.Hash
+		want HashAlg
+		err  bool
+	}{
+		{
+			hash: crypto.SHA1,
+			want: HashSHA1,
+		},
+		{
+			hash: crypto.SHA256,
+			want: HashSHA256,
+		},
+		{
+			hash: crypto.SHA384,
+			want: HashSHA384,
+		},
+		{
+			hash: crypto.SHA512,
+			want: HashSHA512,
+		},
+		{
+			hash: crypto.MD5,
+			err:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		got, err := FromCryptoHash(tc.hash)
+		if tc.err != (err != nil) {
+			t.Errorf("FromCryptoHash(%v) returned err=%v, want err=%v", tc.hash, err, tc.err)
+		}
+		if got != tc.want {
+			t.Errorf("FromCryptoHash(%v) = %v, want %v", tc.hash, got, tc.want)
+		}
 	}
 }
