@@ -483,6 +483,18 @@ func testKeySignErrors(t *testing.T, sim bool) {
 			},
 			digest: []byte("12345678901234567890123456789012"),
 		},
+		{
+			name: "RSA2048-PSS-SHA256 - Mismatched Salt Length",
+			keyOpts: &KeyConfig{
+				Algorithm: RSA,
+				Size:      2048,
+			},
+			signOpts: &rsa.PSSOptions{
+				SaltLength: 16,
+				Hash:       crypto.SHA256,
+			},
+			digest: []byte("12345678901234567890123456789012"),
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var tpm *TPM
