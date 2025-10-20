@@ -742,8 +742,8 @@ func AppendEvents(base []byte, additional ...[]byte) ([]byte, error) {
 
 			// Serialize digests
 			for _, d := range e.digests {
-        algID, err := FromCryptoHash(d.hash)
-        if err != nil {
+				algID, err := FromCryptoHash(d.hash)
+				if err != nil {
 					return nil, fmt.Errorf("log %d: event %d: unhandled hash function %v", i, x, d.hash)
 				}
 
