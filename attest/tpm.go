@@ -29,7 +29,6 @@ import (
 
 	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpmutil"
-	"go.uber.org/multierr"
 )
 
 const (
@@ -349,7 +348,7 @@ func pcrbanks(tpm io.ReadWriter) ([]HashAlg, error) {
 	for i, v := range vals {
 		pcrb, ok := v.(tpm2.PCRSelection)
 		if !ok {
-			errs = multierr.Append(errs, fmt.Errorf("failed to convert value %d to tpm2.PCRSelection: %v", i, v))
+			errs = errors.Join(errs, fmt.Errorf("failed to convert value %d to tpm2.PCRSelection: %v", i, v))
 			continue
 		}
 
