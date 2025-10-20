@@ -742,17 +742,12 @@ func AppendEvents(base []byte, additional ...[]byte) ([]byte, error) {
 
 			// Serialize digests
 			for _, d := range e.digests {
-				var algID uint16
-				switch d.hash {
-				case crypto.SHA256:
-					algID = uint16(HashSHA256)
-				case crypto.SHA1:
-					algID = uint16(HashSHA1)
-				default:
+        algID, err := FromCryptoHash(d.hash)
+        if err != nil {
 					return nil, fmt.Errorf("log %d: event %d: unhandled hash function %v", i, x, d.hash)
 				}
 
-				binary.Write(out, binary.LittleEndian, algID)
+				binary.Write(out, binary.LittleEndian, uint16(algID))
 				out.Write(d.data)
 			}
 
