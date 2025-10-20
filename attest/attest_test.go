@@ -16,7 +16,7 @@ package attest
 
 import (
 	"bytes"
-  "crypto"
+	"crypto"
 	"flag"
 	"fmt"
 	"reflect"
