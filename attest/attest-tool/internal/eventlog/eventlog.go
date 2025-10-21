@@ -86,7 +86,7 @@ const (
 
 	// Used for PCRs defined for OS and application usage. The digest field MUST
 	// contain a hash of the data. The data contains a TCG_PCClientTaggedEvent
-	// sructure.
+	// structure.
 	evEventTag eventType = 0x00000006
 
 	// Used for PCR[0] only. The digest contains the hash of the SRTM for each PCR

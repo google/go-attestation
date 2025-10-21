@@ -229,7 +229,7 @@ func (p *PCR) QuoteVerified() bool {
 	return p.quoteVerified
 }
 
-// EK is a burned-in endorcement key bound to a TPM. This optionally contains
+// EK is a burned-in endorsement key bound to a TPM. This optionally contains
 // a certificate that can chain to the TPM manufacturer.
 type EK struct {
 	// Public key of the EK.
