@@ -92,7 +92,7 @@ type SecureBoot struct {
 	DBR []byte
 
 	// Authority is the set of certificate that were used during secure boot
-	// validation. This will be a subset of the certifiates in DB.
+	// validation. This will be a subset of the certificates in DB.
 	Authority []byte
 }
 

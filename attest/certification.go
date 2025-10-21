@@ -107,7 +107,7 @@ func NewActivateOpts(verifierPubKey tpm2.Public, ek crypto.PublicKey) (*Activate
 // - the attestation parameters matched the attested key
 // - the key was TPM-generated and resides within TPM
 // - the key can sign/decrypt outside-TPM objects
-// - the signature is successfuly verified against the passed public key
+// - the signature is successfully verified against the passed public key
 // For now, it accepts only RSA verification keys.
 func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	pub, err := tpm2.DecodePublic(p.Public)
