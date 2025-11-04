@@ -106,6 +106,21 @@ func (t *wrappedTPM20) info() (*TPMInfo, error) {
 	return &tInfo, nil
 }
 
+// createEK creates a persistent EK given the given template the the handle location
+func (t *wrappedTPM20) createEK(ekTemplate tpm2.Public, ekHandle tpmutil.Handle, rerr error) error {
+	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", ekTemplate)
+	if err != nil {
+		return fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
+	}
+	defer tpm2.FlushContext(t.rwc, keyHnd)
+
+	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, ekHandle)
+	if err != nil {
+		return fmt.Errorf("EvictControl failed: %v", err)
+	}
+	return nil
+}
+
 // Return value: handle, whether we generated a new one, error.
 func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, error) {
 	var ekHandle tpmutil.Handle
@@ -138,15 +153,9 @@ func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, er
 	}
 	rerr := err // Preserve this failure for later logging, if needed
 
-	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", ekTemplate)
+	err = t.createEK(ekTemplate, ekHandle, rerr)
 	if err != nil {
-		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
-	}
-	defer tpm2.FlushContext(t.rwc, keyHnd)
-
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, ekHandle)
-	if err != nil {
-		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
+		return 0, false, err
 	}
 
 	return ekHandle, true, nil
@@ -171,27 +180,95 @@ func (t *wrappedTPM20) getStorageRootKeyHandle(parent ParentKeyConfig) (tpmutil.
 	default:
 		return 0, false, fmt.Errorf("unsupported SRK algorithm: %v", parent.Algorithm)
 	}
-	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", srkTemplate)
+	err = t.createEK(srkTemplate, srkHandle, rerr)
 	if err != nil {
-		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
+		return 0, false, err
 	}
-	defer tpm2.FlushContext(t.rwc, keyHnd)
-
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, srkHandle)
-	if err != nil {
-		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
-	}
-
 	return srkHandle, true, nil
+}
+
+func (t *wrappedTPM20) getKeyHandleKeyMap() (map[crypto.PublicKey]tpmutil.Handle, error) {
+	rvalue := make(map[crypto.PublicKey]tpmutil.Handle)
+	// NOTE: this list should be replaced by a call to an
+	// equivalent of:  "tpm2_getcap handles-persistent"
+	keyHandlesToSearch := []tpmutil.Handle{
+		commonRSAEkEquivalentHandle,
+		commonECCEkEquivalentHandle,
+		commonECCEkEquivalentHandle + 1,
+		commonECCEkEquivalentHandle + 2,
+	}
+	for _, keyHandle := range keyHandlesToSearch {
+		pub, _, _, err := tpm2.ReadPublic(t.rwc, keyHandle)
+		if err != nil {
+			continue
+		}
+		if pub.RSAParameters != nil || pub.ECCParameters != nil {
+			key, err := pub.Key()
+			if err != nil {
+				return nil, err
+			}
+			rvalue[key] = keyHandle
+		}
+	}
+	return rvalue, nil
 }
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 	var res []EK
-	if rsaCert, err := readEKCertFromNVRAM20(t.rwc, nvramRSACertIndex); err == nil {
-		res = append(res, EK{Public: crypto.PublicKey(rsaCert.PublicKey), Certificate: rsaCert, handle: commonRSAEkEquivalentHandle})
+	certIndexes := []int{nvramRSACertIndex, nvramECCCertIndex, nvram3KRSACertIndex, nvramP384CertIndex}
+	keyHandleMap, err := t.getKeyHandleKeyMap()
+	if err != nil {
+		return nil, err
 	}
-	if eccCert, err := readEKCertFromNVRAM20(t.rwc, nvramECCCertIndex); err == nil {
-		res = append(res, EK{Public: crypto.PublicKey(eccCert.PublicKey), Certificate: eccCert, handle: commonECCEkEquivalentHandle})
+	for _, certIndex := range certIndexes {
+		if cert, err := readEKCertFromNVRAM20(t.rwc, tpmutil.Handle(certIndex)); err == nil {
+			var handleToUse tpmutil.Handle
+			keyfound := false
+		FindKeyHandleLoop:
+			//This section finds the keyhandle
+			for key, keyHandle := range keyHandleMap {
+				switch k := key.(type) {
+				case *rsa.PublicKey:
+					if k.Equal(cert.PublicKey) {
+						handleToUse = keyHandle
+						keyfound = true
+						break FindKeyHandleLoop
+					}
+				case *ecdsa.PublicKey:
+					if k.Equal(cert.PublicKey) {
+						handleToUse = keyHandle
+						keyfound = true
+						break FindKeyHandleLoop
+					}
+				default:
+					return nil, fmt.Errorf("unsupported public key type %T", k)
+				}
+			}
+			if !keyfound {
+				if certIndex == nvramRSACertIndex {
+					// There is no keyhandle for the 2k rsa cert key, try to find
+					// a slot an create appropiate key if one available.
+					targetHandle := commonRSAEkEquivalentHandle
+					_, ok := keyHandleMap[targetHandle]
+					if ok {
+						targetHandle = commonECCEkEquivalentHandle + 1
+						_, ok := keyHandleMap[targetHandle]
+						if ok {
+							continue
+						}
+					}
+					ekTemplate := t.rsaEkTemplate()
+					err = t.createEK(ekTemplate, tpmutil.Handle(targetHandle), fmt.Errorf(""))
+					if err != nil {
+						return nil, err
+					}
+					handleToUse = tpmutil.Handle(targetHandle)
+				} else {
+					continue
+				}
+			}
+			res = append(res, EK{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert, handle: handleToUse})
+		}
 	}
 	return res, nil
 }

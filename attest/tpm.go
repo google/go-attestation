@@ -43,6 +43,13 @@ const (
 	nvramECCCertIndex    = 0x1c0000a
 	nvramECCEkNonceIndex = 0x1c0000b
 
+	// "High range". Defined at:
+	// https://trustedcomputinggroup.org/wp-content/uploads/TCG-EK-Credential-Profile-for-TPM-Family-2.0-Level-0-Version-2.6_pub.pdf
+	// Secttion 2.2.2.5.1
+	// also note that this are the "storage EK"
+	nvram3KRSACertIndex = 0x01c0001c
+	nvramP384CertIndex  = 0x01c00016
+
 	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
 	commonRSAEkEquivalentHandle = 0x81010001
 	commonECCEkEquivalentHandle = 0x81010002
