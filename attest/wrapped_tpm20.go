@@ -20,7 +20,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/asn1"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -187,8 +189,19 @@ func (t *wrappedTPM20) getStorageRootKeyHandle(parent ParentKeyConfig) (tpmutil.
 	return srkHandle, true, nil
 }
 
-func (t *wrappedTPM20) getKeyHandleKeyMap() (map[crypto.PublicKey]tpmutil.Handle, error) {
-	rvalue := make(map[crypto.PublicKey]tpmutil.Handle)
+// returns the base64 encoding of the der encoding of a public key
+func serializePublicKey(pub crypto.PublicKey) (string, error) {
+	derKey, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(derKey), nil
+}
+
+// creates a map of a base64 pkcs8 encoding of public keys to handles
+func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmutil.Handle]struct{}, error) {
+	key2Handle := make(map[string]tpmutil.Handle)
+	handleFound := make(map[tpmutil.Handle]struct{})
 	// NOTE: this list should be replaced by a call to an
 	// equivalent of:  "tpm2_getcap handles-persistent"
 	keyHandlesToSearch := []tpmutil.Handle{
@@ -205,67 +218,65 @@ func (t *wrappedTPM20) getKeyHandleKeyMap() (map[crypto.PublicKey]tpmutil.Handle
 		if pub.RSAParameters != nil || pub.ECCParameters != nil {
 			key, err := pub.Key()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
-			rvalue[key] = keyHandle
+			serializedKey, err := serializePublicKey(key)
+			if err != nil {
+				return nil, nil, err
+			}
+			key2Handle[serializedKey] = keyHandle
+			handleFound[keyHandle] = struct{}{}
 		}
 	}
-	return rvalue, nil
+	return key2Handle, handleFound, nil
+}
+
+func (t *wrappedTPM20) create2KRSAEKInAvailableSlot(handleFoundMap map[tpmutil.Handle]struct{}) (tpmutil.Handle, error) {
+	rsakeyHandles := []tpmutil.Handle{
+		commonRSAEkEquivalentHandle,
+		commonECCEkEquivalentHandle + 1,
+		commonECCEkEquivalentHandle + 2,
+	}
+	for _, targetHandle := range rsakeyHandles {
+		_, handleInUse := handleFoundMap[targetHandle]
+		if handleInUse {
+			continue
+		}
+		ekTemplate := t.rsaEkTemplate()
+		err := t.createEK(ekTemplate, targetHandle, fmt.Errorf(""))
+		if err != nil {
+			return tpmutil.Handle(0), err
+		}
+		return targetHandle, nil
+	}
+	return tpmutil.Handle(0), fmt.Errorf("could not create rsa 2048 key in persistent handle")
+
 }
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 	var res []EK
 	certIndexes := []int{nvramRSACertIndex, nvramECCCertIndex, nvram3KRSACertIndex, nvramP384CertIndex}
-	keyHandleMap, err := t.getKeyHandleKeyMap()
+	keyHandleMap, handleFoundMap, err := t.getKeyHandleKeyMap()
 	if err != nil {
 		return nil, err
 	}
 	for _, certIndex := range certIndexes {
 		if cert, err := readEKCertFromNVRAM20(t.rwc, tpmutil.Handle(certIndex)); err == nil {
-			var handleToUse tpmutil.Handle
-			keyfound := false
-		FindKeyHandleLoop:
-			//This section finds the keyhandle
-			for key, keyHandle := range keyHandleMap {
-				switch k := key.(type) {
-				case *rsa.PublicKey:
-					if k.Equal(cert.PublicKey) {
-						handleToUse = keyHandle
-						keyfound = true
-						break FindKeyHandleLoop
-					}
-				case *ecdsa.PublicKey:
-					if k.Equal(cert.PublicKey) {
-						handleToUse = keyHandle
-						keyfound = true
-						break FindKeyHandleLoop
-					}
-				default:
-					return nil, fmt.Errorf("unsupported public key type %T", k)
+			serializedKey, err := serializePublicKey(cert.PublicKey)
+			if err != nil {
+				return nil, err
+			}
+
+			handleToUse, keyfound := keyHandleMap[serializedKey]
+			if !keyfound && certIndex == nvramRSACertIndex {
+				handleToUse, err = t.create2KRSAEKInAvailableSlot(handleFoundMap)
+				if err != nil {
+					return nil, err
 				}
+				keyfound = true
 			}
 			if !keyfound {
-				if certIndex == nvramRSACertIndex {
-					// There is no keyhandle for the 2k rsa cert key, try to find
-					// a slot an create appropiate key if one available.
-					targetHandle := commonRSAEkEquivalentHandle
-					_, ok := keyHandleMap[targetHandle]
-					if ok {
-						targetHandle = commonECCEkEquivalentHandle + 1
-						_, ok := keyHandleMap[targetHandle]
-						if ok {
-							continue
-						}
-					}
-					ekTemplate := t.rsaEkTemplate()
-					err = t.createEK(ekTemplate, tpmutil.Handle(targetHandle), fmt.Errorf(""))
-					if err != nil {
-						return nil, err
-					}
-					handleToUse = tpmutil.Handle(targetHandle)
-				} else {
-					continue
-				}
+				continue
 			}
 			res = append(res, EK{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert, handle: handleToUse})
 		}
