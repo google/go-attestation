@@ -198,19 +198,27 @@ func serializePublicKey(pub crypto.PublicKey) (string, error) {
 	return base64.StdEncoding.EncodeToString(derKey), nil
 }
 
+// Unfortunatelly some TPMs have a non rsa2048 key in the commonRSAEkEquivalentHandle
+// handle location. Thus we need an alternative handle to use for both creating
+// and searching for the rsa2048 ek. This location is arbritrary so we chose
+// a value inmediatelly after the ECC (p256) handle as this value is not defined
+// in any spec.
+const altRSAEkEquivalentHandle = commonECCEkEquivalentHandle + 1
+
 // creates a map of a base64 pkcs8 encoding of public keys to handles
 func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmutil.Handle]struct{}, error) {
 	key2Handle := make(map[string]tpmutil.Handle)
 	handleFound := make(map[tpmutil.Handle]struct{})
-	// NOTE: this list should be replaced by a call to an
-	// equivalent of:  "tpm2_getcap handles-persistent"
-	keyHandlesToSearch := []tpmutil.Handle{
+	// The handles to searh today are the nvram locations where we expect to find keys
+	// we could augment this list int the future, by including the equivalent of
+	// "tpm2_getcap handles-persistent". However we want to limit the number of locations
+	// to probe as accessing the tpm is a relatively slow path.
+	knownHandlesToSearch := []tpmutil.Handle{
 		commonRSAEkEquivalentHandle,
 		commonECCEkEquivalentHandle,
-		commonECCEkEquivalentHandle + 1,
-		commonECCEkEquivalentHandle + 2,
+		altRSAEkEquivalentHandle,
 	}
-	for _, keyHandle := range keyHandlesToSearch {
+	for _, keyHandle := range knownHandlesToSearch {
 		pub, _, _, err := tpm2.ReadPublic(t.rwc, keyHandle)
 		if err != nil {
 			continue
@@ -234,8 +242,7 @@ func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmu
 func (t *wrappedTPM20) create2KRSAEKInAvailableSlot(handleFoundMap map[tpmutil.Handle]struct{}) (tpmutil.Handle, error) {
 	rsakeyHandles := []tpmutil.Handle{
 		commonRSAEkEquivalentHandle,
-		commonECCEkEquivalentHandle + 1,
-		commonECCEkEquivalentHandle + 2,
+		altRSAEkEquivalentHandle,
 	}
 	for _, targetHandle := range rsakeyHandles {
 		_, handleInUse := handleFoundMap[targetHandle]
@@ -250,7 +257,6 @@ func (t *wrappedTPM20) create2KRSAEKInAvailableSlot(handleFoundMap map[tpmutil.H
 		return targetHandle, nil
 	}
 	return tpmutil.Handle(0), fmt.Errorf("could not create rsa 2048 key in persistent handle")
-
 }
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
