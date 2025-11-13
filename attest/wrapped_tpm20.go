@@ -261,7 +261,7 @@ func (t *wrappedTPM20) create2KRSAEKInAvailableSlot(handleFoundMap map[tpmutil.H
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 	var res []EK
-	certIndexes := []int{nvramRSACertIndex, nvramECCCertIndex, nvram3KRSACertIndex, nvramP384CertIndex}
+	certIndexes := []int{nvramRSACertIndex, nvramECCCertIndex}
 	keyHandleMap, handleFoundMap, err := t.getKeyHandleKeyMap()
 	if err != nil {
 		return nil, err
