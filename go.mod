@@ -11,4 +11,4 @@ require (
 	golang.org/x/sys v0.38.0
 )
 
-require golang.org/x/crypto v0.35.0 // indirect
+require golang.org/x/crypto v0.45.0 // indirect
