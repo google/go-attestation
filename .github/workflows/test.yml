@@ -21,7 +21,7 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     - name: Test
       run: go test ./...
   test-macos:
@@ -35,7 +35,7 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       # See https://github.com/google/go-tpm-tools#macos-dev
     - name: Test
       run: C_INCLUDE_PATH="$(brew --prefix openssl@1.1)/include" LIBRARY_PATH="$(brew --prefix openssl@1.1)/lib" go test ./...
@@ -50,6 +50,6 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     - name: Test
       run: go build ./...
