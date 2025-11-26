@@ -80,6 +80,25 @@ func TestEKs(t *testing.T) {
 	}
 }
 
+func TestEKCertificates(t *testing.T) {
+	if !*testLocal {
+		t.SkipNow()
+	}
+	tpm, err := OpenTPM(nil)
+	if err != nil {
+		t.Fatalf("OpenTPM() failed: %v", err)
+	}
+	defer tpm.Close()
+
+	eks, err := tpm.EKCertificates()
+	if err != nil {
+		t.Errorf("EKCertificates() failed: %v", err)
+	}
+	if len(eks) == 0 {
+		t.Log("EKCertificates() did not return anything. This could be an issue if an EK is present.")
+	}
+}
+
 func TestAKCreateAndLoad(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
