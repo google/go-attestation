@@ -71,7 +71,7 @@ func TestSimWrappedtpmEKCertificatesInternal(t *testing.T) {
 	if len(eks) != 0 {
 		t.Errorf("simlator returned an ekCertificate this should not happen")
 	}
-	// Since the tpmsimultor does not have ek certificates we will
+	// Since the tpmsimulator does not have ek certificates we will
 	// test some of the internal logic here, in particular search
 	// and injection of missing 2k rsa key.
 	// Because of this, the test dependent on internal apis which
@@ -87,7 +87,7 @@ func TestSimWrappedtpmEKCertificatesInternal(t *testing.T) {
 		t.Errorf("wtpm  ekCertificates failed")
 	}
 	if len(eks) != 0 {
-		t.Fatalf("should have returned with no eks ")
+		t.Fatalf("should have returned with no EKs")
 	}
 	// Now we inject a single key and search for it
 	_, handleFoundMap, err := wtpm.getKeyHandleKeyMap()
@@ -110,7 +110,7 @@ func TestSimWrappedtpmEKCertificatesInternal(t *testing.T) {
 	}
 	_, ok := handleFoundMap[commonRSAEkEquivalentHandle]
 	if !ok {
-		t.Fatalf("Injected key notfound")
+		t.Fatalf("injected key notfound")
 	}
 }
 

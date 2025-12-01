@@ -201,7 +201,7 @@ func serializePublicKey(pub crypto.PublicKey) (string, error) {
 // Unfortunatelly some TPMs have a non rsa2048 key in the commonRSAEkEquivalentHandle
 // handle location. Thus we need an alternative handle to use for both creating
 // and searching for the rsa2048 ek.
-// The "Registry-of-Reserved-TPM-2.0-Handles-and-Localities-Version 1.2"  section 2.3.4
+// The "Registry-of-Reserved-TPM-2.0-Handles-and-Localities-Version 1.2"  section 2.3.1
 // asserts that persistent EK handles should be in the range 0x8101000-0x810100FF
 // Thus any value in this range is acceptable, so we arbitrarily chose
 // a value inmediatelly after the ECC (p256) handle.
@@ -228,11 +228,11 @@ func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmu
 		if pub.RSAParameters != nil || pub.ECCParameters != nil {
 			key, err := pub.Key()
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to obtain public key for handle %x: %w", keyHandle, err)
 			}
 			serializedKey, err := serializePublicKey(key)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to serialize public key for handle %x: %w", keyHandle, err)
 			}
 			key2Handle[serializedKey] = keyHandle
 			handleFound[keyHandle] = struct{}{}
@@ -258,7 +258,7 @@ func (t *wrappedTPM20) create2048RSAEKInAvailableSlot(handleFoundMap map[tpmutil
 		}
 		return targetHandle, nil
 	}
-	return tpmutil.Handle(0), fmt.Errorf("could not create rsa 2048 key in persistent handle")
+	return tpmutil.Handle(0), fmt.Errorf("no available handles to create RSA 2048 key in persistent handle")
 }
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
