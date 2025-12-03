@@ -488,15 +488,25 @@ func (t *TPM) NewAK(opts *AKConfig) (*AK, error) {
 	return t.tpm.newAK(opts)
 }
 
+// Return a KeyConfig with default values if appropriate. It never modifies the
+// incoming pointer.
+func optsSetDefault(opts *KeyConfig) *KeyConfig {
+	if opts == nil {
+		return defaultConfig
+	}
+	if opts.Algorithm == "" && opts.Size == 0 {
+		optsCopy := *opts
+		optsCopy.Algorithm = defaultConfig.Algorithm
+		optsCopy.Size = defaultConfig.Size
+		return &optsCopy
+	}
+	return opts
+}
+
 // NewKey creates an application key certified by the attestation key. If opts is nil
 // then DefaultConfig is used.
 func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
-	if opts == nil {
-		opts = defaultConfig
-	}
-	if opts.Algorithm == "" && opts.Size == 0 {
-		opts = defaultConfig
-	}
+	opts = optsSetDefault(opts)
 	return t.tpm.newKey(ak, opts)
 }
 
@@ -506,12 +516,7 @@ func (t *TPM) NewKey(ak *AK, opts *KeyConfig) (*Key, error) {
 // Thus it can be used in cases where the attestation key was not created
 // by go-attestation library. If opts is nil then DefaultConfig is used.
 func (t *TPM) NewKeyCertifiedByKey(akHandle tpmutil.Handle, akAlg Algorithm, opts *KeyConfig) (*Key, error) {
-	if opts == nil {
-		opts = defaultConfig
-	}
-	if opts.Algorithm == "" && opts.Size == 0 {
-		opts = defaultConfig
-	}
+	opts = optsSetDefault(opts)
 	ck := certifyingKey{handle: akHandle, alg: akAlg}
 	return t.tpm.newKeyCertifiedByKey(ck, opts)
 }

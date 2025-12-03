@@ -30,6 +30,8 @@ import (
 	"encoding/asn1"
 	"math/big"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestSimKeyCreateAndLoad(t *testing.T) {
@@ -676,5 +678,30 @@ func testKeyOpts(t *testing.T, tpm *TPM) {
 				t.Errorf("unsupported key type: %T", pub)
 			}
 		})
+	}
+}
+
+func TestOptsSetDefault(t *testing.T) {
+	if optsSetDefault(nil) != defaultConfig {
+		t.Errorf("expecting optsSetDefault(nil) to return the defaultConfig")
+	}
+
+	normalOpts := KeyConfig{
+		Algorithm: RSA,
+		Size:      2048,
+	}
+	if optsSetDefault(&normalOpts) != &normalOpts {
+		t.Errorf("expecting optsSetDefault() to return the same pointer for normal options")
+	}
+
+	optsMissingAlgorithmAndSize := KeyConfig{
+		QualifyingData: []byte("hello"),
+	}
+	optsAfter := optsSetDefault(&optsMissingAlgorithmAndSize)
+	if optsAfter == &optsMissingAlgorithmAndSize {
+		t.Errorf("expecting optsSetDefault() to return a pointer to a copy")
+	}
+	if diff := cmp.Diff(optsAfter, &KeyConfig{Algorithm: ECDSA, Size: 256, QualifyingData: []byte("hello")}); diff != "" {
+		t.Errorf("optsSetDefault() mismatch (-want +got):\n%s", diff)
 	}
 }
