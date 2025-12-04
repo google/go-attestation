@@ -60,6 +60,60 @@ func TestSimEK(t *testing.T) {
 	}
 }
 
+func TestSimWrappedtpmEKCertificatesInternal(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	eks, err := tpm.EKCertificates()
+	if err != nil {
+		t.Errorf("EKCertfificates() failed: %v", err)
+	}
+	if len(eks) != 0 {
+		t.Errorf("simlator returned an ekCertificate this should not happen")
+	}
+	// Since the tpmsimulator does not have ek certificates we will
+	// test some of the internal logic here, in particular search
+	// and injection of missing 2k rsa key.
+	// Because of this, the test dependent on internal apis which
+	// is not optimal.
+
+	// Use a wrappedTPM with the simulator as the tpm
+	wtpm := &wrappedTPM20{
+		interf: TPMInterfaceCommandChannel,
+		rwc:    &fakeCmdChannel{sim},
+	}
+	eks, err = wtpm.ekCertificates()
+	if err != nil {
+		t.Errorf("wtpm  ekCertificates failed")
+	}
+	if len(eks) != 0 {
+		t.Fatalf("should have returned with no EKs")
+	}
+	// Now we inject a single key and search for it
+	_, handleFoundMap, err := wtpm.getKeyHandleKeyMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(handleFoundMap) != 0 {
+		t.Fatal("the simulator should be empty at this time")
+	}
+	injected2khandle, err := wtpm.create2048RSAEKInAvailableSlot(handleFoundMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if injected2khandle != commonRSAEkEquivalentHandle {
+		t.Errorf("injected cert at not default handle when empty")
+	}
+	_, handleFoundMap, err = wtpm.getKeyHandleKeyMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, ok := handleFoundMap[commonRSAEkEquivalentHandle]
+	if !ok {
+		t.Fatalf("injected key notfound")
+	}
+}
+
 func TestSimInfo(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()

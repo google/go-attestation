@@ -20,7 +20,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
+	"crypto/x509"
 	"encoding/asn1"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -106,6 +108,21 @@ func (t *wrappedTPM20) info() (*TPMInfo, error) {
 	return &tInfo, nil
 }
 
+// createEK creates a persistent EK given an ek template and a handle location
+func (t *wrappedTPM20) createEK(ekTemplate tpm2.Public, targetEKHandle tpmutil.Handle, rerr error) error {
+	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", ekTemplate)
+	if err != nil {
+		return fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
+	}
+	defer tpm2.FlushContext(t.rwc, keyHnd)
+
+	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, targetEKHandle)
+	if err != nil {
+		return fmt.Errorf("EvictControl failed: %v", err)
+	}
+	return nil
+}
+
 // Return value: handle, whether we generated a new one, error.
 func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, error) {
 	var ekHandle tpmutil.Handle
@@ -138,15 +155,9 @@ func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, er
 	}
 	rerr := err // Preserve this failure for later logging, if needed
 
-	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", ekTemplate)
+	err = t.createEK(ekTemplate, ekHandle, rerr)
 	if err != nil {
-		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
-	}
-	defer tpm2.FlushContext(t.rwc, keyHnd)
-
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, ekHandle)
-	if err != nil {
-		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
+		return 0, false, err
 	}
 
 	return ekHandle, true, nil
@@ -171,27 +182,112 @@ func (t *wrappedTPM20) getStorageRootKeyHandle(parent ParentKeyConfig) (tpmutil.
 	default:
 		return 0, false, fmt.Errorf("unsupported SRK algorithm: %v", parent.Algorithm)
 	}
-	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", srkTemplate)
+	err = t.createEK(srkTemplate, srkHandle, rerr)
 	if err != nil {
-		return 0, false, fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
+		return 0, false, err
 	}
-	defer tpm2.FlushContext(t.rwc, keyHnd)
-
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, srkHandle)
-	if err != nil {
-		return 0, false, fmt.Errorf("EvictControl failed: %v", err)
-	}
-
 	return srkHandle, true, nil
+}
+
+// returns the base64 encoding of the der encoding of a public key
+func serializePublicKey(pub crypto.PublicKey) (string, error) {
+	derKey, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(derKey), nil
+}
+
+// Unfortunatelly some TPMs have a non rsa2048 key in the commonRSAEkEquivalentHandle
+// handle location. Thus we need an alternative handle to use for both creating
+// and searching for the rsa2048 ek.
+// The "Registry-of-Reserved-TPM-2.0-Handles-and-Localities-Version 1.2"  section 2.3.1
+// asserts that persistent EK handles should be in the range 0x8101000-0x810100FF
+// Thus any value in this range is acceptable, so we arbitrarily chose
+// a value inmediatelly after the ECC (p256) handle.
+const altRSAEkEquivalentHandle = commonECCEkEquivalentHandle + 1
+
+// creates a map of a base64 pkcs8 encoding of public keys to handles
+func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmutil.Handle]struct{}, error) {
+	key2Handle := make(map[string]tpmutil.Handle)
+	handleFound := make(map[tpmutil.Handle]struct{})
+	// The handles to searh today are the nvram locations where we expect to find keys
+	// we could augment this list int the future, by including the equivalent of
+	// "tpm2_getcap handles-persistent". However we want to limit the number of locations
+	// to probe as accessing the tpm is a relatively slow path.
+	knownHandlesToSearch := []tpmutil.Handle{
+		commonRSAEkEquivalentHandle,
+		commonECCEkEquivalentHandle,
+		altRSAEkEquivalentHandle,
+	}
+	for _, keyHandle := range knownHandlesToSearch {
+		pub, _, _, err := tpm2.ReadPublic(t.rwc, keyHandle)
+		if err != nil {
+			continue
+		}
+		if pub.RSAParameters != nil || pub.ECCParameters != nil {
+			key, err := pub.Key()
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to obtain public key for handle %x: %w", keyHandle, err)
+			}
+			serializedKey, err := serializePublicKey(key)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to serialize public key for handle %x: %w", keyHandle, err)
+			}
+			key2Handle[serializedKey] = keyHandle
+			handleFound[keyHandle] = struct{}{}
+		}
+	}
+	return key2Handle, handleFound, nil
+}
+
+func (t *wrappedTPM20) create2048RSAEKInAvailableSlot(handleFoundMap map[tpmutil.Handle]struct{}) (tpmutil.Handle, error) {
+	rsakeyHandles := []tpmutil.Handle{
+		commonRSAEkEquivalentHandle,
+		altRSAEkEquivalentHandle,
+	}
+	for _, targetHandle := range rsakeyHandles {
+		_, handleInUse := handleFoundMap[targetHandle]
+		if handleInUse {
+			continue
+		}
+		ekTemplate := t.rsaEkTemplate()
+		err := t.createEK(ekTemplate, targetHandle, fmt.Errorf(""))
+		if err != nil {
+			return tpmutil.Handle(0), err
+		}
+		return targetHandle, nil
+	}
+	return tpmutil.Handle(0), fmt.Errorf("no available handles to create RSA 2048 key in persistent handle")
 }
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 	var res []EK
-	if rsaCert, err := readEKCertFromNVRAM20(t.rwc, nvramRSACertIndex); err == nil {
-		res = append(res, EK{Public: crypto.PublicKey(rsaCert.PublicKey), Certificate: rsaCert, handle: commonRSAEkEquivalentHandle})
+	certIndexes := []int{nvramRSACertIndex, nvramECCCertIndex}
+	keyHandleMap, handleFoundMap, err := t.getKeyHandleKeyMap()
+	if err != nil {
+		return nil, err
 	}
-	if eccCert, err := readEKCertFromNVRAM20(t.rwc, nvramECCCertIndex); err == nil {
-		res = append(res, EK{Public: crypto.PublicKey(eccCert.PublicKey), Certificate: eccCert, handle: commonECCEkEquivalentHandle})
+	for _, certIndex := range certIndexes {
+		if cert, err := readEKCertFromNVRAM20(t.rwc, tpmutil.Handle(certIndex)); err == nil {
+			serializedKey, err := serializePublicKey(cert.PublicKey)
+			if err != nil {
+				return nil, err
+			}
+
+			handleToUse, keyfound := keyHandleMap[serializedKey]
+			if !keyfound && certIndex == nvramRSACertIndex {
+				handleToUse, err = t.create2048RSAEKInAvailableSlot(handleFoundMap)
+				if err != nil {
+					return nil, err
+				}
+				keyfound = true
+			}
+			if !keyfound {
+				continue
+			}
+			res = append(res, EK{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert, handle: handleToUse})
+		}
 	}
 	return res, nil
 }
