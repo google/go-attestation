@@ -327,11 +327,21 @@ type efiSignatureList struct {
 	Signatures    []byte
 }
 
+const (
+	// efiGUIDSize is the binary size of efiGUID:
+	// uint32(4) + uint16(2) + uint16(2) + [8]byte(8) = 16 bytes.
+	efiGUIDSize = 16
+
+	// efiSignatureListHeaderSize is the binary size of efiSignatureListHeader:
+	// efiGUID(16) + SignatureListSize uint32(4) + SignatureHeaderSize uint32(4) + SignatureSize uint32(4) = 28 bytes.
+	efiSignatureListHeaderSize = efiGUIDSize + 4 + 4 + 4
+)
+
 // parseEfiSignatureList parses a EFI_SIGNATURE_LIST structure.
 // The structure and related GUIDs are defined at:
 // https://uefi.org/sites/default/files/resources/UEFI_Spec_2_8_final.pdf#page=1790
 func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
-	if len(b) < 28 {
+	if len(b) < efiSignatureListHeaderSize {
 		// Being passed an empty signature list here appears to be valid
 		return nil, nil, nil
 	}
@@ -354,21 +364,21 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		}
 		// Guard against uint32 underflow: SignatureListSize and SignatureSize
 		// are attacker-controlled fields. Without these checks, the subtractions
-		// below (SignatureListSize-28, SignatureSize-16) would wrap around,
+		// below (SignatureListSize-efiSignatureListHeaderSize, SignatureSize-efiGUIDSize) would wrap around,
 		// causing an infinite loop or an OOM panic via make([]byte, ~4 GiB).
-		if signatures.Header.SignatureListSize < 28 {
-			return nil, nil, fmt.Errorf("SignatureListSize %d is smaller than the minimum header size of 28", signatures.Header.SignatureListSize)
+		if signatures.Header.SignatureListSize < efiSignatureListHeaderSize {
+			return nil, nil, fmt.Errorf("SignatureListSize %d is smaller than the minimum header size of %d", signatures.Header.SignatureListSize, efiSignatureListHeaderSize)
 		}
-		if signatures.Header.SignatureSize < 16 {
-			return nil, nil, fmt.Errorf("SignatureSize %d is smaller than the minimum entry size of 16", signatures.Header.SignatureSize)
+		if signatures.Header.SignatureSize < efiGUIDSize {
+			return nil, nil, fmt.Errorf("SignatureSize %d is smaller than the minimum entry size of %d", signatures.Header.SignatureSize, efiGUIDSize)
 		}
 
 		signatureType := signatures.Header.SignatureType
 		switch signatureType {
 		case certX509SigGUID: // X509 certificate
-			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-28; {
+			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-efiSignatureListHeaderSize; {
 				signature := efiSignatureData{}
-				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-16)
+				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-efiGUIDSize)
 				err := binary.Read(buf, binary.LittleEndian, &signature.SignatureOwner)
 				if err != nil {
 					return nil, nil, err
@@ -385,9 +395,9 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 				certificates = append(certificates, *cert)
 			}
 		case hashSHA256SigGUID: // SHA256
-			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-28; {
+			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-efiSignatureListHeaderSize; {
 				signature := efiSignatureData{}
-				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-16)
+				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-efiGUIDSize)
 				err := binary.Read(buf, binary.LittleEndian, &signature.SignatureOwner)
 				if err != nil {
 					return nil, nil, err
@@ -440,13 +450,13 @@ type EFISignatureData struct {
 func parseEfiSignature(b []byte) ([]x509.Certificate, error) {
 	var certificates []x509.Certificate
 
-	if len(b) < 16 {
-		return nil, fmt.Errorf("invalid signature: buffer smaller than header (%d < %d)", len(b), 16)
+	if len(b) < efiGUIDSize {
+		return nil, fmt.Errorf("invalid signature: buffer smaller than header (%d < %d)", len(b), efiGUIDSize)
 	}
 
 	buf := bytes.NewReader(b)
 	signature := EFISignatureData{}
-	signature.SignatureData = make([]byte, len(b)-16)
+	signature.SignatureData = make([]byte, len(b)-efiGUIDSize)
 
 	if err := binary.Read(buf, binary.LittleEndian, &signature.SignatureOwner); err != nil {
 		return certificates, err
