@@ -352,6 +352,16 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		if signatures.Header.SignatureListSize > maxDataLen {
 			return nil, nil, fmt.Errorf("signature list too large: %d > %d", signatures.Header.SignatureListSize, maxDataLen)
 		}
+		// Guard against uint32 underflow: SignatureListSize and SignatureSize
+		// are attacker-controlled fields. Without these checks, the subtractions
+		// below (SignatureListSize-28, SignatureSize-16) would wrap around,
+		// causing an infinite loop or an OOM panic via make([]byte, ~4 GiB).
+		if signatures.Header.SignatureListSize < 28 {
+			return nil, nil, fmt.Errorf("SignatureListSize %d is smaller than the minimum header size of 28", signatures.Header.SignatureListSize)
+		}
+		if signatures.Header.SignatureSize < 16 {
+			return nil, nil, fmt.Errorf("SignatureSize %d is smaller than the minimum entry size of 16", signatures.Header.SignatureSize)
+		}
 
 		signatureType := signatures.Header.SignatureType
 		switch signatureType {
