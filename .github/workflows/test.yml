@@ -11,44 +11,35 @@ env:
 name: Test
 jobs:
   test-linux:
-    strategy:
-      matrix:
-        go-version: [1.24.x]
     runs-on: ubuntu-latest
     steps:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: 1.25.x
     - name: Checkout code
       uses: actions/checkout@v6
     - name: Test
       run: go test ./...
   test-macos:
-    strategy:
-      matrix:
-        go-version: [1.24.x]
     runs-on: macos-latest
     steps:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: 1.25.x
     - name: Checkout code
       uses: actions/checkout@v6
       # See https://github.com/google/go-tpm-tools#macos-dev
     - name: Test
       run: C_INCLUDE_PATH="$(brew --prefix openssl@1.1)/include" LIBRARY_PATH="$(brew --prefix openssl@1.1)/lib" go test ./...
   test-windows:
-    strategy:
-      matrix:
-        go-version: [1.24.x]
     runs-on: windows-latest
     steps:
     - name: Install Go
       uses: actions/setup-go@v6
       with:
-        go-version: ${{ matrix.go-version }}
+        go-version: 1.25.x
     - name: Checkout code
       uses: actions/checkout@v6
     - name: Test
