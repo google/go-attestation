@@ -180,7 +180,7 @@ func verifyRSASignature(pub tpm2.Public, p *ActivationParameters) error {
 func verifyECDSASignature(pub tpm2.Public, p *ActivationParameters) error {
 	key, err := pub.Key()
 	if err != nil {
-		return nil
+		return fmt.Errorf("failed to parse ECC public key: %w", err)
 	}
 	pk, ok := key.(*ecdsa.PublicKey)
 	if !ok {
