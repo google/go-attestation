@@ -81,3 +81,40 @@ func TestAMDEKURL(t *testing.T) {
 		t.Fatalf("amdEKURL(), got=%q, want=%q", got, want)
 	}
 }
+
+func TestEKCertURL(t *testing.T) {
+	tests := []struct {
+		name         string
+		manufacturer string
+		pub          *rsa.PublicKey
+		want         string
+	}{
+		{
+			name:         "Intel",
+			manufacturer: manufacturerIntel,
+			pub:          testIntelRSAKey,
+			want:         "https://ekop.intel.com/ekcertservice/WVEG2rRwkQ7m3RpXlUphgo6Y2HLxl18h6ZZkkOAdnBE%3D",
+		},
+		{
+			name:         "AMD",
+			manufacturer: manufacturerAMD,
+			pub:          testAMDRSAKey,
+			want:         "https://ftpm.amd.com/pki/aia/D027B3CE6A9B6B56846D2B9935884A88",
+		},
+		{
+			name:         "None",
+			manufacturer: "None",
+			pub:          testIntelRSAKey,
+			want:         "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ekCertURL(tc.pub, tc.manufacturer)
+			if got != tc.want {
+				t.Fatalf("ekCertURL() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
