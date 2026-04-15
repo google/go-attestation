@@ -303,9 +303,9 @@ func amdEKURL(ekPub *rsa.PublicKey) string {
 func ekCertURL(ekPub *rsa.PublicKey, manufacturer string) string {
 	var CertURL string
 	switch manufacturer {
-	case intelEKCertServiceURL:
+	case manufacturerIntel:
 		CertURL = intelEKURL(ekPub)
-	case amdEKCertServiceURL:
+	case manufacturerAMD:
 		CertURL = amdEKURL(ekPub)
 	}
 	return CertURL
