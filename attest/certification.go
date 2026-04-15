@@ -195,7 +195,7 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 			return fmt.Errorf("could not verify ECC attestation")
 		}
 	default:
-		return fmt.Errorf("unsupported public key type: %T", pub)
+		return fmt.Errorf("unsupported public key type: %T", pk)
 	}
 
 	return nil
