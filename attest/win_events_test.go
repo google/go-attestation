@@ -15,6 +15,8 @@
 package attest
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"os"
 	"testing"
@@ -22,6 +24,26 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
+
+func oversizedSIPAEvent(t *testing.T, sipaType windowsEvent) Event {
+	t.Helper()
+	inner := make([]byte, 8)
+	binary.LittleEndian.PutUint32(inner[0:4], uint32(sipaType))
+	binary.LittleEndian.PutUint32(inner[4:8], 1<<30) // 1 GiB claimed size
+
+	data := make([]byte, 8+len(inner))
+	binary.LittleEndian.PutUint32(data[0:4], uint32(sipaContainer))
+	binary.LittleEndian.PutUint32(data[4:8], uint32(len(inner)))
+	copy(data[8:], inner)
+
+	digest := sha256.Sum256(data)
+	return Event{
+		Index:  12,
+		Type:   EventType(0x00000006), // EV_EVENT_TAG
+		Data:   data,
+		Digest: digest[:],
+	}
+}
 
 func TestParseWinEvents(t *testing.T) {
 	want := &WinEvents{
@@ -130,4 +152,18 @@ func TestParseWinEvents(t *testing.T) {
 	if diff := cmp.Diff(winState, want, cmpopts.IgnoreUnexported(WinEvents{})); diff != "" {
 		t.Errorf("Unexpected WinEvents (+got, -want):\n%s", diff)
 	}
+}
+
+func TestParseWinEvents_Failures(t *testing.T) {
+	t.Run("oversized LMA header", func(t *testing.T) {
+		if _, err := ParseWinEvents([]Event{oversizedSIPAEvent(t, loadedModuleAggregation)}); err == nil {
+			t.Error("expected error for oversized LMA header, got nil")
+		}
+	})
+
+	t.Run("oversized ELAM aggregation header", func(t *testing.T) {
+		if _, err := ParseWinEvents([]Event{oversizedSIPAEvent(t, elamAggregation)}); err == nil {
+			t.Error("expected error for oversized ELAM aggregation header, got nil")
+		}
+	})
 }

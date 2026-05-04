@@ -543,6 +543,10 @@ func (w *WinEvents) parseAuthenticodeHash(header microsoftEventHeader, r io.Read
 }
 
 func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header microsoftEventHeader) error {
+	if available := int64(rdr.Len()); int64(header.Size) > available {
+		return fmt.Errorf("LMA event data (%d bytes) larger than available data (%d bytes)", header.Size, available)
+	}
+
 	var (
 		r                   = &io.LimitedReader{R: rdr, N: int64(header.Size)}
 		codeHash            []byte
@@ -680,6 +684,12 @@ func (w *WinEvents) parseUTF16(header microsoftEventHeader, r io.Reader) (string
 }
 
 func (w *WinEvents) readELAMAggregation(rdr io.Reader, header microsoftEventHeader) error {
+	if br, ok := rdr.(*bytes.Reader); ok {
+		if available := int64(br.Len()); int64(header.Size) > available {
+			return fmt.Errorf("ELAM aggregation event data (%d bytes) larger than available data (%d bytes)", header.Size, available)
+		}
+	}
+
 	var (
 		r          = &io.LimitedReader{R: rdr, N: int64(header.Size)}
 		driverName string
