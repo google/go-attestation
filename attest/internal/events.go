@@ -362,7 +362,7 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		if signatures.Header.SignatureListSize > maxDataLen {
 			return nil, nil, fmt.Errorf("signature list too large: %d > %d", signatures.Header.SignatureListSize, maxDataLen)
 		}
-		// Guard against uint32 underflow: SignatureListSize and SignatureSize
+		// Guard against uint32 underflow and OOM: SignatureListSize and SignatureSize
 		// are attacker-controlled fields. Without these checks, the subtractions
 		// below (SignatureListSize-efiSignatureListHeaderSize, SignatureSize-efiGUIDSize) would wrap around,
 		// causing an infinite loop or an OOM panic via make([]byte, ~4 GiB).
@@ -371,6 +371,15 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		}
 		if signatures.Header.SignatureSize < efiGUIDSize {
 			return nil, nil, fmt.Errorf("SignatureSize %d is smaller than the minimum entry size of %d", signatures.Header.SignatureSize, efiGUIDSize)
+		}
+		// Guard against OOM: SignatureSize is unbounded by the prior checks, allowing
+		// a crafted event log to set SignatureSize=0xFFFFFFFF while providing only a
+		// few bytes of actual data, causing make([]byte, SignatureSize-efiGUIDSize) to
+		// attempt a ~4 GiB allocation before binary.Read fails.
+		// SignatureSize must not exceed the remaining space within the signature list.
+		remainingListSize := signatures.Header.SignatureListSize - efiSignatureListHeaderSize
+		if signatures.Header.SignatureSize > remainingListSize {
+			return nil, nil, fmt.Errorf("SignatureSize %d exceeds remaining signature list space %d", signatures.Header.SignatureSize, remainingListSize)
 		}
 
 		signatureType := signatures.Header.SignatureType
