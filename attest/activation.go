@@ -80,7 +80,6 @@ func (p *ActivationParameters) CheckAKParameters() error {
 		return fmt.Errorf("attestation does not apply to creation data, got tag %x", att.Type)
 	}
 
-	// TODO: Support ECC AKs.
 	switch pub.Type {
 	case tpm2.AlgRSA:
 		if pub.RSAParameters.KeyBits < minRSABits {
