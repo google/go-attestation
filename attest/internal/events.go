@@ -381,11 +381,27 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		if signatures.Header.SignatureSize > remainingListSize {
 			return nil, nil, fmt.Errorf("SignatureSize %d exceeds remaining signature list space %d", signatures.Header.SignatureSize, remainingListSize)
 		}
+		// Guard against hash injection via oversized SignatureHeaderSize.
+		// Per UEFI spec section 31.4.1, SignatureHeaderSize bytes of vendor data
+		// appear between the fixed header and the actual signature entries.
+		// SignatureHeaderSize must not consume the entire remaining list space.
+		if signatures.Header.SignatureHeaderSize >= remainingListSize {
+			return nil, nil, fmt.Errorf("SignatureHeaderSize %d exceeds remaining signature list space %d", signatures.Header.SignatureHeaderSize, remainingListSize)
+		}
+		// Skip the vendor-specific SignatureHeader bytes per UEFI spec section 31.4.1.
+		// Without this, vendor bytes are misread as signature entries, allowing a
+		// crafted event log to inject arbitrary hashes into the trusted hash list.
+		if signatures.Header.SignatureHeaderSize > 0 {
+			vendorHeader := make([]byte, signatures.Header.SignatureHeaderSize)
+			if err := binary.Read(buf, binary.LittleEndian, &vendorHeader); err != nil {
+				return nil, nil, fmt.Errorf("reading signature vendor header: %w", err)
+			}
+		}
 
 		signatureType := signatures.Header.SignatureType
 		switch signatureType {
 		case certX509SigGUID: // X509 certificate
-			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-efiSignatureListHeaderSize; {
+			for sigOffset := int(signatures.Header.SignatureHeaderSize); uint32(sigOffset) < signatures.Header.SignatureListSize-efiSignatureListHeaderSize; {
 				signature := efiSignatureData{}
 				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-efiGUIDSize)
 				err := binary.Read(buf, binary.LittleEndian, &signature.SignatureOwner)
@@ -404,7 +420,7 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 				certificates = append(certificates, *cert)
 			}
 		case hashSHA256SigGUID: // SHA256
-			for sigOffset := 0; uint32(sigOffset) < signatures.Header.SignatureListSize-efiSignatureListHeaderSize; {
+			for sigOffset := int(signatures.Header.SignatureHeaderSize); uint32(sigOffset) < signatures.Header.SignatureListSize-efiSignatureListHeaderSize; {
 				signature := efiSignatureData{}
 				signature.SignatureData = make([]byte, signatures.Header.SignatureSize-efiGUIDSize)
 				err := binary.Read(buf, binary.LittleEndian, &signature.SignatureOwner)

@@ -65,3 +65,60 @@ func TestParseUEFIVariableData(t *testing.T) {
 		t.Errorf("ParseUEFIVariableData() mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestParseEfiSignatureListNonZeroSignatureHeaderSize(t *testing.T) {
+	// Regression test: parseEfiSignatureList() must skip SignatureHeaderSize
+	// vendor bytes before reading signature entries (UEFI spec section 31.4.1).
+	//
+	// Without the fix, a crafted EFI_SIGNATURE_LIST with SignatureHeaderSize=48
+	// causes attacker-controlled vendor header bytes to be returned as trusted
+	// SHA256 hashes, allowing arbitrary hash injection into the trusted list.
+
+	// hashSHA256SigGUID bytes (little-endian)
+	sigType := [16]byte{
+		0x26, 0x16, 0xc4, 0xc1, 0x4c, 0x50, 0x92, 0x40,
+		0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28,
+	}
+
+	const (
+		sigSize       = 48 // 16-byte GUID + 32-byte SHA256
+		sigHeaderSize = 48 // vendor header exactly one entry worth
+	)
+
+	// Vendor header: zero GUID + attacker-chosen hash (0xAA * 32)
+	attackerHash := bytes.Repeat([]byte{0xAA}, 32)
+	vendorHeader := make([]byte, sigHeaderSize)
+	copy(vendorHeader[16:], attackerHash)
+
+	// One legitimate entry: zero GUID + 0xBB * 32
+	legitHash := bytes.Repeat([]byte{0xBB}, 32)
+	legitEntry := make([]byte, sigSize)
+	copy(legitEntry[16:], legitHash)
+
+	sigListSize := uint32(28 + sigHeaderSize + len(legitEntry)) // 124 bytes
+
+	writeU32 := func(buf *bytes.Buffer, v uint32) {
+		b := []byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)}
+		buf.Write(b)
+	}
+	var buf bytes.Buffer
+	buf.Write(sigType[:])
+	writeU32(&buf, sigListSize)
+	writeU32(&buf, uint32(sigHeaderSize))
+	writeU32(&buf, uint32(sigSize))
+	buf.Write(vendorHeader)
+	buf.Write(legitEntry)
+
+	_, hashes, err := parseEfiSignatureList(buf.Bytes())
+	if err != nil {
+		// Acceptable: the bound check rejects the oversized SignatureHeaderSize.
+		return
+	}
+
+	// Attacker hash must NOT appear in the trusted list.
+	for _, h := range hashes {
+		if bytes.Equal(h, attackerHash) {
+			t.Error("attacker-controlled vendor header bytes returned as trusted SHA256 hash")
+		}
+	}
+}
