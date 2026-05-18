@@ -392,9 +392,8 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		// Without this, vendor bytes are misread as signature entries, allowing a
 		// crafted event log to inject arbitrary hashes into the trusted hash list.
 		if signatures.Header.SignatureHeaderSize > 0 {
-			vendorHeader := make([]byte, signatures.Header.SignatureHeaderSize)
-			if err := binary.Read(buf, binary.LittleEndian, &vendorHeader); err != nil {
-				return nil, nil, fmt.Errorf("reading signature vendor header: %w", err)
+			if _, err := buf.Seek(int64(signatures.Header.SignatureHeaderSize), io.SeekCurrent); err != nil {
+				return nil, nil, fmt.Errorf("seeking past signature vendor header: %w", err)
 			}
 		}
 

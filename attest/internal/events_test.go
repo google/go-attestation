@@ -81,35 +81,30 @@ func TestParseEfiSignatureListNonZeroSignatureHeaderSize(t *testing.T) {
 	}
 
 	const (
-		sigSize       = 48 // 16-byte GUID + 32-byte SHA256
-		sigHeaderSize = 48 // vendor header exactly one entry worth
+		sha256HashSize = 32                    // SHA256 digest length in bytes
+		sigSize        = efiGUIDSize + sha256HashSize // 16-byte GUID + 32-byte hash
+		sigHeaderSize  = sigSize              // vendor header = one fake entry worth
 	)
 
-	// Vendor header: zero GUID + attacker-chosen hash (0xAA * 32)
-	attackerHash := bytes.Repeat([]byte{0xAA}, 32)
+	// Vendor header: zero GUID + attacker-chosen hash (0xAA * sha256HashSize)
+	attackerHash := bytes.Repeat([]byte{0xAA}, sha256HashSize)
 	vendorHeader := make([]byte, sigHeaderSize)
-	copy(vendorHeader[16:], attackerHash)
+	copy(vendorHeader[efiGUIDSize:], attackerHash)
 
-	// One legitimate entry: zero GUID + 0xBB * 32
-	legitHash := bytes.Repeat([]byte{0xBB}, 32)
+	// One legitimate entry: zero GUID + 0xBB * sha256HashSize
+	legitHash := bytes.Repeat([]byte{0xBB}, sha256HashSize)
 	legitEntry := make([]byte, sigSize)
-	copy(legitEntry[16:], legitHash)
+	copy(legitEntry[efiGUIDSize:], legitHash)
 
-	sigListSize := uint32(28 + sigHeaderSize + len(legitEntry)) // 124 bytes
+	// Build the EFI_SIGNATURE_LIST using the existing helper, then append
+	// the vendor header and legitimate entry manually.
+	// sigListSize = fixed header + vendor header + one entry
+	sigListSize := uint32(efiSignatureListHeaderSize + sigHeaderSize + len(legitEntry))
+	data := buildEFISignatureListData(sigType, sigListSize, sigHeaderSize, sigSize, 0)
+	data = append(data, vendorHeader...)
+	data = append(data, legitEntry...)
 
-	writeU32 := func(buf *bytes.Buffer, v uint32) {
-		b := []byte{byte(v), byte(v >> 8), byte(v >> 16), byte(v >> 24)}
-		buf.Write(b)
-	}
-	var buf bytes.Buffer
-	buf.Write(sigType[:])
-	writeU32(&buf, sigListSize)
-	writeU32(&buf, uint32(sigHeaderSize))
-	writeU32(&buf, uint32(sigSize))
-	buf.Write(vendorHeader)
-	buf.Write(legitEntry)
-
-	_, hashes, err := parseEfiSignatureList(buf.Bytes())
+	_, hashes, err := parseEfiSignatureList(data)
 	if err != nil {
 		// Acceptable: the bound check rejects the oversized SignatureHeaderSize.
 		return
