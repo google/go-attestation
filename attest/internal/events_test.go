@@ -66,54 +66,64 @@ func TestParseUEFIVariableData(t *testing.T) {
 	}
 }
 
-func TestParseEfiSignatureListNonZeroSignatureHeaderSize(t *testing.T) {
-	// Regression test: parseEfiSignatureList() must skip SignatureHeaderSize
-	// vendor bytes before reading signature entries (UEFI spec section 31.4.1).
-	//
-	// Without the fix, a crafted EFI_SIGNATURE_LIST with SignatureHeaderSize=48
-	// causes attacker-controlled vendor header bytes to be returned as trusted
-	// SHA256 hashes, allowing arbitrary hash injection into the trusted list.
-
-	// hashSHA256SigGUID bytes (little-endian)
+func TestParseEfiSignatureListOversizedSignatureHeaderSize(t *testing.T) {
 	sigType := [16]byte{
 		0x26, 0x16, 0xc4, 0xc1, 0x4c, 0x50, 0x92, 0x40,
 		0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28,
 	}
-
 	const (
-		sha256HashSize = 32                           // SHA256 digest length in bytes
-		sigSize        = efiGUIDSize + sha256HashSize // 16-byte GUID + 32-byte hash
-		sigHeaderSize  = sigSize                      // vendor header = one fake entry worth
+		sha256HashSize = 32
+		sigSize        = efiGUIDSize + sha256HashSize
 	)
+	// sigHeaderSize == remainingListSize: consumes all remaining space.
+	// The bound check must reject this.
+	sigHeaderSize := sigSize
+	sigListSize := uint32(efiSignatureListHeaderSize + sigHeaderSize)
+	data := buildEFISignatureListData(sigType, sigListSize, uint32(sigHeaderSize), sigSize, 0)
+	_, _, err := parseEfiSignatureList(data)
+	if err == nil {
+		t.Error("parseEfiSignatureList() accepted oversized SignatureHeaderSize, want error")
+	}
+}
 
-	// Vendor header: zero GUID + attacker-chosen hash (0xAA * sha256HashSize)
-	attackerHash := bytes.Repeat([]byte{0xAA}, sha256HashSize)
-	vendorHeader := make([]byte, sigHeaderSize)
-	copy(vendorHeader[efiGUIDSize:], attackerHash)
-
-	// One legitimate entry: zero GUID + 0xBB * sha256HashSize
+func TestParseEfiSignatureListVendorHeaderNotTrusted(t *testing.T) {
+	sigType := [16]byte{
+		0x26, 0x16, 0xc4, 0xc1, 0x4c, 0x50, 0x92, 0x40,
+		0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28,
+	}
+	const (
+		sha256HashSize   = 32
+		sigSize          = efiGUIDSize + sha256HashSize
+		vendorHeaderSize = sha256HashSize // smaller than sigSize so bound check passes
+	)
+	// Attacker-controlled vendor header bytes.
+	attackerBytes := bytes.Repeat([]byte{0xAA}, vendorHeaderSize)
+	// One legitimate entry.
 	legitHash := bytes.Repeat([]byte{0xBB}, sha256HashSize)
 	legitEntry := make([]byte, sigSize)
 	copy(legitEntry[efiGUIDSize:], legitHash)
-
-	// Build the EFI_SIGNATURE_LIST using the existing helper, then append
-	// the vendor header and legitimate entry manually.
-	// sigListSize = fixed header + vendor header + one entry
-	sigListSize := uint32(efiSignatureListHeaderSize + sigHeaderSize + len(legitEntry))
-	data := buildEFISignatureListData(sigType, sigListSize, sigHeaderSize, sigSize, 0)
-	data = append(data, vendorHeader...)
+	sigListSize := uint32(efiSignatureListHeaderSize + vendorHeaderSize + len(legitEntry))
+	data := buildEFISignatureListData(sigType, sigListSize, vendorHeaderSize, sigSize, 0)
+	data = append(data, attackerBytes...)
 	data = append(data, legitEntry...)
-
 	_, hashes, err := parseEfiSignatureList(data)
 	if err != nil {
-		// Acceptable: the bound check rejects the oversized SignatureHeaderSize.
-		return
+		t.Fatalf("parseEfiSignatureList() returned unexpected error: %v", err)
 	}
-
-	// Attacker hash must NOT appear in the trusted list.
+	// Attacker bytes must NOT appear in the trusted hash list.
 	for _, h := range hashes {
-		if bytes.Equal(h, attackerHash) {
+		if bytes.Contains(h, attackerBytes) {
 			t.Error("attacker-controlled vendor header bytes returned as trusted SHA256 hash")
 		}
+	}
+	// Legitimate hash must be present.
+	found := false
+	for _, h := range hashes {
+		if bytes.Equal(h, legitHash) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("legitimate hash not found in parsed hashes")
 	}
 }
