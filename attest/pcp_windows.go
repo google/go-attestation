@@ -41,6 +41,9 @@ const (
 	ncryptOverwriteKeyFlag = 0x80
 	// Key usage value for AKs.
 	nCryptPropertyPCPKeyUsagePolicyIdentity = 0x8
+
+	// PCP key magic
+	pcpKeyMagic = 0x4D504350
 )
 
 // DLL references.
@@ -54,6 +57,7 @@ var (
 	nCryptCreatePersistedKey  = nCrypt.MustFindProc("NCryptCreatePersistedKey")
 	nCryptFinalizeKey         = nCrypt.MustFindProc("NCryptFinalizeKey")
 	nCryptDeleteKey           = nCrypt.MustFindProc("NCryptDeleteKey")
+	nCryptExportKey           = nCrypt.MustFindProc("NCryptExportKey")
 
 	crypt32                            = windows.MustLoadDLL("crypt32.dll")
 	crypt32CertEnumCertificatesInStore = crypt32.MustFindProc("CertEnumCertificatesInStore")
@@ -290,51 +294,191 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 	return out, nil
 }
 
-// NewAK creates a persistent attestation key of the specified name.
-func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
+func (h *winPCP) newKey(name string, alg string, length uint32, policy uint32) (uintptr, []byte, []byte, error) {
 	var kh uintptr
 	utf16Name, err := windows.UTF16FromString(name)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
-	utf16Alg, err := windows.UTF16FromString(string(alg))
+	utf16Alg, err := windows.UTF16FromString(alg)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 
-	// Create a persistent RSA key of the specified name.
+	// Create a persistent key using name and algoritm.
 	r, _, _ := nCryptCreatePersistedKey.Call(h.hProv, uintptr(unsafe.Pointer(&kh)), uintptr(unsafe.Pointer(&utf16Alg[0])), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
 	if r != 0 {
-		return 0, fmt.Errorf("NCryptCreatePersistedKey returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, fmt.Errorf("NCryptCreatePersistedKey returned %X (%v)", r, winErrCodeToString(r))
 	}
-	// Specify generated key length to be 2048 bits.
-	utf16Length, err := windows.UTF16FromString("Length")
-	if err != nil {
-		return 0, err
+
+	// Set the length if provided
+	if length != 0 {
+		utf16Length, err := windows.UTF16FromString("Length")
+		if err != nil {
+			return 0, nil, nil, err
+		}
+		r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
+		if r != 0 {
+			return 0, nil, nil, fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
+		}
 	}
-	var length uint32 = uint32(alg.Size())
-	r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
-	if r != 0 {
-		return 0, fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
-	}
-	// Specify the generated key can only be used for identity attestation.
-	utf16KeyPolicy, err := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
-	if err != nil {
-		return 0, err
-	}
-	var policy uint32 = nCryptPropertyPCPKeyUsagePolicyIdentity
-	r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
-	if r != 0 {
-		return 0, fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
+
+	// Specify the generated key usage policy if appropriate
+	if policy != 0 {
+		utf16KeyPolicy, err := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
+		if err != nil {
+			return 0, nil, nil, err
+		}
+		r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
+		if r != 0 {
+			return 0, nil, nil, fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
+		}
 	}
 
 	// Finalize (create) the key.
 	r, _, _ = nCryptFinalizeKey.Call(kh, 0)
 	if r != 0 {
-		return 0, fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
 	}
 
-	return kh, nil
+	// Obtain the key blob.
+	var sz uint32
+	typeString, err := windows.UTF16FromString("OpaqueKeyBlob")
+	if err != nil {
+		return 0, nil, nil, err
+	}
+
+	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, 0, 0, uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
+		return 0, nil, nil, fmt.Errorf("NCryptExportKey for hKey blob original query returned %X (%v)", r, winErrCodeToString(r))
+	}
+
+	keyBlob := make([]byte, sz)
+
+	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, uintptr(unsafe.Pointer(&keyBlob[0])), uintptr(sz), uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
+		return 0, nil, nil, fmt.Errorf("NCryptExportKey for hKey blob returned %X (%v)", r, winErrCodeToString(r))
+	}
+
+	pubBlob, privBlob, err := decodeKeyBlob(keyBlob)
+	if err != nil {
+		return 0, nil, nil, fmt.Errorf("decodeKeyBlob failed: %v", err)
+	}
+
+	return kh, pubBlob, privBlob, nil
+}
+
+func decodeKeyBlob(keyBlob []byte) ([]byte, []byte, error) {
+	r := bytes.NewReader(keyBlob)
+
+	var magic uint32
+	if err := binary.Read(r, binary.LittleEndian, &magic); err != nil {
+		return nil, nil, fmt.Errorf("failed to read header magic: %v", err)
+	}
+	if magic != pcpKeyMagic {
+		return nil, nil, fmt.Errorf("invalid header magic %X", magic)
+	}
+
+	var headerSize uint32
+	if err := binary.Read(r, binary.LittleEndian, &headerSize); err != nil {
+		return nil, nil, fmt.Errorf("failed to read header size: %v", err)
+	}
+
+	var tpmType uint32
+	if err := binary.Read(r, binary.LittleEndian, &tpmType); err != nil {
+		return nil, nil, fmt.Errorf("failed to read tpm type: %v", err)
+	}
+
+	var flags uint32
+	if err := binary.Read(r, binary.LittleEndian, &flags); err != nil {
+		return nil, nil, fmt.Errorf("failed to read key flags: %v", err)
+	}
+
+	var pubLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &pubLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of public key: %v", err)
+	}
+
+	var privLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &privLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of private blob: %v", err)
+	}
+
+	var pubMigrationLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &pubMigrationLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of public migration blob: %v", err)
+	}
+
+	var privMigrationLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &privMigrationLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of private migration blob: %v", err)
+	}
+
+	var policyDigestLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &policyDigestLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of policy digest: %v", err)
+	}
+
+	var pcrBindingLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &pcrBindingLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of PCR binding: %v", err)
+	}
+
+	var pcrDigestLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &pcrDigestLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of PCR digest: %v", err)
+	}
+
+	var encryptedSecretLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &encryptedSecretLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of hostage import symmetric key: %v", err)
+	}
+
+	var tpm12HostageLen uint32
+	if err := binary.Read(r, binary.LittleEndian, &tpm12HostageLen); err != nil {
+		return nil, nil, fmt.Errorf("failed to read length of hostage import private key: %v", err)
+	}
+
+	// Skip over any padding
+	r.Seek(int64(headerSize), 0)
+
+	pubKey := make([]byte, pubLen)
+
+	if err := binary.Read(r, binary.BigEndian, &pubKey); err != nil {
+		return nil, nil, fmt.Errorf("failed to read public key: %v", err)
+	}
+
+	privBlob := make([]byte, privLen)
+	if err := binary.Read(r, binary.BigEndian, &privBlob); err != nil {
+		return nil, nil, fmt.Errorf("failed to read private blob: %v", err)
+	}
+
+	return pubKey[2:], privBlob[2:], nil
+}
+
+// NewAK creates a persistent attestation key of the specified name.
+func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
+	kh, _, _, err := h.newKey(name, string(alg), uint32(alg.Size()), nCryptPropertyPCPKeyUsagePolicyIdentity)
+	return kh, err
+}
+
+// NewKey creates a persistent application key of the specified name.
+func (h *winPCP) NewKey(name string, alg Algorithm, size int) (uintptr, []byte, []byte, error) {
+	switch alg {
+	case RSA:
+		return h.newKey(name, "RSA", uint32(size), 0)
+	case ECDSA:
+		switch size {
+		case 256:
+			return h.newKey(name, "ECDSA_P256", 0, 0)
+		case 384:
+			return h.newKey(name, "ECDSA_P384", 0, 0)
+		case 521:
+			return h.newKey(name, "ECDSA_P521", 0, 0)
+		default:
+			return 0, nil, nil, fmt.Errorf("unsupported ECDSA key size: %v", size)
+		}
+	default:
+		return 0, nil, nil, fmt.Errorf("unsupported algorithm type: %q", alg)
+	}
 }
 
 // EKPub returns a BCRYPT_RSA_BLOB structure representing the EK.

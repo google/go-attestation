@@ -74,6 +74,8 @@ const (
 
 // KeyConfig encapsulates parameters for minting keys.
 type KeyConfig struct {
+	// Optionally set unique name for key on Windows.
+	Name string
 	// Algorithm to be used, either RSA or ECDSA.
 	Algorithm Algorithm
 	// Size is used to specify the bit size of the key or elliptic curve. For
