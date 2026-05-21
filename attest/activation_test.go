@@ -73,7 +73,7 @@ func TestActivation(t *testing.T) {
 
 func TestECCActivation(t *testing.T) {
 	priv := ekCertSigner(t)
-	rand := rand.New(rand.NewSource(123456))
+	rng := rand.New(rand.NewSource(123456))
 
 	// These parameters represent an ECC P256 AK generated on a real-world,
 	// Google vTPM.
@@ -88,7 +88,7 @@ func TestECCActivation(t *testing.T) {
 			E: priv.E,
 			N: priv.N,
 		},
-		Rand: rand,
+		Rand: rng,
 	}
 
 	secret, _, err := params.Generate()
