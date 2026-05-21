@@ -45,7 +45,7 @@ func ekCertSigner(t *testing.T) *rsa.PrivateKey {
 
 func TestActivation(t *testing.T) {
 	priv := ekCertSigner(t)
-	rand := rand.New(rand.NewSource(123456))
+	rng := rand.New(rand.NewSource(123456))
 
 	// These parameters represent an AK generated on a real-world, infineon TPM.
 	params := ActivationParameters{
@@ -59,7 +59,7 @@ func TestActivation(t *testing.T) {
 			E: priv.E,
 			N: priv.N,
 		},
-		Rand: rand,
+		Rand: rng,
 	}
 
 	secret, _, err := params.Generate()
