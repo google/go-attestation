@@ -81,9 +81,9 @@ func TestParseEfiSignatureListNonZeroSignatureHeaderSize(t *testing.T) {
 	}
 
 	const (
-		sha256HashSize = 32                    // SHA256 digest length in bytes
+		sha256HashSize = 32                           // SHA256 digest length in bytes
 		sigSize        = efiGUIDSize + sha256HashSize // 16-byte GUID + 32-byte hash
-		sigHeaderSize  = sigSize              // vendor header = one fake entry worth
+		sigHeaderSize  = sigSize                      // vendor header = one fake entry worth
 	)
 
 	// Vendor header: zero GUID + attacker-chosen hash (0xAA * sha256HashSize)
