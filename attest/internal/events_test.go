@@ -110,20 +110,10 @@ func TestParseEfiSignatureListVendorHeaderNotTrusted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseEfiSignatureList() returned unexpected error: %v", err)
 	}
-	// Attacker bytes must NOT appear in the trusted hash list.
-	for _, h := range hashes {
-		if bytes.Contains(h, attackerBytes) {
-			t.Error("attacker-controlled vendor header bytes returned as trusted SHA256 hash")
-		}
+	if len(hashes) != 1 {
+		t.Fatalf("parseEfiSignatureList returned %d hashes, expected 1, hashes: %v", len(hashes), hashes)
 	}
-	// Legitimate hash must be present.
-	found := false
-	for _, h := range hashes {
-		if bytes.Equal(h, legitHash) {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("legitimate hash not found in parsed hashes")
+	if !bytes.Equal(hashes[0], legitHash) {
+		t.Errorf("parseEfiSignatureList returned hash %x, expected %x", hashes[0], legitHash)
 	}
 }
