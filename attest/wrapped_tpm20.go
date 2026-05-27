@@ -929,10 +929,12 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	}
 
 	var scheme *tpm2.SigScheme
-	if runtime.GOOS == "windows" {
+	switch {
+	case opts == nil && runtime.GOOS == "windows":
 		// On Windows, if no scheme (nil) is specified, error code 0x12
 		// "unsupported or incompatible scheme" will be returned.
-		// This is prevented by selecting an appropriate signature scheme.
+		// This is prevented by selecting an appropriate signature
+		// scheme based on the curve.
 		var h tpm2.Algorithm
 		switch curve {
 		case elliptic.P384():
@@ -942,7 +944,15 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 		default:
 			h = tpm2.AlgSHA256
 		}
-
+		scheme = &tpm2.SigScheme{
+			Alg:  tpm2.AlgECDSA,
+			Hash: h,
+		}
+	case opts != nil:
+		h, err := tpm2.HashToAlgorithm(opts.HashFunc())
+		if err != nil {
+			return nil, fmt.Errorf("incorrect hash algorithm: %v", err)
+		}
 		scheme = &tpm2.SigScheme{
 			Alg:  tpm2.AlgECDSA,
 			Hash: h,
