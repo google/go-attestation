@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"runtime"
 
 	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpmutil"
@@ -926,6 +927,28 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	if _, ok := opts.(*rsa.PSSOptions); ok {
 		return nil, fmt.Errorf("cannot use rsa.PSSOptions with ECDSA key")
 	}
+
+	var scheme *tpm2.SigScheme
+	if runtime.GOOS == "windows" {
+		// On Windows, if no scheme (nil) is specified, error code 0x12
+		// "unsupported or incompatible scheme" will be returned.
+		// This is prevented by selecting an appropriate signature scheme.
+		var h tpm2.Algorithm
+		switch curve {
+		case elliptic.P384():
+			h = tpm2.AlgSHA384
+		case elliptic.P521():
+			h = tpm2.AlgSHA512
+		default:
+			h = tpm2.AlgSHA256
+		}
+
+		scheme = &tpm2.SigScheme{
+			Alg:  tpm2.AlgECDSA,
+			Hash: h,
+		}
+	}
+
 	// https://cs.opensource.google/go/go/+/refs/tags/go1.19.2:src/crypto/ecdsa/ecdsa.go;l=181
 	orderBits := curve.Params().N.BitLen()
 	orderBytes := (orderBits + 7) / 8
@@ -941,7 +964,7 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 	// that may have been dropped when converting the digest to an integer
 	digest = ret.FillBytes(digest)
 
-	sig, err := tpm2.Sign(rw, key, "", digest, validation, nil)
+	sig, err := tpm2.Sign(rw, key, "", digest, validation, scheme)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign: %v", err)
 	}
