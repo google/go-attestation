@@ -1014,7 +1014,11 @@ func (k *wrappedKey20) blobs() ([]byte, []byte, error) {
 }
 
 func (k *wrappedKey20) algorithm() (Algorithm, error) {
-	tpmPub, err := tpm2.DecodePublic(k.public)
+	return algorithmFromPublicKeyBytes(k.public)
+}
+
+func algorithmFromPublicKeyBytes(public []byte) (Algorithm, error) {
+	tpmPub, err := tpm2.DecodePublic(public)
 	if err != nil {
 		return "", fmt.Errorf("decode public key: %v", err)
 	}

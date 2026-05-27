@@ -135,11 +135,28 @@ func (k *windowsKey20) certify(tb tpmBase, handle any, opts CertifyOpts) (*Certi
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 	}
-	scheme := tpm2.SigScheme{
-		Alg:  tpm2.AlgRSASSA,
+
+	alg, err := k.algorithm()
+	if err != nil {
+		return nil, fmt.Errorf("unknown algorithm: %v", err)
+	}
+	var scheme = tpm2.SigScheme{
 		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
 	}
+	switch alg {
+	case RSA:
+		scheme.Alg = tpm2.AlgRSASSA
+	case ECDSA:
+		scheme.Alg = tpm2.AlgECDSA
+	default:
+		return nil, fmt.Errorf("algorithm %v not supported", alg)
+	}
+
 	return certify(tpm, hnd, akHnd, opts.QualifyingData, scheme)
+}
+
+func (k *windowsKey20) algorithm() (Algorithm, error) {
+	return algorithmFromPublicKeyBytes(k.public)
 }
 
 func getWindowsEndorsementKeyHandle(rwc io.ReadWriter, ek *EK) (tpmutil.Handle, error) {
