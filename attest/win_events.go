@@ -716,7 +716,12 @@ func (w *WinEvents) parseUTF16(header microsoftEventHeader, r io.Reader) (string
 	return strings.TrimSuffix(string(utf16.Decode(data)), "\x00"), nil
 }
 
-func (w *WinEvents) readELAMAggregation(rdr *io.LimitedReader, header microsoftEventHeader) error {
+const maxELAMRecursionDepth = 8
+
+func (w *WinEvents) readELAMAggregation(rdr io.LimitedReader, header microsoftEventHeader, depth int) error {
+	if depth > maxELAMRecursionDepth {
+		return fmt.Errorf("ELAM aggregation recursion depth exceeded: %d > %d", depth, maxELAMRecursionDepth)
+	}
 	if int64(header.Size) > rdr.N {
 		return fmt.Errorf("ELAM aggregation event data (%d bytes) larger than remaining capacity (%d bytes)", header.Size, rdr.N)
 	}
@@ -741,7 +746,7 @@ func (w *WinEvents) readELAMAggregation(rdr *io.LimitedReader, header microsoftE
 		var err error
 		switch h.Type {
 		case elamAggregation:
-			if err := w.readELAMAggregation(r, h); err != nil {
+			if err := w.readELAMAggregation(r, h, depth+1); err != nil {
 				return err
 			}
 			if r.N == 0 {
@@ -802,7 +807,7 @@ func (w *WinEvents) readSIPAEvent(r *io.LimitedReader, pcr int) error {
 
 	switch header.Type {
 	case elamAggregation:
-		return w.readELAMAggregation(r, header)
+		return w.readELAMAggregation(r, header, 0)
 	case loadedModuleAggregation:
 		return w.readLoadedModuleAggregation(r, header)
 	case bootCounter:

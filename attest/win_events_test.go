@@ -166,4 +166,34 @@ func TestParseWinEvents_Failures(t *testing.T) {
 			t.Error("expected error for oversized ELAM aggregation header, got nil")
 		}
 	})
+
+	t.Run("deeply nested ELAM aggregation headers", func(t *testing.T) {
+		if _, err := ParseWinEvents([]Event{nestedELAMSIPAEvent(t, 100)}); err == nil {
+			t.Error("expected error for deeply nested ELAM aggregation headers, got nil")
+		}
+	})
+}
+
+func nestedELAMSIPAEvent(t *testing.T, depth int) Event {
+	t.Helper()
+	total := depth * 8
+	inner := make([]byte, total)
+	for i := 0; i < depth; i++ {
+		off := i * 8
+		binary.LittleEndian.PutUint32(inner[off:], uint32(elamAggregation))
+		binary.LittleEndian.PutUint32(inner[off+4:], uint32(total-off-8))
+	}
+
+	data := make([]byte, 8+len(inner))
+	binary.LittleEndian.PutUint32(data[0:4], uint32(sipaContainer))
+	binary.LittleEndian.PutUint32(data[4:8], uint32(len(inner)))
+	copy(data[8:], inner)
+
+	digest := sha256.Sum256(data)
+	return Event{
+		Index:  12,
+		Type:   EventType(0x00000006), // EV_EVENT_TAG
+		Data:   data,
+		Digest: digest[:],
+	}
 }
