@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Test
       run: go test ./...
   test-macos:
@@ -31,11 +31,11 @@ jobs:
     runs-on: macos-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       # See https://github.com/google/go-tpm-tools#macos-dev
     - name: Test
       run: C_INCLUDE_PATH="$(brew --prefix openssl@1.1)/include" LIBRARY_PATH="$(brew --prefix openssl@1.1)/lib" go test ./...
@@ -46,10 +46,10 @@ jobs:
     runs-on: windows-latest
     steps:
     - name: Install Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ matrix.go-version }}
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Test
       run: go build ./...
