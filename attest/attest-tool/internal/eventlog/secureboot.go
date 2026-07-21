@@ -204,28 +204,34 @@ func verifyDigest(digest, data []byte) bool {
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_Specific_Platform_Profile_for_TPM_2p0_1p04_PUBLIC.pdf#page=100
 func parseUEFIVariableData(b, digest []byte) (*uefiVariableData, error) {
-	r := bytes.NewBuffer(b)
+	lr := &io.LimitedReader{R: bytes.NewReader(b), N: int64(len(b))}
 	var hdr struct {
 		ID         efiGUID
 		NameLength uint64
 		DataLength uint64
 	}
-	if err := binaryRead(r, &hdr); err != nil {
+	if err := binaryRead(lr, &hdr); err != nil {
 		return nil, err
 	}
+	if hdr.NameLength > uint64(lr.N)/2 {
+		return nil, fmt.Errorf("requested NameLength (%d uint16s) exceeds message size (%d uint16s)", hdr.NameLength, lr.N/2)
+	}
 	name := make([]uint16, hdr.NameLength)
-	if err := binaryRead(r, &name); err != nil {
+	if err := binaryRead(lr, &name); err != nil {
 		return nil, fmt.Errorf("parsing name: %v", err)
 	}
-	if r.Len() != int(hdr.DataLength) {
-		return nil, fmt.Errorf("remaining bytes %d doesn't match data length %d", r.Len(), hdr.DataLength)
+	if lr.N != int64(hdr.DataLength) {
+		return nil, fmt.Errorf("remaining bytes %d doesn't match data length %d", lr.N, hdr.DataLength)
 	}
-	data := r.Bytes()
+	data := make([]byte, hdr.DataLength)
+	if _, err := io.ReadFull(lr, data); err != nil {
+		return nil, fmt.Errorf("reading data: %v", err)
+	}
 	// TODO(ericchiang): older UEFI firmware (Lenovo Bios version 1.17) logs the
 	// digest of the data, which doesn't encapsulate the ID or name. This lets
 	// attackers alter keys and we should determine if this is an acceptable risk.
 	if !verifyDigest(digest, b) && !verifyDigest(digest, data) {
 		return nil, fmt.Errorf("digest didn't match data")
 	}
-	return &uefiVariableData{id: hdr.ID, name: string(utf16.Decode(name)), data: r.Bytes()}, nil
+	return &uefiVariableData{id: hdr.ID, name: string(utf16.Decode(name)), data: data}, nil
 }

@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/go-attestation/attest/internal"
 )
@@ -146,7 +147,7 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 				}
 
 			case internal.EFIVariableDriverConfig:
-				v, err := internal.ParseUEFIVariableData(bytes.NewReader(e.Data))
+				v, err := internal.ParseUEFIVariableData(&io.LimitedReader{R: bytes.NewReader(e.Data), N: int64(len(e.Data))})
 				if err != nil {
 					return nil, fmt.Errorf("failed parsing EFI variable at event %d: %v", e.sequence, err)
 				}
@@ -187,7 +188,7 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 				}
 
 			case internal.EFIVariableAuthority:
-				v, err := internal.ParseUEFIVariableData(bytes.NewReader(e.Data))
+				v, err := internal.ParseUEFIVariableData(&io.LimitedReader{R: bytes.NewReader(e.Data), N: int64(len(e.Data))})
 				if err != nil {
 					return nil, fmt.Errorf("failed parsing UEFI variable data: %v", err)
 				}
@@ -237,7 +238,7 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 
 			case internal.EFIBootServicesDriver:
 				if !seenSeparator2 {
-					imgLoad, err := internal.ParseEFIImageLoad(bytes.NewReader(e.Data))
+					imgLoad, err := internal.ParseEFIImageLoad(&io.LimitedReader{R: bytes.NewReader(e.Data), N: int64(len(e.Data))})
 					if err != nil {
 						return nil, fmt.Errorf("failed parsing EFI image load at boot services driver event %d: %v", e.sequence, err)
 					}

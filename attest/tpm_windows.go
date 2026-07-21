@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 
 	tpmtbs "github.com/google/go-tpm/tpmutil/tbs"
@@ -170,10 +171,8 @@ type bcryptRSABlobHeader struct {
 
 func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
 	var (
-		r      = bytes.NewReader(b)
+		r      = &io.LimitedReader{R: bytes.NewReader(b), N: int64(len(b))}
 		header = &bcryptRSABlobHeader{}
-		exp    = make([]byte, 8)
-		mod    = []byte("")
 	)
 	if err := binary.Read(r, binary.LittleEndian, header); err != nil {
 		return nil, err
@@ -186,12 +185,22 @@ func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
 		return nil, errors.New("exponent too large")
 	}
 
-	if _, err := r.Read(exp[8-header.ExponentLen:]); err != nil {
+	if int64(header.ExponentLen) > r.N {
+		return nil, fmt.Errorf("ExponentLen (%d bytes) larger than remaining capacity (%d bytes)", header.ExponentLen, r.N)
+	}
+
+	// Allocate an 8-byte buffer to right-align and zero-pad the big-endian exponent
+	// so it can be directly decoded with binary.BigEndian.Uint64 (which requires 8 bytes).
+	exp := make([]byte, 8)
+	if _, err := lr.Read(exp[8-header.ExponentLen:]); err != nil {
 		return nil, fmt.Errorf("failed to read public exponent: %v", err)
 	}
 
-	mod = make([]byte, header.ModulusLen)
-	if n, err := r.Read(mod); n != int(header.ModulusLen) || err != nil {
+	if int64(header.ModulusLen) > lr.N {
+		return nil, fmt.Errorf("ModulusLen (%d bytes) larger than remaining capacity (%d bytes)", header.ModulusLen, lr.N)
+	}
+	mod := make([]byte, header.ModulusLen)
+	if n, err := lr.Read(mod); n != int(header.ModulusLen) || err != nil {
 		return nil, fmt.Errorf("failed to read modulus (%d, %v)", n, err)
 	}
 

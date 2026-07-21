@@ -236,13 +236,16 @@ type UEFIVariableData struct {
 // a UEFI variable.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_Specific_Platform_Profile_for_TPM_2p0_1p04_PUBLIC.pdf#page=100
-func ParseUEFIVariableData(r io.Reader) (ret UEFIVariableData, err error) {
+func ParseUEFIVariableData(r *io.LimitedReader) (ret UEFIVariableData, err error) {
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
 		return
 	}
 	if ret.Header.UnicodeNameLength > maxNameLen {
 		return UEFIVariableData{}, fmt.Errorf("unicode name too long: %d > %d", ret.Header.UnicodeNameLength, maxNameLen)
+	}
+	if int64(ret.Header.UnicodeNameLength)*2 > r.N {
+		return UEFIVariableData{}, fmt.Errorf("unicode name length (%d bytes) larger than remaining capacity (%d bytes)", ret.Header.UnicodeNameLength*2, r.N)
 	}
 	ret.UnicodeName = make([]uint16, ret.Header.UnicodeNameLength)
 	for i := 0; uint64(i) < ret.Header.UnicodeNameLength; i++ {
@@ -253,6 +256,9 @@ func ParseUEFIVariableData(r io.Reader) (ret UEFIVariableData, err error) {
 	}
 	if ret.Header.VariableDataLength > maxDataLen {
 		return UEFIVariableData{}, fmt.Errorf("variable data too long: %d > %d", ret.Header.VariableDataLength, maxDataLen)
+	}
+	if int64(ret.Header.VariableDataLength) > r.N {
+		return UEFIVariableData{}, fmt.Errorf("variable data length (%d bytes) larger than remaining capacity (%d bytes)", ret.Header.VariableDataLength, r.N)
 	}
 	ret.VariableData = make([]byte, ret.Header.VariableDataLength)
 	_, err = io.ReadFull(r, ret.VariableData)
@@ -526,7 +532,7 @@ type EFIImageLoadHeader struct {
 	DevicePathLen uint64
 }
 
-func parseDevicePathElement(r io.Reader) (EFIDevicePathElement, error) {
+func parseDevicePathElement(r *io.LimitedReader) (EFIDevicePathElement, error) {
 	var (
 		out     EFIDevicePathElement
 		dataLen uint16
@@ -547,6 +553,9 @@ func parseDevicePathElement(r io.Reader) (EFIDevicePathElement, error) {
 	if dataLen < 4 {
 		return EFIDevicePathElement{}, fmt.Errorf("device path data too short: %d < %d", dataLen, 4)
 	}
+	if int64(dataLen-4) > r.N {
+		return EFIDevicePathElement{}, fmt.Errorf("device path element data (%d bytes) larger than remaining capacity (%d bytes)", dataLen-4, r.N)
+	}
 	out.Data = make([]byte, dataLen-4)
 	if err := binary.Read(r, binary.LittleEndian, &out.Data); err != nil {
 		return EFIDevicePathElement{}, fmt.Errorf("reading data: %v", err)
@@ -557,11 +566,11 @@ func parseDevicePathElement(r io.Reader) (EFIDevicePathElement, error) {
 // DevicePath returns the device path elements from the EFI_IMAGE_LOAD_EVENT structure.
 func (h *EFIImageLoad) DevicePath() ([]EFIDevicePathElement, error) {
 	var (
-		r   = bytes.NewReader(h.DevPathData)
+		r   = &io.LimitedReader{R: bytes.NewReader(h.DevPathData), N: int64(len(h.DevPathData))}
 		out []EFIDevicePathElement
 	)
 
-	for r.Len() > 0 {
+	for r.N > 0 {
 		e, err := parseDevicePathElement(r)
 		if err != nil {
 			return nil, err
@@ -579,13 +588,16 @@ func (h *EFIImageLoad) DevicePath() ([]EFIDevicePathElement, error) {
 // ParseEFIImageLoad parses an EFI_IMAGE_LOAD_EVENT structure.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_EFI_Platform_1_22_Final_-v15.pdf#page=17
-func ParseEFIImageLoad(r io.Reader) (ret EFIImageLoad, err error) {
+func ParseEFIImageLoad(r *io.LimitedReader) (ret EFIImageLoad, err error) {
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
 		return
 	}
 	if ret.Header.DevicePathLen > maxNameLen {
 		return EFIImageLoad{}, fmt.Errorf("device path structure too long: %d > %d", ret.Header.DevicePathLen, maxNameLen)
+	}
+	if int64(ret.Header.DevicePathLen) > r.N {
+		return EFIImageLoad{}, fmt.Errorf("device path structure size (%d bytes) larger than remaining capacity (%d bytes)", ret.Header.DevicePathLen, r.N)
 	}
 	ret.DevPathData = make([]byte, ret.Header.DevicePathLen)
 	err = binary.Read(r, binary.LittleEndian, &ret.DevPathData)

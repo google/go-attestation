@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+  "io"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -57,7 +58,7 @@ func TestParseUEFIVariableData(t *testing.T) {
 		VariableData: []uint8{0x1},
 	}
 
-	got, err := ParseUEFIVariableData(bytes.NewReader(data))
+	got, err := ParseUEFIVariableData(&io.LimitedReader{R: bytes.NewReader(data), N: int64(len(data))})
 	if err != nil {
 		t.Fatalf("ParseEFIVariableData() failed: %v", err)
 	}
