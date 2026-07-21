@@ -192,15 +192,15 @@ func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
 	// Allocate an 8-byte buffer to right-align and zero-pad the big-endian exponent
 	// so it can be directly decoded with binary.BigEndian.Uint64 (which requires 8 bytes).
 	exp := make([]byte, 8)
-	if _, err := lr.Read(exp[8-header.ExponentLen:]); err != nil {
+	if _, err := r.Read(exp[8-header.ExponentLen:]); err != nil {
 		return nil, fmt.Errorf("failed to read public exponent: %v", err)
 	}
 
-	if int64(header.ModulusLen) > lr.N {
-		return nil, fmt.Errorf("ModulusLen (%d bytes) larger than remaining capacity (%d bytes)", header.ModulusLen, lr.N)
+	if int64(header.ModulusLen) > r.N {
+		return nil, fmt.Errorf("ModulusLen (%d bytes) larger than remaining capacity (%d bytes)", header.ModulusLen, r.N)
 	}
 	mod := make([]byte, header.ModulusLen)
-	if n, err := lr.Read(mod); n != int(header.ModulusLen) || err != nil {
+	if n, err := r.Read(mod); n != int(header.ModulusLen) || err != nil {
 		return nil, fmt.Errorf("failed to read modulus (%d, %v)", n, err)
 	}
 

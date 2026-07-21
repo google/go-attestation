@@ -473,7 +473,7 @@ func decodeAKProps20(r *io.LimitedReader) (*akProps, error) {
 
 	// The encoded TPMT_SIGNATURE structure represents the remaining bytes in
 	// the ID binding blob.
-	out.RawSignature = make([]byte, r.Len())
+	out.RawSignature = make([]byte, r.N)
 	if err := binary.Read(r, binary.BigEndian, &out.RawSignature); err != nil {
 		return nil, fmt.Errorf("failed to decode TPMT_SIGNATURE.data: %v", err)
 	}
