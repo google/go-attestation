@@ -23,6 +23,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -62,11 +63,19 @@ var (
 	tbsGetDeviceInfo *windows.Proc
 )
 
-func maybeWinErr(errNo uintptr) error {
-	if errData, known := tpmErrNums[uint32(errNo)]; known {
-		return fmt.Errorf("tpm or subsystem failure: %s: %s", errData.name, errData.description)
-	}
-	return nil
+// winErrCodeToString converts a Windows error code to its string description.
+// This is used to convert the return value of Windows API calls to a human
+// readable string. The error returned by the syscall.Proc.Call method is not to be used
+// the return code is what should be used.
+// For more info, see https://pkg.go.dev/golang.org/x/sys/windows#Proc.Call.
+func winErrCodeToString(errCode uintptr) string {
+	errno := windows.Errno(uint32(errCode))
+
+	// Go's runtime already uses FormatMessage under the hood when you call .Error()
+	msg := errno.Error()
+
+	// Windows is "helpful" as it appends \r\n to the message. Remove this.
+	return strings.TrimSpace(msg)
 }
 
 func utf16ToString(buf []byte) (string, error) {
@@ -80,12 +89,9 @@ func utf16ToString(buf []byte) (string, error) {
 
 // closeNCryptoObject is a helper to call NCryptFreeObject on a given handle.
 func closeNCryptObject(hnd uintptr) error {
-	r, _, msg := nCryptFreeObject.Call(hnd)
+	r, _, _ := nCryptFreeObject.Call(hnd)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			return tpmErr
-		}
-		return fmt.Errorf("NCryptFreeObject returned %X: %v", r, msg)
+		return fmt.Errorf("NCryptFreeObject returned %X (%v)", r, winErrCodeToString(r))
 	}
 	return nil
 }
@@ -99,20 +105,14 @@ func getNCryptBufferProperty(hnd uintptr, field string) ([]byte, error) {
 		return nil, err
 	}
 
-	r, _, msg := nCryptGetProperty.Call(hnd, uintptr(unsafe.Pointer(&wideField[0])), 0, 0, uintptr(unsafe.Pointer(&size)), 0)
+	r, _, _ := nCryptGetProperty.Call(hnd, uintptr(unsafe.Pointer(&wideField[0])), 0, 0, uintptr(unsafe.Pointer(&size)), 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return nil, fmt.Errorf("NCryptGetProperty returned %d,%X (%v) for key %q on size read", size, r, msg, field)
+		return nil, fmt.Errorf("NCryptGetProperty returned size %d, code %X (%v) for field %q on size read", size, r, winErrCodeToString(r), field)
 	}
 	buff := make([]byte, size)
-	r, _, msg = nCryptGetProperty.Call(hnd, uintptr(unsafe.Pointer(&wideField[0])), uintptr(unsafe.Pointer(&buff[0])), uintptr(size), uintptr(unsafe.Pointer(&size)), 0)
+	r, _, _ = nCryptGetProperty.Call(hnd, uintptr(unsafe.Pointer(&wideField[0])), uintptr(unsafe.Pointer(&buff[0])), uintptr(size), uintptr(unsafe.Pointer(&size)), 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return nil, fmt.Errorf("NCryptGetProperty returned %X (%v) for key %q on data read", r, msg, field)
+		return nil, fmt.Errorf("NCryptGetProperty returned %X (%v) for field %q on data read", r, winErrCodeToString(r), field)
 	}
 	return buff, nil
 }
@@ -161,11 +161,10 @@ func (h *winPCP) TPMInfo() (*windowsTPMInfo, error) {
 		return nil, err
 	}
 
-	r, _, msg := tbsGetDeviceInfo.Call(unsafe.Sizeof(out.TBSInfo), uintptr(unsafe.Pointer(&out.TBSInfo)))
+	r, _, _ := tbsGetDeviceInfo.Call(unsafe.Sizeof(out.TBSInfo), uintptr(unsafe.Pointer(&out.TBSInfo)))
 	if r != 0 {
-		return nil, fmt.Errorf("Failed to call Tbsi_GetDeviceInfo: %v", msg)
+		return nil, fmt.Errorf("Failed to call Tbsi_GetDeviceInfo: %X (%v)", r, winErrCodeToString(r))
 	}
-
 	return out, nil
 }
 
@@ -178,12 +177,9 @@ func (h *winPCP) TPMCommandInterface() (io.ReadWriteCloser, error) {
 		return nil, err
 	}
 
-	r, _, err := nCryptGetProperty.Call(h.hProv, uintptr(unsafe.Pointer(&platformHndField[0])), uintptr(unsafe.Pointer(&provTBS)), unsafe.Sizeof(provTBS), uintptr(unsafe.Pointer(&sz)), 0)
+	r, _, _ := nCryptGetProperty.Call(h.hProv, uintptr(unsafe.Pointer(&platformHndField[0])), uintptr(unsafe.Pointer(&provTBS)), unsafe.Sizeof(provTBS), uintptr(unsafe.Pointer(&sz)), 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			err = tpmErr
-		}
-		return nil, fmt.Errorf("NCryptGetProperty for platform handle returned %X (%v)", r, err)
+		return nil, fmt.Errorf("NCryptGetProperty for platform handle returned %X (%v)", r, winErrCodeToString(r))
 	}
 
 	return tpmutil.FromContext(provTBS), nil
@@ -198,11 +194,8 @@ func (h *winPCP) TPMKeyHandle(hnd uintptr) (tpmutil.Handle, error) {
 		return 0, err
 	}
 
-	if r, _, err := nCryptGetProperty.Call(hnd, uintptr(unsafe.Pointer(&platformHndField[0])), uintptr(unsafe.Pointer(&keyHndTBS)), unsafe.Sizeof(keyHndTBS), uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			err = tpmErr
-		}
-		return 0, fmt.Errorf("NCryptGetProperty for hKey platform handle returned %X (%v)", r, err)
+	if r, _, _ := nCryptGetProperty.Call(hnd, uintptr(unsafe.Pointer(&platformHndField[0])), uintptr(unsafe.Pointer(&keyHndTBS)), unsafe.Sizeof(keyHndTBS), uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
+		return 0, fmt.Errorf("NCryptGetProperty for hKey platform handle returned %X (%v)", r, winErrCodeToString(r))
 	}
 
 	return keyHndTBS, nil
@@ -216,9 +209,9 @@ func (h *winPCP) Close() error {
 // DeleteKey permanently removes the key with the given handle from the system,
 // and frees its handle.
 func (h *winPCP) DeleteKey(kh uintptr) error {
-	r, _, msg := nCryptDeleteKey.Call(kh, 0)
+	r, _, _ := nCryptDeleteKey.Call(kh, 0)
 	if r != 0 {
-		return fmt.Errorf("nCryptDeleteKey returned %X: %v", r, msg)
+		return fmt.Errorf("nCryptDeleteKey returned %X (%v)", r, winErrCodeToString(r))
 	}
 	return nil
 }
@@ -267,14 +260,15 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 		return nil, err
 	}
 
-	r, _, msg := nCryptGetProperty.Call(hProv, uintptr(unsafe.Pointer(&utf16PropName[0])), uintptr(unsafe.Pointer(&cryptCertHnd)), 8, uintptr(unsafe.Pointer(&size)), 0)
+	r, _, _ := nCryptGetProperty.Call(hProv, uintptr(unsafe.Pointer(&utf16PropName[0])), uintptr(unsafe.Pointer(&cryptCertHnd)), 8, uintptr(unsafe.Pointer(&size)), 0)
 	if r != 0 {
-		return nil, fmt.Errorf("NCryptGetProperty returned %X, %v", r, msg)
+		return nil, fmt.Errorf("NCryptGetProperty returned %X (%v)", r, winErrCodeToString(r))
 	}
 	defer crypt32CertCloseStore.Call(uintptr(unsafe.Pointer(cryptCertHnd)), 0)
 
 	var out [][]byte
 	var certContext uintptr
+	var msg error
 	for {
 		certContext, _, msg = crypt32CertEnumCertificatesInStore.Call(uintptr(unsafe.Pointer(cryptCertHnd)), certContext)
 		if certContext == 0 && msg != nil {
@@ -309,12 +303,9 @@ func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
 	}
 
 	// Create a persistent RSA key of the specified name.
-	r, _, msg := nCryptCreatePersistedKey.Call(h.hProv, uintptr(unsafe.Pointer(&kh)), uintptr(unsafe.Pointer(&utf16Alg[0])), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
+	r, _, _ := nCryptCreatePersistedKey.Call(h.hProv, uintptr(unsafe.Pointer(&kh)), uintptr(unsafe.Pointer(&utf16Alg[0])), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return 0, fmt.Errorf("NCryptCreatePersistedKey returned %X: %v", r, msg)
+		return 0, fmt.Errorf("NCryptCreatePersistedKey returned %X (%v)", r, winErrCodeToString(r))
 	}
 	// Specify generated key length to be 2048 bits.
 	utf16Length, err := windows.UTF16FromString("Length")
@@ -322,12 +313,9 @@ func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
 		return 0, err
 	}
 	var length uint32 = uint32(alg.Size())
-	r, _, msg = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
+	r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return 0, fmt.Errorf("NCryptSetProperty (Length) returned %X: %v", r, msg)
+		return 0, fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
 	}
 	// Specify the generated key can only be used for identity attestation.
 	utf16KeyPolicy, err := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
@@ -335,21 +323,15 @@ func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
 		return 0, err
 	}
 	var policy uint32 = nCryptPropertyPCPKeyUsagePolicyIdentity
-	r, _, msg = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
+	r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return 0, fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X: %v", r, msg)
+		return 0, fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
 	}
 
 	// Finalize (create) the key.
-	r, _, msg = nCryptFinalizeKey.Call(kh, 0)
+	r, _, _ = nCryptFinalizeKey.Call(kh, 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return 0, fmt.Errorf("NCryptFinalizeKey returned %X: %v", r, msg)
+		return 0, fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
 	}
 
 	return kh, nil
@@ -488,12 +470,9 @@ func (h *winPCP) LoadKeyByName(name string) (uintptr, error) {
 	}
 
 	var hKey uintptr
-	r, _, msg := nCryptOpenKey.Call(h.hProv, uintptr(unsafe.Pointer(&hKey)), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
+	r, _, _ := nCryptOpenKey.Call(h.hProv, uintptr(unsafe.Pointer(&hKey)), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return 0, fmt.Errorf("NCryptOpenKey returned %X (%v) for key %q", r, msg, name)
+		return 0, fmt.Errorf("NCryptOpenKey returned %X (%v) for key %q", r, winErrCodeToString(r), name)
 	}
 	return hKey, nil
 }
@@ -505,12 +484,9 @@ func (h *winPCP) ActivateCredential(hKey uintptr, activationBlob []byte) ([]byte
 		return nil, err
 	}
 
-	r, _, msg := nCryptSetProperty.Call(hKey, uintptr(unsafe.Pointer(&utf16ActivationStr[0])), uintptr(unsafe.Pointer(&activationBlob[0])), uintptr(len(activationBlob)), 0)
+	r, _, _ := nCryptSetProperty.Call(hKey, uintptr(unsafe.Pointer(&utf16ActivationStr[0])), uintptr(unsafe.Pointer(&activationBlob[0])), uintptr(len(activationBlob)), 0)
 	if r != 0 {
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			msg = tpmErr
-		}
-		return nil, fmt.Errorf("NCryptSetProperty returned %X (%v) for key activation", r, msg)
+		return nil, fmt.Errorf("NCryptSetProperty returned %X (%v) for key activation", r, winErrCodeToString(r))
 	}
 
 	return getNCryptBufferProperty(hKey, "PCP_TPM12_IDACTIVATION")
@@ -526,12 +502,9 @@ func openPCP() (*winPCP, error) {
 		return nil, err
 	}
 
-	r, _, err := nCryptOpenStorageProvider.Call(uintptr(unsafe.Pointer(&h.hProv)), uintptr(unsafe.Pointer(&pname[0])), 0)
+	r, _, _ := nCryptOpenStorageProvider.Call(uintptr(unsafe.Pointer(&h.hProv)), uintptr(unsafe.Pointer(&pname[0])), 0)
 	if r != 0 { // r is non-zero on error, err is always populated in this case.
-		if tpmErr := maybeWinErr(r); tpmErr != nil {
-			return nil, tpmErr
-		}
-		return nil, err
+		return nil, fmt.Errorf("NCryptOpenStorageProvider returned %X (%v)", r, winErrCodeToString(r))
 	}
 	return &h, nil
 }
