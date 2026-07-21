@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"math/big"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/google/go-tpm/legacy/tpm2"
@@ -68,6 +69,48 @@ func TestActivation(t *testing.T) {
 	}
 	if got, want := secret, decodeBase64("0vhS7HtORX9uf/iyQ8Sf9WkpJuoJ1olCfTjSZuyNNxY=", t); !bytes.Equal(got, want) {
 		t.Fatalf("secret = %v, want %v", got, want)
+	}
+}
+
+// TestECCActivationRejectsInsecureCurve verifies that CheckAKParameters
+// rejects an ECC AK whose CurveID is not in the secureCurves allow-list,
+// preventing forged AKs from short-circuiting signature verification via
+// an unsupported curve.
+func TestECCActivationRejectsInsecureCurve(t *testing.T) {
+	priv := ekCertSigner(t)
+	rnd := rand.New(rand.NewSource(123456))
+
+	// Start from the known-good ECC P256 fixture, then re-encode the AK
+	// public area with an insecure CurveID (NIST P-224 is not in
+	// secureCurves), keeping every other field intact.
+	pub, err := tpm2.DecodePublic(decodeBase64("ACMACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAGAAEAAMAEAAgydcfFWW6O7PjW9vnOE4IDx3545TxylD1iVHP8MIFI78AIJuD/QM9EbqM+3SEl7PgiXlWV1NhmvnmE2AHiEfI/hUn", t))
+	if err != nil {
+		t.Fatalf("DecodePublic() returned err: %v", err)
+	}
+	pub.ECCParameters.CurveID = tpm2.CurveNISTP224
+	insecurePublic, err := pub.Encode()
+	if err != nil {
+		t.Fatalf("Encode() returned err: %v", err)
+	}
+
+	params := ActivationParameters{
+		AK: AttestationParameters{
+			Public:            insecurePublic,
+			CreateData:        decodeBase64("AAAAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUBAAsAIgALLEyPGewwEIKqPNw9Lx7QXsfp0MsOZFt4EzHFT4tSXekAIgALf7O+OxqTNzTuIhi1YGQoulPZoyxsNKHpBgT4dHqT3+UAAA==", t),
+			CreateAttestation: decodeBase64("/1RDR4AaACIAC8Uqr5OAkfcyLJ2gLU2oSvIoPi8XdoLHGdpS5h/JJz8aAAAAAAAEXezQqarG49k44bBnAUna81DZr1xhACIAC3AoqIzDrusUtdH3uAwqbqUrybtu35H1XPQDyLBHVGF+ACCKEKpwL1LFbw/IG+vtJ6CtXHIYBhVWyrkAqYLkHleYMw==", t),
+			CreateSignature:   decodeBase64("ABgABAAgbTEBcZvjb9uEEYZCiSqPh/XO0BZQS+egnJ8WKtpSbmkAIDNgvF9iyiOCvd5480hOCzjRj7GP3YZ3XqjEVvN3Q3Ca", t),
+		},
+		EK: &rsa.PublicKey{
+			E: priv.E,
+			N: priv.N,
+		},
+		Rand: rnd,
+	}
+
+	if _, _, err := params.Generate(); err == nil {
+		t.Fatalf("Generate() succeeded for AK with insecure CurveID; want error")
+	} else if !strings.Contains(err.Error(), "insecure curve") {
+		t.Errorf("Generate() returned err = %v; want error containing %q", err, "insecure curve")
 	}
 }
 
