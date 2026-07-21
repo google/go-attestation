@@ -2,7 +2,7 @@ package internal
 
 import (
 	"bytes"
-  "io"
+	"io"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
