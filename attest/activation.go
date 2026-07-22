@@ -86,6 +86,9 @@ func (p *ActivationParameters) CheckAKParameters() error {
 			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minRSABits, pub.RSAParameters.KeyBits)
 		}
 	case tpm2.AlgECC:
+		if !secureCurves[pub.ECCParameters.CurveID] {
+			return fmt.Errorf("attestation key uses insecure curve")
+		}
 		if len(pub.ECCParameters.Point.XRaw)*8 < minECCBits {
 			return fmt.Errorf("attestation key too small: must be at least %d bits but was %d bits", minECCBits, len(pub.ECCParameters.Point.XRaw)*8)
 		}
