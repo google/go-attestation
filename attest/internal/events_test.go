@@ -58,7 +58,7 @@ func TestParseUEFIVariableData(t *testing.T) {
 		VariableData: []uint8{0x1},
 	}
 
-	got, err := ParseUEFIVariableData(&io.LimitedReader{R: bytes.NewReader(data), N: int64(len(data))})
+	got, err := ParseUEFIVariableData(data)
 	if err != nil {
 		t.Fatalf("ParseEFIVariableData() failed: %v", err)
 	}

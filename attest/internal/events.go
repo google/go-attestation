@@ -236,7 +236,8 @@ type UEFIVariableData struct {
 // a UEFI variable.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_Specific_Platform_Profile_for_TPM_2p0_1p04_PUBLIC.pdf#page=100
-func ParseUEFIVariableData(r *io.LimitedReader) (ret UEFIVariableData, err error) {
+func ParseUEFIVariableData(data []byte) (ret UEFIVariableData, err error) {
+	r := &io.LimitedReader{R: bytes.NewReader(data), N: int64(len(data))}
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
 		return
@@ -588,7 +589,8 @@ func (h *EFIImageLoad) DevicePath() ([]EFIDevicePathElement, error) {
 // ParseEFIImageLoad parses an EFI_IMAGE_LOAD_EVENT structure.
 //
 // https://trustedcomputinggroup.org/wp-content/uploads/TCG_EFI_Platform_1_22_Final_-v15.pdf#page=17
-func ParseEFIImageLoad(r *io.LimitedReader) (ret EFIImageLoad, err error) {
+func ParseEFIImageLoad(data []byte) (ret EFIImageLoad, err error) {
+	r := &io.LimitedReader{R: bytes.NewReader(data), N: int64(len(data))}
 	err = binary.Read(r, binary.LittleEndian, &ret.Header)
 	if err != nil {
 		return
