@@ -363,7 +363,7 @@ func (h *winPCP) AKProperties(kh uintptr) (*akProps, error) {
 	if bytes.Equal(idBlob[0:4], []byte{1, 1, 0, 0}) {
 		return decodeAKProps12(r)
 	}
-	return decodeAKProps20(r)
+	return decodeAKProps20(&io.LimitedReader{R: r, N: int64(r.Len())})
 }
 
 // decodeAKProps12 separates the single TPM 1.2 blob from the PCP property
@@ -389,6 +389,9 @@ func decodeAKProps12(r *bytes.Reader) (*akProps, error) {
 	if err := binary.Read(r, binary.BigEndian, &exponentSize); err != nil {
 		return nil, fmt.Errorf("failed to decode exponentSize: %v", err)
 	}
+	if int64(exponentSize) > int64(r.Len()) {
+		return nil, fmt.Errorf("exponentSize (%d bytes) exceeds remaining capacity (%d bytes)", exponentSize, r.Len())
+	}
 	// Consume the bytes representing the exponent.
 	exp := make([]byte, int(exponentSize))
 	if err := binary.Read(r, binary.BigEndian, &exp); err != nil {
@@ -398,6 +401,9 @@ func decodeAKProps12(r *bytes.Reader) (*akProps, error) {
 	var keyDataSize uint32
 	if err := binary.Read(r, binary.BigEndian, &keyDataSize); err != nil {
 		return nil, fmt.Errorf("failed to decode keyDataSize: %v", err)
+	}
+	if int64(keyDataSize) > int64(r.Len()) {
+		return nil, fmt.Errorf("keyDataSize (%d bytes) exceeds remaining capacity (%d bytes)", keyDataSize, r.Len())
 	}
 	// Seek to the end of the key data.
 	r.Seek(int64(keyDataSize), io.SeekCurrent)
@@ -410,7 +416,11 @@ func decodeAKProps12(r *bytes.Reader) (*akProps, error) {
 
 	// Seek back to the location of the public key, and consume it.
 	r.Seek(int64(pubKeyStartIdx), io.SeekStart)
-	out.RawPublic = make([]byte, 24+int(exponentSize)+4+int(keyDataSize))
+	pubSize := int64(24) + int64(exponentSize) + int64(4) + int64(keyDataSize)
+	if pubSize > int64(r.Len()) {
+		return nil, fmt.Errorf("public structure size (%d bytes) exceeds remaining capacity (%d bytes)", pubSize, r.Len())
+	}
+	out.RawPublic = make([]byte, pubSize)
 	if err := binary.Read(r, binary.BigEndian, &out.RawPublic); err != nil {
 		return nil, fmt.Errorf("failed to decode public: %v", err)
 	}
@@ -422,12 +432,15 @@ func decodeAKProps12(r *bytes.Reader) (*akProps, error) {
 // into its constituents. For TPM 2.0 devices, these are bytes representing
 // the following structures: TPM2B_PUBLIC, TPM2B_CREATION_DATA, TPM2B_ATTEST,
 // and TPMT_SIGNATURE.
-func decodeAKProps20(r *bytes.Reader) (*akProps, error) {
+func decodeAKProps20(r *io.LimitedReader) (*akProps, error) {
 	var out akProps
 
 	var publicSize uint16
 	if err := binary.Read(r, binary.BigEndian, &publicSize); err != nil {
 		return nil, fmt.Errorf("failed to decode TPM2B_PUBLIC.size: %v", err)
+	}
+	if int64(publicSize) > r.N {
+		return nil, fmt.Errorf("TPM2B_PUBLIC.size (%d bytes) larger than remaining capacity (%d bytes)", publicSize, r.N)
 	}
 	out.RawPublic = make([]byte, publicSize)
 	if err := binary.Read(r, binary.BigEndian, &out.RawPublic); err != nil {
@@ -438,6 +451,9 @@ func decodeAKProps20(r *bytes.Reader) (*akProps, error) {
 	if err := binary.Read(r, binary.BigEndian, &creationDataSize); err != nil {
 		return nil, fmt.Errorf("failed to decode TPM2B_CREATION_DATA.size: %v", err)
 	}
+	if int64(creationDataSize) > r.N {
+		return nil, fmt.Errorf("TPM2B_CREATION_DATA.size (%d bytes) larger than remaining capacity (%d bytes)", creationDataSize, r.N)
+	}
 	out.RawCreationData = make([]byte, creationDataSize)
 	if err := binary.Read(r, binary.BigEndian, &out.RawCreationData); err != nil {
 		return nil, fmt.Errorf("failed to decode TPM2B_CREATION_DATA.data: %v", err)
@@ -447,6 +463,9 @@ func decodeAKProps20(r *bytes.Reader) (*akProps, error) {
 	if err := binary.Read(r, binary.BigEndian, &attestSize); err != nil {
 		return nil, fmt.Errorf("failed to decode TPM2B_ATTEST.size: %v", err)
 	}
+	if int64(attestSize) > r.N {
+		return nil, fmt.Errorf("TPM2B_ATTEST.size (%d bytes) larger than remaining capacity (%d bytes)", attestSize, r.N)
+	}
 	out.RawAttest = make([]byte, attestSize)
 	if err := binary.Read(r, binary.BigEndian, &out.RawAttest); err != nil {
 		return nil, fmt.Errorf("failed to decode TPM2B_ATTEST.data: %v", err)
@@ -454,7 +473,7 @@ func decodeAKProps20(r *bytes.Reader) (*akProps, error) {
 
 	// The encoded TPMT_SIGNATURE structure represents the remaining bytes in
 	// the ID binding blob.
-	out.RawSignature = make([]byte, r.Len())
+	out.RawSignature = make([]byte, r.N)
 	if err := binary.Read(r, binary.BigEndian, &out.RawSignature); err != nil {
 		return nil, fmt.Errorf("failed to decode TPMT_SIGNATURE.data: %v", err)
 	}

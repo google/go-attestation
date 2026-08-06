@@ -340,9 +340,12 @@ type microsoftEventHeader struct {
 // and these structures should match the event digest.
 var errUnknownSIPAEvent = errors.New("unknown event")
 
-func (w *WinEvents) readBooleanInt64Event(header microsoftEventHeader, r *bytes.Reader) error {
+func (w *WinEvents) readBooleanInt64Event(header microsoftEventHeader, r *io.LimitedReader) error {
 	if header.Size != 8 {
 		return fmt.Errorf("payload was %d bytes, want 8", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return fmt.Errorf("payload size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 	var num uint64
 	if err := binary.Read(r, binary.LittleEndian, &num); err != nil {
@@ -363,9 +366,12 @@ func (w *WinEvents) readBooleanInt64Event(header microsoftEventHeader, r *bytes.
 	return nil
 }
 
-func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.Reader) error {
+func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *io.LimitedReader) error {
 	if header.Size != 1 {
 		return fmt.Errorf("payload was %d bytes, want 1", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return fmt.Errorf("payload size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 	var b byte
 	if err := binary.Read(r, binary.LittleEndian, &b); err != nil {
@@ -395,9 +401,12 @@ func (w *WinEvents) readBooleanByteEvent(header microsoftEventHeader, r *bytes.R
 	return nil
 }
 
-func (w *WinEvents) readUint32(header microsoftEventHeader, r io.Reader) (uint32, error) {
+func (w *WinEvents) readUint32(header microsoftEventHeader, r *io.LimitedReader) (uint32, error) {
 	if header.Size != 4 {
 		return 0, fmt.Errorf("integer size not uint32 (%d bytes)", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return 0, fmt.Errorf("integer size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 
 	data := make([]uint8, header.Size)
@@ -409,9 +418,12 @@ func (w *WinEvents) readUint32(header microsoftEventHeader, r io.Reader) (uint32
 	return i, nil
 }
 
-func (w *WinEvents) readUint64(header microsoftEventHeader, r io.Reader) (uint64, error) {
+func (w *WinEvents) readUint64(header microsoftEventHeader, r *io.LimitedReader) (uint64, error) {
 	if header.Size != 8 {
 		return 0, fmt.Errorf("integer size not uint64 (%d bytes)", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return 0, fmt.Errorf("integer size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 
 	data := make([]uint8, header.Size)
@@ -423,7 +435,7 @@ func (w *WinEvents) readUint64(header microsoftEventHeader, r io.Reader) (uint64
 	return i, nil
 }
 
-func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader) error {
+func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *io.LimitedReader) error {
 	i, err := w.readUint64(header, r)
 	if err != nil {
 		return fmt.Errorf("boot counter: %v", err)
@@ -436,7 +448,7 @@ func (w *WinEvents) readBootCounter(header microsoftEventHeader, r *bytes.Reader
 	return nil
 }
 
-func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *bytes.Reader) error {
+func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *io.LimitedReader) error {
 	i, err := w.readUint32(header, r)
 	if err != nil {
 		return fmt.Errorf("transfer control: %v", err)
@@ -449,9 +461,12 @@ func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *bytes.Re
 	return nil
 }
 
-func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *bytes.Reader, pcr int) error {
+func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *io.LimitedReader, pcr int) error {
 	if header.Size > 8 {
 		return fmt.Errorf("bitlocker data too large (%d bytes)", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return fmt.Errorf("bitlocker data size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 	data := make([]uint8, header.Size)
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
@@ -473,9 +488,12 @@ func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *bytes.Re
 	return nil
 }
 
-func (w *WinEvents) parseImageValidated(header microsoftEventHeader, r io.Reader) (bool, error) {
+func (w *WinEvents) parseImageValidated(header microsoftEventHeader, r *io.LimitedReader) (bool, error) {
 	if header.Size != 1 {
 		return false, fmt.Errorf("payload was %d bytes, want 1", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return false, fmt.Errorf("payload size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 	var num byte
 	if err := binary.Read(r, binary.LittleEndian, &num); err != nil {
@@ -484,7 +502,7 @@ func (w *WinEvents) parseImageValidated(header microsoftEventHeader, r io.Reader
 	return num == 1, nil
 }
 
-func (w *WinEvents) parseHashAlgID(header microsoftEventHeader, r io.Reader) (WinCSPAlg, error) {
+func (w *WinEvents) parseHashAlgID(header microsoftEventHeader, r *io.LimitedReader) (WinCSPAlg, error) {
 	i, err := w.readUint32(header, r)
 	if err != nil {
 		return 0, fmt.Errorf("hash algorithm ID: %v", err)
@@ -498,10 +516,13 @@ func (w *WinEvents) parseHashAlgID(header microsoftEventHeader, r io.Reader) (Wi
 	}
 }
 
-func (w *WinEvents) parseAuthoritySerial(header microsoftEventHeader, r io.Reader) ([]byte, error) {
+func (w *WinEvents) parseAuthoritySerial(header microsoftEventHeader, r *io.LimitedReader) ([]byte, error) {
 	if header.Size > 128 {
 		return nil, fmt.Errorf("authority serial is too long (%d bytes)", header.Size)
 	}
+	if int64(header.Size) > r.N {
+		return nil, fmt.Errorf("authority serial size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
+	}
 	data := make([]byte, header.Size)
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
 		return nil, fmt.Errorf("reading bytes: %w", err)
@@ -509,10 +530,13 @@ func (w *WinEvents) parseAuthoritySerial(header microsoftEventHeader, r io.Reade
 	return data, nil
 }
 
-func (w *WinEvents) parseAuthoritySHA1(header microsoftEventHeader, r io.Reader) ([]byte, error) {
+func (w *WinEvents) parseAuthoritySHA1(header microsoftEventHeader, r *io.LimitedReader) ([]byte, error) {
 	if header.Size > 20 {
 		return nil, fmt.Errorf("authority thumbprint is too long (%d bytes)", header.Size)
 	}
+	if int64(header.Size) > r.N {
+		return nil, fmt.Errorf("authority thumbprint size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
+	}
 	data := make([]byte, header.Size)
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
 		return nil, fmt.Errorf("reading bytes: %w", err)
@@ -520,9 +544,12 @@ func (w *WinEvents) parseAuthoritySHA1(header microsoftEventHeader, r io.Reader)
 	return data, nil
 }
 
-func (w *WinEvents) parseImageBase(header microsoftEventHeader, r io.Reader) (uint64, error) {
+func (w *WinEvents) parseImageBase(header microsoftEventHeader, r *io.LimitedReader) (uint64, error) {
 	if header.Size != 8 {
 		return 0, fmt.Errorf("payload was %d bytes, want 8", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return 0, fmt.Errorf("payload size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 	var num uint64
 	if err := binary.Read(r, binary.LittleEndian, &num); err != nil {
@@ -531,9 +558,12 @@ func (w *WinEvents) parseImageBase(header microsoftEventHeader, r io.Reader) (ui
 	return num, nil
 }
 
-func (w *WinEvents) parseAuthenticodeHash(header microsoftEventHeader, r io.Reader) ([]byte, error) {
+func (w *WinEvents) parseAuthenticodeHash(header microsoftEventHeader, r *io.LimitedReader) ([]byte, error) {
 	if header.Size > 32 {
 		return nil, fmt.Errorf("authenticode hash data exceeds the size of any valid hash (%d bytes)", header.Size)
+	}
+	if int64(header.Size) > r.N {
+		return nil, fmt.Errorf("authenticode hash size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
 	data := make([]byte, header.Size)
 	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
@@ -542,9 +572,9 @@ func (w *WinEvents) parseAuthenticodeHash(header microsoftEventHeader, r io.Read
 	return data, nil
 }
 
-func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header microsoftEventHeader) error {
-	if available := int64(rdr.Len()); int64(header.Size) > available {
-		return fmt.Errorf("LMA event data (%d bytes) larger than available data (%d bytes)", header.Size, available)
+func (w *WinEvents) readLoadedModuleAggregation(rdr *io.LimitedReader, header microsoftEventHeader) error {
+	if int64(header.Size) > rdr.N {
+		return fmt.Errorf("LMA event data (%d bytes) larger than remaining capacity (%d bytes)", header.Size, rdr.N)
 	}
 
 	var (
@@ -641,6 +671,9 @@ func (w *WinEvents) readLoadedModuleAggregation(rdr *bytes.Reader, header micros
 			}
 		case moduleSVN:
 			// Ignore - consume value.
+			if int64(h.Size) > r.N {
+				return fmt.Errorf("moduleSVN size (%d bytes) larger than remaining capacity (%d bytes)", h.Size, r.N)
+			}
 			b := make([]byte, h.Size)
 			if err := binary.Read(r, binary.LittleEndian, &b); err != nil {
 				return err
@@ -683,11 +716,9 @@ func (w *WinEvents) parseUTF16(header microsoftEventHeader, r io.Reader) (string
 	return strings.TrimSuffix(string(utf16.Decode(data)), "\x00"), nil
 }
 
-func (w *WinEvents) readELAMAggregation(rdr io.Reader, header microsoftEventHeader) error {
-	if br, ok := rdr.(*bytes.Reader); ok {
-		if available := int64(br.Len()); int64(header.Size) > available {
-			return fmt.Errorf("ELAM aggregation event data (%d bytes) larger than available data (%d bytes)", header.Size, available)
-		}
+func (w *WinEvents) readELAMAggregation(rdr *io.LimitedReader, header microsoftEventHeader) error {
+	if int64(header.Size) > rdr.N {
+		return fmt.Errorf("ELAM aggregation event data (%d bytes) larger than remaining capacity (%d bytes)", header.Size, rdr.N)
 	}
 
 	var (
@@ -763,7 +794,7 @@ func (w *WinEvents) readELAMAggregation(rdr io.Reader, header microsoftEventHead
 	return nil
 }
 
-func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
+func (w *WinEvents) readSIPAEvent(r *io.LimitedReader, pcr int) error {
 	var header microsoftEventHeader
 	if err := binary.Read(r, binary.LittleEndian, &header); err != nil {
 		return err
@@ -788,8 +819,8 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
 
 	default:
 		// Event type was not handled, consume the data.
-		if int(header.Size) > r.Len() {
-			return fmt.Errorf("event data len (%d bytes) larger than event length (%d bytes)", header.Size, r.Len())
+		if int64(header.Size) > r.N {
+			return fmt.Errorf("event data len (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 		}
 		tmp := make([]byte, header.Size)
 		if err := binary.Read(r, binary.LittleEndian, &tmp); err != nil {
@@ -803,7 +834,7 @@ func (w *WinEvents) readSIPAEvent(r *bytes.Reader, pcr int) error {
 // readWinEventBlock extracts boot configuration from SIPA events contained in
 // the given tagged event.
 func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData, pcr int) error {
-	r := bytes.NewReader(evt.Data)
+	lr := &io.LimitedReader{R: bytes.NewReader(evt.Data), N: int64(len(evt.Data))}
 
 	// All windows information should be sub events in an enclosing SIPA
 	// container event.
@@ -811,8 +842,8 @@ func (w *WinEvents) readWinEventBlock(evt *internal.TaggedEventData, pcr int) er
 		return fmt.Errorf("expected container event, got %v", windowsEvent(evt.ID))
 	}
 
-	for r.Len() > 0 {
-		if err := w.readSIPAEvent(r, pcr); err != nil {
+	for lr.N > 0 {
+		if err := w.readSIPAEvent(lr, pcr); err != nil {
 			if errors.Is(err, errUnknownSIPAEvent) {
 				// Unknown SIPA events are okay as all TCG events are verifiable.
 				continue
