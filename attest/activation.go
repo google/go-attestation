@@ -171,6 +171,9 @@ func verifyRSASignature(pub tpm2.Public, p *ActivationParameters) error {
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
 	}
+	if sig.RSA == nil {
+		return fmt.Errorf("rsa public key provided for non-rsa signature")
+	}
 
 	if err := rsa.VerifyPKCS1v15(&pk, verifyHash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
 		return fmt.Errorf("could not verify attestation: %v", err)
@@ -205,6 +208,9 @@ func verifyECDSASignature(pub tpm2.Public, p *ActivationParameters) error {
 	sig, err := tpm2.DecodeSignature(bytes.NewBuffer(p.AK.CreateSignature))
 	if err != nil {
 		return fmt.Errorf("DecodeSignature() failed: %v", err)
+	}
+	if sig.ECC == nil {
+		return fmt.Errorf("ecdsa public key provided for non-ecdsa signature")
 	}
 
 	if !ecdsa.Verify(pk, hsh.Sum(nil), sig.ECC.R, sig.ECC.S) {
