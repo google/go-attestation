@@ -187,10 +187,16 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 
 	switch pk := opts.Public.(type) {
 	case *rsa.PublicKey:
+		if sig.RSA == nil {
+			return fmt.Errorf("rsa public key provided for non-rsa signature")
+		}
 		if err := rsa.VerifyPKCS1v15(pk, opts.Hash, hsh.Sum(nil), sig.RSA.Signature); err != nil {
 			return fmt.Errorf("could not verify attestation: %v", err)
 		}
 	case *ecdsa.PublicKey:
+		if sig.ECC == nil {
+			return fmt.Errorf("ecdsa public key provided for non-ecdsa signature")
+		}
 		if ok := ecdsa.Verify(pk, hsh.Sum(nil), sig.ECC.R, sig.ECC.S); !ok {
 			return fmt.Errorf("could not verify ECC attestation")
 		}

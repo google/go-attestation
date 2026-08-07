@@ -143,6 +143,59 @@ func TestECCActivation(t *testing.T) {
 	}
 }
 
+// TestActivationRejectsSignatureAlgorithmMismatch is a regression test for
+// BUG=511889618. tpm2.DecodeSignature populates sig.RSA xor sig.ECC based on
+// an attacker-controlled algorithm byte in the TPMT_SIGNATURE blob. Pre-fix,
+// verifyRSASignature/verifyECDSASignature dereferenced the wrong (nil) field,
+// panicking the verifier and enabling unauthenticated remote DoS. Post-fix,
+// the verifier returns an error for the mismatched algorithm.
+func TestActivationRejectsSignatureAlgorithmMismatch(t *testing.T) {
+	priv := ekCertSigner(t)
+
+	rsaAK := AttestationParameters{
+		Public:            decodeBase64("AAEACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAFAAECAAAAAAAAQC/08gj/04z4xGMIVTmr02lzhI5epufXgU831xEpf2qpXfvtNGUfqTcgWF2EUux2HDPqgcj59dtXRobQdlr4uCGNzfZIGAej4JusLa4MjpG6W2DtJPot6F1Mry63talzJ36U47niy9Iesd34CO2p9Xk3+86ZmBnQ6PQ2roUNK3l7bKz6cFLM9drOLwCqU0AUl6pHvzYPPz+xXsPl3iaA2cM97oneUiJNmJM7wtR9OcaKyIA4wVlX5TndB9NwWq5Iuj8q2Sp40Dg0noXXGSPliAtVD8flkXtAcuI9UHkQbzu9cGPRdSJPMn743GONg3bYalFtcgh2VpACXkPbXB32J7B", t),
+		CreateData:        decodeBase64("AAAAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUBAAsAIgALWI9hwDRB3zYSkannqM5z0J1coQNA1Jz/oCRxJQwTaNwAIgALmyFYBhHeIU3FUKIAPgXFD3NXyasP3siQviDEyH7avu4AAA==", t),
+		CreateAttestation: decodeBase64("/1RDR4AaACIAC41+jhmEOue1MZhJjIk79ENar6i15rBvamXLpQnGTBCOAAAAAAAAD3GRNfU4syzJ1jQGATDCDteFC5C4ACIAC3ToMYGy9GXxcf8A0HvOuLOHbU7HPEppM47C7CMcU8TtACBDmJFUFO1f5+BYevaYdd3VtfMCsxIuHhoTZJczzLP2BA==", t),
+		// Original (RSA) signature is replaced below.
+	}
+	eccAK := AttestationParameters{
+		Public:            decodeBase64("ACMACwAFBHIAIJ3/y/NsODrmmfuYaNxty4nXFTiEvigDkiwSQVi/rSKuABAAGAAEAAMAEAAgydcfFWW6O7PjW9vnOE4IDx3545TxylD1iVHP8MIFI78AIJuD/QM9EbqM+3SEl7PgiXlWV1NhmvnmE2AHiEfI/hUn", t),
+		CreateData:        decodeBase64("AAAAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUBAAsAIgALLEyPGewwEIKqPNw9Lx7QXsfp0MsOZFt4EzHFT4tSXekAIgALf7O+OxqTNzTuIhi1YGQoulPZoyxsNKHpBgT4dHqT3+UAAA==", t),
+		CreateAttestation: decodeBase64("/1RDR4AaACIAC8Uqr5OAkfcyLJ2gLU2oSvIoPi8XdoLHGdpS5h/JJz8aAAAAAAAEXezQqarG49k44bBnAUna81DZr1xhACIAC3AoqIzDrusUtdH3uAwqbqUrybtu35H1XPQDyLBHVGF+ACCKEKpwL1LFbw/IG+vtJ6CtXHIYBhVWyrkAqYLkHleYMw==", t),
+		// Original (ECC) signature is replaced below.
+	}
+	rsaSig := decodeBase64("ABQABAEALVzJSnKRJU39gHjETaI89/sM1L6HwBPGNekw6NojSW8bwD5/W1cLRDakCsYKUQu68mmbjs8xaIVBRvVM2YWP10tbTWNB0iJc9b8rERhkk3QIIFm/XsiVZsb0mysTxfeh8zygaAKQ/50sYyzp+raD0Ho0mYIRKJOEdQ6chsBflM3eB8mCXGTugUfrET80q3iu0gncaKWbfxQaQUb9ZTPSJrTN64HQ9tlOfnGT+8++WA3hV0NqKMnoAqiI9GZnI5MPXs6XxEncu/GJLJpAYZakBiS74Jvlr34Pur32B4xjm1M25AUGHEIgb6r49S0sV+hzaKu45858lQRMXj01GcyBhw==", t)
+	eccSig := decodeBase64("ABgABAAgbTEBcZvjb9uEEYZCiSqPh/XO0BZQS+egnJ8WKtpSbmkAIDNgvF9iyiOCvd5480hOCzjRj7GP3YZ3XqjEVvN3Q3Ca", t)
+
+	rsaAK.CreateSignature = eccSig
+	eccAK.CreateSignature = rsaSig
+
+	cases := []struct {
+		name string
+		ak   AttestationParameters
+	}{
+		{"rsa_public_with_ecc_signature", rsaAK},
+		{"ecc_public_with_rsa_signature", eccAK},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			params := ActivationParameters{
+				AK:   tc.ak,
+				EK:   &rsa.PublicKey{E: priv.E, N: priv.N},
+				Rand: rand.New(rand.NewSource(123456)),
+			}
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("verifier panicked on mismatched signature algorithm: %v", r)
+				}
+			}()
+			if _, _, err := params.Generate(); err == nil {
+				t.Errorf("Generate() returned nil error; want error rejecting mismatched signature algorithm")
+			}
+		})
+	}
+}
+
 func TestCheckAKParametersRejectsECCPublicKeyParseFailures(t *testing.T) {
 	t.Parallel()
 
