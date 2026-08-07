@@ -718,15 +718,16 @@ func (w *WinEvents) parseUTF16(header microsoftEventHeader, r io.Reader) (string
 
 const maxELAMRecursionDepth = 8
 
-func (w *WinEvents) readELAMAggregation(r *io.LimitedReader, header microsoftEventHeader, depth int) error {
+func (w *WinEvents) readELAMAggregation(rdr *io.LimitedReader, header microsoftEventHeader, depth int) error {
 	if depth > maxELAMRecursionDepth {
 		return fmt.Errorf("ELAM aggregation recursion depth exceeded: %d > %d", depth, maxELAMRecursionDepth)
 	}
-	if int64(header.Size) > r.N {
-		return fmt.Errorf("ELAM aggregation event data (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
+	if int64(header.Size) > rdr.N {
+		return fmt.Errorf("ELAM aggregation event data (%d bytes) larger than remaining capacity (%d bytes)", header.Size, rdr.N)
 	}
 
 	var (
+		r          = &io.LimitedReader{R: rdr, N: int64(header.Size)}
 		driverName string
 		measured   []byte
 		policy     []byte
