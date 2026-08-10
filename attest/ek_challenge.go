@@ -36,6 +36,7 @@ func generateRestrictedHMACKey() (tpm2.TPMTPublic, tpm2.TPMTSensitive, HMAC) {
 	var hmacKeyBytes HMAC
 	rand.Read(hmacKeyBytes[:])
 
+	// The size is sha256.Size.
 	obfuscate := make([]byte, 32)
 	rand.Read(obfuscate)
 
@@ -270,7 +271,7 @@ func verifyAttest(attest *tpm2.TPMSAttest) error {
 
 func verifyCertify(name *tpm2.TPM2BName, certifyInfo *tpm2.TPMSCertifyInfo) error {
 	// Check that the certified Name is the same as we expected.
-	if !bytes.Equal(name.Buffer, certifyInfo.Name.Buffer) {
+	if subtle.ConstantTimeCompare(name.Buffer, certifyInfo.Name.Buffer) == 0 {
 		return fmt.Errorf("expected Name %x, certified Name was %x", name.Buffer, certifyInfo.Name.Buffer)
 	}
 
