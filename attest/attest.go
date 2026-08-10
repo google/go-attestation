@@ -101,6 +101,7 @@ type ak interface {
 	quote(t tpmBase, nonce []byte, alg HashAlg, selectedPCRs []int) (*Quote, error)
 	attestationParameters() AttestationParameters
 	certify(tb tpmBase, handle any, opts CertifyOpts) (*CertificationParameters, error)
+	certifyWithDecryptionEk(tb tpmBase, ek *EK, challenge DecryptionEkChallenge) (*CertificationParameters, error)
 	signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error)
 }
 
@@ -179,6 +180,14 @@ func (k *AK) Certify(tpm *TPM, handle any) (*CertificationParameters, error) {
 	return k.ak.certify(tpm.tpm, handle, CertifyOpts{})
 }
 
+// CertifyWithDecryptionEk certifies the Attestation Key using the decryption
+// capabilities of the Endorsement Key (EK) in response to a challenge.
+// This follows the EK-Based Key Attestation protocol:
+// https://trustedcomputinggroup.org/wp-content/uploads/EK-Based-Key-Attestation-with-TPM-Firmware-Version-Version-1_Pub.pdf
+func (k *AK) CertifyWithDecryptionEk(tpm *TPM, ek *EK, challenge DecryptionEkChallenge) (*CertificationParameters, error) {
+	return k.ak.certifyWithDecryptionEk(tpm.tpm, ek, challenge)
+}
+
 // SignMsg signs the message (not the digest) with the AK. Note that AK is a
 // restricted signing key, it cannot sign a digest directly.
 func (k *AK) SignMsg(tpm *TPM, msg []byte, opts crypto.SignerOpts) ([]byte, error) {
@@ -203,6 +212,13 @@ type AKConfig struct {
 type EncryptedCredential struct {
 	Credential []byte
 	Secret     []byte
+}
+
+// DecryptionEkChallenge contains the parameters for the EK-based key attestation challenge.
+type DecryptionEkChallenge struct {
+	ObjectPublic []byte
+	Duplicate    []byte
+	InSymSeed    []byte
 }
 
 // Quote encapsulates the results of a Quote operation against the TPM,
