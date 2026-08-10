@@ -126,6 +126,10 @@ func (k *windowsKey20) certify(tb tpmBase, handle any, _ CertifyOpts) (*Certific
 	return certify(tpm, hnd, akHnd, nil, scheme)
 }
 
+func (k *windowsKey20) certifyWithDecryptionEk(tb tpmBase, ek *EK, challenge DecryptionEkChallenge) (*CertificationParameters, error) {
+	return nil, fmt.Errorf("not supported on Windows")
+}
+
 func (k *windowsKey20) signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {
 	return nil, fmt.Errorf("not implemented")
 }

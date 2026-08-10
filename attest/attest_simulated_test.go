@@ -22,12 +22,17 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-tpm-tools/simulator"
@@ -45,6 +50,103 @@ func setupSimulatedTPM(t *testing.T) (*simulator.Simulator, *TPM) {
 		t.Fatal(err)
 	}
 	return tpm, attestTPM
+}
+
+func setupSimulatedTPMWithECCEK(t *testing.T) (*simulator.Simulator, *TPM) {
+	t.Helper()
+	sim, err := simulator.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := provisionECCEK(sim); err != nil {
+		sim.Close()
+		t.Fatalf("failed to provision ECC EK: %v", err)
+	}
+	attestTPM, err := OpenTPM(&OpenConfig{CommandChannel: &fakeCmdChannel{sim}})
+	if err != nil {
+		sim.Close()
+		t.Fatal(err)
+	}
+	return sim, attestTPM
+}
+
+func provisionECCEK(sim io.ReadWriter) error {
+	ekHnd, pubKey, err := tpm2.CreatePrimary(sim, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultECCEKTemplate)
+	if err != nil {
+		return fmt.Errorf("CreatePrimary failed: %v", err)
+	}
+	defer tpm2.FlushContext(sim, ekHnd)
+
+	err = tpm2.EvictControl(sim, "", tpm2.HandleOwner, ekHnd, commonECCEkEquivalentHandle)
+	if err != nil {
+		return fmt.Errorf("EvictControl failed: %v", err)
+	}
+
+	ecdsaPub, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("expected *ecdsa.PublicKey, got %T", pubKey)
+	}
+
+	certDer, err := generateDummyCert(ecdsaPub)
+	if err != nil {
+		return fmt.Errorf("generateDummyCert failed: %v", err)
+	}
+
+	attrs := tpm2.AttrOwnerWrite | tpm2.AttrAuthRead
+	err = tpm2.NVDefineSpace(sim, tpm2.HandleOwner, nvramECCCertIndex, "", "", nil, attrs, uint16(len(certDer)))
+	if err != nil {
+		return fmt.Errorf("NVDefineSpace failed: %v", err)
+	}
+
+	err = tpm2.NVWrite(sim, tpm2.HandleOwner, nvramECCCertIndex, "", certDer, 0)
+	if err != nil {
+		return fmt.Errorf("NVWrite failed: %v", err)
+	}
+
+	return nil
+}
+
+func generateDummyCert(pub crypto.PublicKey) ([]byte, error) {
+	caPriv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Dummy CA"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		IsCA:                  true,
+		KeyUsage:              x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+	caDer, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caPriv.PublicKey, caPriv)
+	if err != nil {
+		return nil, err
+	}
+	caCert, err := x509.ParseCertificate(caDer)
+	if err != nil {
+		return nil, err
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			Organization: []string{"Dummy Subject"},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, template, caCert, pub, caPriv)
+	if err != nil {
+		return nil, err
+	}
+	return der, nil
 }
 
 func TestSimEK(t *testing.T) {
@@ -611,5 +713,91 @@ func TestSignMsg(t *testing.T) {
 
 	if err := rsa.VerifyPKCS1v15(ak.Public().(*rsa.PublicKey), crypto.SHA256, hashed[:], sig); err != nil {
 		t.Errorf("rsa.VerifyPKCS1v15() failed: %v", err)
+	}
+}
+
+func TestSimCertifyWithDecryptionEk(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	EKs, err := tpm.EKs()
+	if err != nil {
+		t.Fatalf("EKs() failed: %v", err)
+	}
+	if len(EKs) == 0 {
+		t.Fatalf("No suitable EK found")
+	}
+	var rsaEk *EK
+	for _, ek := range EKs {
+		if _, ok := ek.Public.(*rsa.PublicKey); ok {
+			rsaEk = &ek
+			break
+		}
+	}
+	if rsaEk == nil {
+		t.Fatalf("No suitable RSA EK found")
+	}
+
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+
+	challenge, hmacKey, err := GenerateEkChallenge(rsaEk.Public)
+	if err != nil {
+		t.Fatalf("GenerateEkChallenge() failed: %v", err)
+	}
+
+	certParams, err := ak.CertifyWithDecryptionEk(tpm, rsaEk, *challenge)
+	if err != nil {
+		t.Fatalf("CertifyWithDecryptionEk() failed: %v", err)
+	}
+
+	if err := VerifySolvedDecryptionEkChallenge(ak.AttestationParameters().Public, certParams, *hmacKey); err != nil {
+		t.Fatalf("VerifySolvedDecryptionEkChallenge() failed: %v", err)
+	}
+}
+
+func TestSimCertifyWithDecryptionEkECC(t *testing.T) {
+	sim, tpm := setupSimulatedTPMWithECCEK(t)
+	defer sim.Close()
+
+	EKs, err := tpm.EKCertificates()
+	if err != nil {
+		t.Fatalf("EKCertificates() failed: %v", err)
+	}
+	if len(EKs) == 0 {
+		t.Fatalf("No EK certificates found")
+	}
+	var eccEk *EK
+	for _, ek := range EKs {
+		if _, ok := ek.Public.(*ecdsa.PublicKey); ok {
+			eccEk = &ek
+			break
+		}
+	}
+	if eccEk == nil {
+		t.Fatalf("No suitable ECC EK found")
+	}
+
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+
+	challenge, hmacKey, err := GenerateEkChallenge(eccEk.Public)
+	if err != nil {
+		t.Fatalf("GenerateEkChallenge() failed: %v", err)
+	}
+
+	certParams, err := ak.CertifyWithDecryptionEk(tpm, eccEk, *challenge)
+	if err != nil {
+		t.Fatalf("CertifyWithDecryptionEk() failed: %v", err)
+	}
+
+	if err := VerifySolvedDecryptionEkChallenge(ak.AttestationParameters().Public, certParams, *hmacKey); err != nil {
+		t.Fatalf("VerifySolvedDecryptionEkChallenge() failed: %v", err)
 	}
 }
