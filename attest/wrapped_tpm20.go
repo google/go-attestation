@@ -452,7 +452,7 @@ func (t *wrappedTPM20) newKeyCertifiedByKey(ck certifyingKey, opts *KeyConfig) (
 		return nil, fmt.Errorf("certifyByKey() failed: %v", err)
 	}
 	if !bytes.Equal(pub, cp.Public) {
-		return nil, fmt.Errorf("certified incorrect key, expected: %v, certified: %v", pub, cp.Public)
+		return nil, fmt.Errorf("certified incorrect key, expected: %x, certified: %x", pub, cp.Public)
 	}
 
 	// Pack the raw structure into a TPMU_SIGNATURE.
@@ -937,12 +937,16 @@ func signECDSA(rw io.ReadWriter, key tpmutil.Handle, digest []byte, curve ellipt
 		// scheme based on the curve.
 		var h tpm2.Algorithm
 		switch curve {
+		case elliptic.P224():
+			return nil, errors.New("curve P-224 is not supported")
+		case elliptic.P256():
+			h = tpm2.AlgSHA256
 		case elliptic.P384():
 			h = tpm2.AlgSHA384
 		case elliptic.P521():
 			h = tpm2.AlgSHA512
 		default:
-			h = tpm2.AlgSHA256
+			return nil, fmt.Errorf("unsupported curve %s", curve)
 		}
 		scheme = &tpm2.SigScheme{
 			Alg:  tpm2.AlgECDSA,
