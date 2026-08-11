@@ -309,7 +309,7 @@ func (t *windowsTPM) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	}
 
 	if !bytes.Equal(pub, cp.Public) {
-		return nil, fmt.Errorf("certified incorrect key, expected: %v, certified: %v", pub, cp.Public)
+		return nil, fmt.Errorf("certified incorrect key, expected: %x, certified: %x", pub, cp.Public)
 	}
 
 	tpmPub, err := tpm2.DecodePublic(pub)
