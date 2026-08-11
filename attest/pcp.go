@@ -111,3 +111,28 @@ func readArea(r *bytes.Reader, length uint32, name string) ([]byte, error) {
 
 	return area[2:], nil
 }
+
+func convertKeyParameters(alg Algorithm, size int) (Algorithm, uint32, error) {
+	switch alg {
+	case RSA:
+		return RSA, uint32(size), nil
+	case ECDSA:
+		switch size {
+		case 256:
+			return P256, 0, nil
+		case 384:
+			return P384, 0, nil
+		case 521:
+			return P521, 0, nil
+		default:
+			return "", 0, fmt.Errorf("unsupported ECDSA key size: %v", size)
+		}
+	case P256, P384, P521:
+		if size > 0 && size != alg.Size() {
+			return "", 0, fmt.Errorf("requested size %v does not match curve size %v", size, alg.Size())
+		}
+		return alg, 0, nil
+	default:
+		return "", 0, fmt.Errorf("unsupported algorithm type: %q", alg)
+	}
+}
