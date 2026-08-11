@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -307,35 +308,48 @@ func (h *winPCP) newKey(name string, alg Algorithm, length uint32, policy uint32
 	if r != 0 {
 		return 0, nil, nil, fmt.Errorf("NCryptCreatePersistedKey returned %X (%v)", r, winErrCodeToString(r))
 	}
+	defer func() {
+		if err != nil {
+			// remove key if one of the other subsequent operations on it failed
+			if delErr := h.DeleteKey(kh); delErr != nil {
+				closeNCryptObject(kh) // DeleteKey frees the handle; but on error, free it here
+			}
+		}
+	}()
 
 	// Set the length if provided
 	if length != 0 {
-		utf16Length, err := windows.UTF16FromString("Length")
-		if err != nil {
+		utf16Length, lengthErr := windows.UTF16FromString("Length")
+		if lengthErr != nil {
+			err = lengthErr
 			return 0, nil, nil, err
 		}
 		r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
 		if r != 0 {
-			return 0, nil, nil, fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
+			err = fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
+			return 0, nil, nil, err
 		}
 	}
 
 	// Specify the generated key usage policy if appropriate
 	if policy != 0 {
-		utf16KeyPolicy, err := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
-		if err != nil {
+		utf16KeyPolicy, policyErr := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
+		if policyErr != nil {
+			err = policyErr
 			return 0, nil, nil, err
 		}
 		r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
 		if r != 0 {
-			return 0, nil, nil, fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
+			err = fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
+			return 0, nil, nil, err
 		}
 	}
 
 	// Finalize (create) the key.
 	r, _, _ = nCryptFinalizeKey.Call(kh, 0)
 	if r != 0 {
-		return 0, nil, nil, fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
+		err = fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, err
 	}
 
 	// Obtain the key blob.
@@ -346,17 +360,25 @@ func (h *winPCP) newKey(name string, alg Algorithm, length uint32, policy uint32
 	}
 
 	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, 0, 0, uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
-		return 0, nil, nil, fmt.Errorf("NCryptExportKey for hKey blob original query returned %X (%v)", r, winErrCodeToString(r))
+		err = fmt.Errorf("NCryptExportKey for hKey blob original query returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, err
+	}
+
+	if sz == 0 {
+		err = errors.New("NCryptExportKey for hKey blob original size returned 0")
+		return 0, nil, nil, err
 	}
 
 	keyBlob := make([]byte, sz)
 	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, uintptr(unsafe.Pointer(&keyBlob[0])), uintptr(sz), uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
-		return 0, nil, nil, fmt.Errorf("NCryptExportKey for hKey blob returned %X (%v)", r, winErrCodeToString(r))
+		err = fmt.Errorf("NCryptExportKey for hKey blob returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, err
 	}
 
 	kp, err := decodeKeyBlob(keyBlob)
 	if err != nil {
-		return 0, nil, nil, fmt.Errorf("decodeKeyBlob failed: %w", err)
+		err = fmt.Errorf("decodeKeyBlob failed: %w", err)
+		return 0, nil, nil, err
 	}
 
 	return kh, kp.pub, kp.priv, nil
@@ -364,54 +386,23 @@ func (h *winPCP) newKey(name string, alg Algorithm, length uint32, policy uint32
 
 // NewAK creates a persistent attestation key of the specified name.
 func (h *winPCP) NewAK(name string, alg Algorithm, size int) (uintptr, error) {
-	policy := uint32(nCryptPropertyPCPKeyUsagePolicyIdentity)
-	switch alg {
-	case RSA:
-		kh, _, _, err := h.newKey(name, RSA, uint32(size), policy)
-		return kh, err
-	case ECDSA:
-		switch size {
-		case 256:
-			kh, _, _, err := h.newKey(name, P256, 0, policy)
-			return kh, err
-		case 384:
-			kh, _, _, err := h.newKey(name, P384, 0, policy)
-			return kh, err
-		case 521:
-			kh, _, _, err := h.newKey(name, P521, 0, policy)
-			return kh, err
-		default:
-			return 0, fmt.Errorf("unsupported ECDSA key size: %v", alg.Size())
-		}
-	case P256, P384, P521:
-		kh, _, _, err := h.newKey(name, alg, 0, policy)
-		return kh, err
-	default:
-		return 0, fmt.Errorf("unsupported algorithm type: %q", alg)
+	alg, length, err := convertKeyParameters(alg, size)
+	if err != nil {
+		return 0, err
 	}
+
+	kh, _, _, err := h.newKey(name, alg, length, uint32(nCryptPropertyPCPKeyUsagePolicyIdentity))
+	return kh, err
 }
 
 // NewKey creates a persistent application key of the specified name.
 func (h *winPCP) NewKey(name string, alg Algorithm, size int) (uintptr, []byte, []byte, error) {
-	switch alg {
-	case RSA:
-		return h.newKey(name, RSA, uint32(size), 0)
-	case ECDSA:
-		switch size {
-		case 256:
-			return h.newKey(name, P256, 0, 0)
-		case 384:
-			return h.newKey(name, P384, 0, 0)
-		case 521:
-			return h.newKey(name, P521, 0, 0)
-		default:
-			return 0, nil, nil, fmt.Errorf("unsupported ECDSA key size: %v", size)
-		}
-	case P256, P384, P521:
-		return h.newKey(name, alg, 0, 0)
-	default:
-		return 0, nil, nil, fmt.Errorf("unsupported algorithm type: %q", alg)
+	alg, length, err := convertKeyParameters(alg, size)
+	if err != nil {
+		return 0, nil, nil, err
 	}
+
+	return h.newKey(name, alg, length, 0)
 }
 
 // EKPub returns a BCRYPT_RSA_BLOB structure representing the EK.

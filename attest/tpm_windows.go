@@ -270,7 +270,7 @@ func (t *windowsTPM) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig)
 func (t *windowsTPM) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	k, ok := ak.ak.(*windowsKey20)
 	if !ok {
-		return nil, fmt.Errorf("expected *windowsKey20, got: %T", k)
+		return nil, fmt.Errorf("expected *windowsKey20, got: %T", ak.ak)
 	}
 
 	var name string
@@ -302,26 +302,38 @@ func (t *windowsTPM) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	if err != nil {
 		return nil, fmt.Errorf("pcp failed to mint application key: %v", err)
 	}
+	defer func() {
+		if err != nil {
+			// remove key if one of the other subsequent operations on it failed
+			if delErr := t.pcp.DeleteKey(hnd); delErr != nil {
+				closeNCryptObject(hnd) // DeleteKey frees the handle; but on error, free it here
+			}
+		}
+	}()
 
 	// Certify application key by AK
 	certifyOpts := CertifyOpts{QualifyingData: opts.QualifyingData}
 	cp, err := k.certify(t, hnd, certifyOpts)
 	if err != nil {
-		return nil, fmt.Errorf("ak.Certify() failed: %v", err)
+		err = fmt.Errorf("ak.Certify() failed: %v", err)
+		return nil, err
 	}
 
 	if !bytes.Equal(pub, cp.Public) {
-		return nil, fmt.Errorf("certified incorrect key, expected: %x, certified: %x", pub, cp.Public)
+		err = fmt.Errorf("certified incorrect key, expected: %x, certified: %x", pub, cp.Public)
+		return nil, err
 	}
 
 	tpmPub, err := tpm2.DecodePublic(pub)
 	if err != nil {
-		return nil, fmt.Errorf("decode public key: %v", err)
+		err = fmt.Errorf("decode public key: %v", err)
+		return nil, err
 	}
 
 	pubKey, err := tpmPub.Key()
 	if err != nil {
-		return nil, fmt.Errorf("access public key: %v", err)
+		err = fmt.Errorf("access public key: %v", err)
+		return nil, err
 	}
 
 	// Return a new windowsKey20 certified by the ak, conforming to the key interface. This allows the

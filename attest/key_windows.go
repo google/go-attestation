@@ -21,6 +21,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"io"
 
@@ -39,23 +40,22 @@ type windowsKey20 struct {
 	createSignature   []byte
 }
 
+var (
+	_ ak  = (*windowsKey20)(nil)
+	_ key = (*windowsKey20)(nil)
+)
+
+// newWindowsAK20 returns a pointer to a windowsKey20, conforming to the ak interface.
 func newWindowsAK20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) ak {
+	return newWindowsKey20(hnd, pcpKeyName, public, createData, createAttest, createSig).(ak)
+}
+
+// newWindowsKey20 returns a pointer to a windowsKey20, conforming to the key interface.
+func newWindowsKey20(hnd uintptr, pcpKeyName string, public, createData, createAttest, createSig []byte) key {
 	return &windowsKey20{
 		hnd:               hnd,
 		pcpKeyName:        pcpKeyName,
 		public:            public,
-		createData:        createData,
-		createAttestation: createAttest,
-		createSignature:   createSig,
-	}
-}
-
-// newWindowsKey20 returns a pointer to a windowsKey20, conforming to the key interface.
-func newWindowsKey20(hnd uintptr, pcpKeyName string, pub, createData, createAttest, createSig []byte) key {
-	return &windowsKey20{
-		hnd:               hnd,
-		pcpKeyName:        pcpKeyName,
-		public:            pub,
 		createData:        createData,
 		createAttestation: createAttest,
 		createSignature:   createSig,
@@ -135,28 +135,25 @@ func (k *windowsKey20) certify(tb tpmBase, handle any, opts CertifyOpts) (*Certi
 	if err != nil {
 		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
 	}
-
-	alg, err := k.algorithm()
+	tpmPub, err := tpm2.DecodePublic(k.public)
 	if err != nil {
-		return nil, fmt.Errorf("unknown algorithm: %v", err)
+		return nil, fmt.Errorf("tpm2.DecodePublic() failed: %v", err)
 	}
-	var scheme = tpm2.SigScheme{
-		Hash: tpm2.AlgSHA1, // PCP-created AK uses SHA1
-	}
-	switch alg {
-	case RSA:
-		scheme.Alg = tpm2.AlgRSASSA
-	case ECDSA:
-		scheme.Alg = tpm2.AlgECDSA
+
+	var scheme *tpm2.SigScheme
+	switch tpmPub.Type {
+	case tpm2.AlgRSA:
+		scheme = tpmPub.RSAParameters.Sign
+	case tpm2.AlgECC:
+		scheme = tpmPub.ECCParameters.Sign
 	default:
-		return nil, fmt.Errorf("algorithm %v not supported", alg)
+		return nil, fmt.Errorf("algorithm %v not supported", tpmPub.Type)
+	}
+	if scheme == nil {
+		return nil, errors.New("no signature scheme in AK public")
 	}
 
-	return certify(tpm, hnd, akHnd, opts.QualifyingData, scheme)
-}
-
-func (k *windowsKey20) algorithm() (Algorithm, error) {
-	return algorithmFromPublicKeyBytes(k.public)
+	return certify(tpm, hnd, akHnd, opts.QualifyingData, *scheme)
 }
 
 func getWindowsEndorsementKeyHandle(rwc io.ReadWriter, ek *EK) (tpmutil.Handle, error) {

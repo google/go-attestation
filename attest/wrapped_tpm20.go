@@ -417,7 +417,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 func (t *wrappedTPM20) newKey(ak *AK, opts *KeyConfig) (*Key, error) {
 	k, ok := ak.ak.(*wrappedKey20)
 	if !ok {
-		return nil, fmt.Errorf("expected *wrappedKey20, got: %T", k)
+		return nil, fmt.Errorf("expected *wrappedKey20, got: %T", ak.ak)
 	}
 
 	kAlg, err := k.algorithm()

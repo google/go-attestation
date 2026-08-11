@@ -20,6 +20,7 @@ import (
 	"crypto/rsa"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"testing"
 
@@ -194,6 +195,58 @@ func Test_decodeKeyBlob_errors(t *testing.T) {
 			}
 			if kp != nil {
 				t.Errorf("decodeKeyBlob returned %+v alongside an error; want nil", kp)
+			}
+		})
+	}
+}
+
+func Test_convertKeyParameters(t *testing.T) {
+	tests := []struct {
+		name       string
+		alg        Algorithm
+		size       int
+		wantAlg    Algorithm
+		wantLength uint32
+		expErr     error
+	}{
+		{"rsa-0", RSA, 0, RSA, uint32(0), nil},
+		{"rsa-2048", RSA, 2048, RSA, uint32(2048), nil},
+		{"rsa-3072", RSA, 3072, RSA, uint32(3072), nil},
+		{"rsa-4096", RSA, 4096, RSA, uint32(4096), nil},
+		{"ec-P256-size", ECDSA, 256, P256, uint32(0), nil},
+		{"ec-P384-size", ECDSA, 384, P384, uint32(0), nil},
+		{"ec-P521-size", ECDSA, 521, P521, uint32(0), nil},
+		{"ec-P256", P256, 0, P256, uint32(0), nil},
+		{"ec-P384", P384, 0, P384, uint32(0), nil},
+		{"ec-P521", P521, 0, P521, uint32(0), nil},
+		{"ec-P256-with-size", P256, 256, P256, uint32(0), nil},
+		{"ec-P384-with-size", P384, 384, P384, uint32(0), nil},
+		{"ec-P521-with-size", P521, 521, P521, uint32(0), nil},
+		{"ec-invalid-size", ECDSA, 1, "", uint32(0), errors.New("unsupported ECDSA key size: 1")},
+		{"ec-P256-invalid-size", P256, 42, "", uint32(0), errors.New("requested size 42 does not match curve size 256")},
+		{"invalid-alg", "INVALID", 0, "", uint32(0), errors.New(`unsupported algorithm type: "INVALID"`)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			alg, length, err := convertKeyParameters(tt.alg, tt.size)
+			if err != nil {
+				if tt.expErr == nil {
+					t.Fatalf("convertKeyParameters() failed unexpectedly: %v", err)
+				}
+				if tt.expErr.Error() != err.Error() {
+					t.Errorf("convertKeyParameters() failed with unexpected error: %v; want %v", err, tt.expErr)
+				}
+				return
+			}
+
+			if tt.expErr != nil {
+				t.Fatal("convertKeyParameters() succeeded unexpectedly")
+			}
+			if alg != tt.wantAlg {
+				t.Errorf("convertKeyParameters() = %v, want %v", alg, tt.wantAlg)
+			}
+			if length != tt.wantLength {
+				t.Errorf("convertKeyParameters() = %v, want %v", length, tt.wantLength)
 			}
 		})
 	}
