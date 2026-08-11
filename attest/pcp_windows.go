@@ -41,9 +41,6 @@ const (
 	ncryptOverwriteKeyFlag = 0x80
 	// Key usage value for AKs.
 	nCryptPropertyPCPKeyUsagePolicyIdentity = 0x8
-
-	// PCP key magic
-	pcpKeyMagic = 0x4D504350
 )
 
 // DLL references.
@@ -353,105 +350,16 @@ func (h *winPCP) newKey(name string, alg Algorithm, length uint32, policy uint32
 	}
 
 	keyBlob := make([]byte, sz)
-
 	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, uintptr(unsafe.Pointer(&keyBlob[0])), uintptr(sz), uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
 		return 0, nil, nil, fmt.Errorf("NCryptExportKey for hKey blob returned %X (%v)", r, winErrCodeToString(r))
 	}
 
-	pubBlob, privBlob, err := decodeKeyBlob(keyBlob)
+	kp, err := decodeKeyBlob(keyBlob)
 	if err != nil {
-		return 0, nil, nil, fmt.Errorf("decodeKeyBlob failed: %v", err)
+		return 0, nil, nil, fmt.Errorf("decodeKeyBlob failed: %w", err)
 	}
 
-	return kh, pubBlob, privBlob, nil
-}
-
-func decodeKeyBlob(keyBlob []byte) ([]byte, []byte, error) {
-	r := bytes.NewReader(keyBlob)
-
-	var magic uint32
-	if err := binary.Read(r, binary.LittleEndian, &magic); err != nil {
-		return nil, nil, fmt.Errorf("failed to read header magic: %v", err)
-	}
-	if magic != pcpKeyMagic {
-		return nil, nil, fmt.Errorf("invalid header magic %X", magic)
-	}
-
-	var headerSize uint32
-	if err := binary.Read(r, binary.LittleEndian, &headerSize); err != nil {
-		return nil, nil, fmt.Errorf("failed to read header size: %v", err)
-	}
-
-	var tpmType uint32
-	if err := binary.Read(r, binary.LittleEndian, &tpmType); err != nil {
-		return nil, nil, fmt.Errorf("failed to read tpm type: %v", err)
-	}
-
-	var flags uint32
-	if err := binary.Read(r, binary.LittleEndian, &flags); err != nil {
-		return nil, nil, fmt.Errorf("failed to read key flags: %v", err)
-	}
-
-	var pubLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &pubLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of public key: %v", err)
-	}
-
-	var privLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &privLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of private blob: %v", err)
-	}
-
-	var pubMigrationLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &pubMigrationLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of public migration blob: %v", err)
-	}
-
-	var privMigrationLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &privMigrationLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of private migration blob: %v", err)
-	}
-
-	var policyDigestLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &policyDigestLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of policy digest: %v", err)
-	}
-
-	var pcrBindingLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &pcrBindingLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of PCR binding: %v", err)
-	}
-
-	var pcrDigestLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &pcrDigestLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of PCR digest: %v", err)
-	}
-
-	var encryptedSecretLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &encryptedSecretLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of hostage import symmetric key: %v", err)
-	}
-
-	var tpm12HostageLen uint32
-	if err := binary.Read(r, binary.LittleEndian, &tpm12HostageLen); err != nil {
-		return nil, nil, fmt.Errorf("failed to read length of hostage import private key: %v", err)
-	}
-
-	// Skip over any padding
-	r.Seek(int64(headerSize), 0)
-
-	pubKey := make([]byte, pubLen)
-
-	if err := binary.Read(r, binary.BigEndian, &pubKey); err != nil {
-		return nil, nil, fmt.Errorf("failed to read public key: %v", err)
-	}
-
-	privBlob := make([]byte, privLen)
-	if err := binary.Read(r, binary.BigEndian, &privBlob); err != nil {
-		return nil, nil, fmt.Errorf("failed to read private blob: %v", err)
-	}
-
-	return pubKey[2:], privBlob[2:], nil
+	return kh, kp.pub, kp.priv, nil
 }
 
 // NewAK creates a persistent attestation key of the specified name.
