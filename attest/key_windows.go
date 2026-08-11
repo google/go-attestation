@@ -20,8 +20,10 @@ package attest
 import (
 	"crypto"
 	"fmt"
+	"io"
 
 	"github.com/google/go-tpm/legacy/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 // windowsKey20 represents a key bound to a TPM 2.0.
@@ -126,8 +128,33 @@ func (k *windowsKey20) certify(tb tpmBase, handle any, _ CertifyOpts) (*Certific
 	return certify(tpm, hnd, akHnd, nil, scheme)
 }
 
+func getWindowsEndorsementKeyHandle(rwc io.ReadWriter, ek *EK) (tpmutil.Handle, error) {
+	hnd, _, err := getEndorsementKeyHandle(rwc, ek)
+	return hnd, err
+}
+
 func (k *windowsKey20) certifyWithDecryptionEk(tb tpmBase, ek *EK, challenge DecryptionEkChallenge) (*CertificationParameters, error) {
-	return nil, fmt.Errorf("not supported on Windows")
+	t, ok := tb.(*windowsTPM)
+	if !ok {
+		return nil, fmt.Errorf("expected *windowsTPM, got %T", tb)
+	}
+	if ek == nil {
+		return nil, fmt.Errorf("ek is nil")
+	}
+	rwc, err := t.pcp.TPMCommandInterface()
+	if err != nil {
+		return nil, fmt.Errorf("TPMCommandInterface() failed: %v", err)
+	}
+	ekHnd, err := getWindowsEndorsementKeyHandle(rwc, ek)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get EK handle: %v", err)
+	}
+	akHnd, err := t.pcp.TPMKeyHandle(k.hnd)
+	if err != nil {
+		return nil, fmt.Errorf("TPMKeyHandle() failed: %v", err)
+	}
+
+	return certifyAKWithDecryptionEk(rwc, ekHnd, akHnd, k.public, challenge)
 }
 
 func (k *windowsKey20) signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opts crypto.SignerOpts) ([]byte, error) {

@@ -50,37 +50,55 @@ type certifyingKey struct {
 	alg    Algorithm
 }
 
+func rsaEkTemplate(rwc io.ReadWriter) tpm2.Public {
+	if rwc == nil {
+		return defaultRSAEKTemplate
+	}
+	nonce, err := tpm2.NVReadEx(rwc, nvramRSAEkNonceIndex, tpm2.HandleOwner, "", 0)
+	if err != nil {
+		return defaultRSAEKTemplate
+	}
+	template := defaultRSAEKTemplate
+	copy(template.RSAParameters.ModulusRaw, nonce)
+	return template
+}
+
 func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
+	if t == nil || t.rwc == nil {
+		return defaultRSAEKTemplate
+	}
 	if t.tpmRSAEkTemplate != nil {
 		return *t.tpmRSAEkTemplate
 	}
 
-	nonce, err := tpm2.NVReadEx(t.rwc, nvramRSAEkNonceIndex, tpm2.HandleOwner, "", 0)
-	if err != nil {
-		t.tpmRSAEkTemplate = &defaultRSAEKTemplate // No nonce, use the default template
-	} else {
-		template := defaultRSAEKTemplate
-		copy(template.RSAParameters.ModulusRaw, nonce)
-		t.tpmRSAEkTemplate = &template
-	}
-
+	template := rsaEkTemplate(t.rwc)
+	t.tpmRSAEkTemplate = &template
 	return *t.tpmRSAEkTemplate
 }
 
+func eccEkTemplate(rwc io.ReadWriter) tpm2.Public {
+	if rwc == nil {
+		return defaultECCEKTemplate
+	}
+	nonce, err := tpm2.NVReadEx(rwc, nvramECCEkNonceIndex, tpm2.HandleOwner, "", 0)
+	if err != nil {
+		return defaultECCEKTemplate
+	}
+	template := defaultECCEKTemplate
+	copy(template.ECCParameters.Point.XRaw, nonce)
+	return template
+}
+
 func (t *wrappedTPM20) eccEkTemplate() tpm2.Public {
+	if t == nil || t.rwc == nil {
+		return defaultECCEKTemplate
+	}
 	if t.tpmECCEkTemplate != nil {
 		return *t.tpmECCEkTemplate
 	}
 
-	nonce, err := tpm2.NVReadEx(t.rwc, nvramECCEkNonceIndex, tpm2.HandleOwner, "", 0)
-	if err != nil {
-		t.tpmECCEkTemplate = &defaultECCEKTemplate // No nonce, use the default template
-	} else {
-		template := defaultECCEKTemplate
-		copy(template.ECCParameters.Point.XRaw, nonce)
-		t.tpmECCEkTemplate = &template
-	}
-
+	template := eccEkTemplate(t.rwc)
+	t.tpmECCEkTemplate = &template
 	return *t.tpmECCEkTemplate
 }
 
@@ -110,57 +128,76 @@ func (t *wrappedTPM20) info() (*TPMInfo, error) {
 
 // createEK creates a persistent EK given an ek template and a handle location
 func (t *wrappedTPM20) createEK(ekTemplate tpm2.Public, targetEKHandle tpmutil.Handle, rerr error) error {
-	keyHnd, _, err := tpm2.CreatePrimary(t.rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", ekTemplate)
+	return createEK(t.rwc, ekTemplate, targetEKHandle, rerr)
+}
+
+func createEK(rwc io.ReadWriter, ekTemplate tpm2.Public, targetEKHandle tpmutil.Handle, rerr error) error {
+	keyHnd, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", ekTemplate)
 	if err != nil {
 		return fmt.Errorf("ReadPublic failed (%v), and then CreatePrimary failed: %v", rerr, err)
 	}
-	defer tpm2.FlushContext(t.rwc, keyHnd)
+	defer tpm2.FlushContext(rwc, keyHnd)
 
-	err = tpm2.EvictControl(t.rwc, "", tpm2.HandleOwner, keyHnd, targetEKHandle)
+	err = tpm2.EvictControl(rwc, "", tpm2.HandleOwner, keyHnd, targetEKHandle)
 	if err != nil {
 		return fmt.Errorf("EvictControl failed: %v", err)
 	}
 	return nil
 }
 
+func ekTemplateForPublic(rwc io.ReadWriter, pub crypto.PublicKey) (tpm2.Public, error) {
+	if pub == nil {
+		return rsaEkTemplate(rwc), nil
+	}
+	switch p := pub.(type) {
+	case *rsa.PublicKey:
+		return rsaEkTemplate(rwc), nil
+	case *ecdsa.PublicKey:
+		return eccEkTemplate(rwc), nil
+	default:
+		return tpm2.Public{}, fmt.Errorf("unsupported public key type %T", p)
+	}
+}
+
 // Return value: handle, whether we generated a new one, error.
-func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, error) {
+func getEndorsementKeyHandle(rwc io.ReadWriter, ek *EK) (tpmutil.Handle, bool, error) {
 	var ekHandle tpmutil.Handle
 	var ekTemplate tpm2.Public
 
 	if ek == nil {
 		// The default is RSA for backward compatibility.
 		ekHandle = commonRSAEkEquivalentHandle
-		ekTemplate = t.rsaEkTemplate()
+		ekTemplate = rsaEkTemplate(rwc)
 	} else {
 		ekHandle = ek.handle
 		if ekHandle == 0 {
 			// Assume RSA EK handle if it was not provided.
 			ekHandle = commonRSAEkEquivalentHandle
 		}
-		switch pub := ek.Public.(type) {
-		case *rsa.PublicKey:
-			ekTemplate = t.rsaEkTemplate()
-		case *ecdsa.PublicKey:
-			ekTemplate = t.eccEkTemplate()
-		default:
-			return 0, false, fmt.Errorf("unsupported public key type %T", pub)
+		var err error
+		ekTemplate, err = ekTemplateForPublic(rwc, ek.Public)
+		if err != nil {
+			return 0, false, err
 		}
 	}
 
-	_, _, _, err := tpm2.ReadPublic(t.rwc, ekHandle)
+	_, _, _, err := tpm2.ReadPublic(rwc, ekHandle)
 	if err == nil {
 		// Found the persistent handle, assume it's the key we want.
 		return ekHandle, false, nil
 	}
 	rerr := err // Preserve this failure for later logging, if needed
 
-	err = t.createEK(ekTemplate, ekHandle, rerr)
+	err = createEK(rwc, ekTemplate, ekHandle, rerr)
 	if err != nil {
 		return 0, false, err
 	}
 
 	return ekHandle, true, nil
+}
+
+func (t *wrappedTPM20) getEndorsementKeyHandle(ek *EK) (tpmutil.Handle, bool, error) {
+	return getEndorsementKeyHandle(t.rwc, ek)
 }
 
 // Return value: handle, whether we generated a new one, error
@@ -777,32 +814,36 @@ func (k *wrappedKey20) certifyWithDecryptionEk(tb tpmBase, ek *EK, challenge Dec
 		return nil, fmt.Errorf("failed to get EK handle: %v", err)
 	}
 
+	return certifyAKWithDecryptionEk(t.rwc, ekHnd, k.hnd, k.public, challenge)
+}
+
+func certifyAKWithDecryptionEk(rwc io.ReadWriter, ekHnd, akHnd tpmutil.Handle, akPublic []byte, challenge DecryptionEkChallenge) (*CertificationParameters, error) {
 	// Start policy session to authorize EK use (for Import)
-	importSessHandle, importAuth, err := t.ekAuthSession()
+	importSessHandle, importAuth, err := ekAuthSession(rwc)
 	if err != nil {
 		return nil, err
 	}
 
 	// Import the restricted HMAC key under the EK
-	importedPriv, err := tpm2.Import(t.rwc, ekHnd, importAuth, challenge.ObjectPublic, challenge.Duplicate, challenge.InSymSeed, nil, nil)
-	tpm2.FlushContext(t.rwc, importSessHandle)
+	importedPriv, err := tpm2.Import(rwc, ekHnd, importAuth, challenge.ObjectPublic, challenge.Duplicate, challenge.InSymSeed, nil, nil)
+	tpm2.FlushContext(rwc, importSessHandle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to import HMAC key: %v", err)
 	}
 
 	// Start a NEW policy session to authorize EK use (for Load)
-	loadSessHandle, loadAuth, err := t.ekAuthSession()
+	loadSessHandle, loadAuth, err := ekAuthSession(rwc)
 	if err != nil {
 		return nil, err
 	}
-	defer tpm2.FlushContext(t.rwc, loadSessHandle)
+	defer tpm2.FlushContext(rwc, loadSessHandle)
 
 	// Load the imported HMAC key
-	hmacKeyHnd, _, err := tpm2.LoadUsingAuth(t.rwc, ekHnd, loadAuth, challenge.ObjectPublic, importedPriv)
+	hmacKeyHnd, _, err := tpm2.LoadUsingAuth(rwc, ekHnd, loadAuth, challenge.ObjectPublic, importedPriv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load HMAC key: %v", err)
 	}
-	defer tpm2.FlushContext(t.rwc, hmacKeyHnd)
+	defer tpm2.FlushContext(rwc, hmacKeyHnd)
 
 	scheme := tpm2.SigScheme{
 		Alg:  tpm2.AlgHMAC,
@@ -811,13 +852,13 @@ func (k *wrappedKey20) certifyWithDecryptionEk(tb tpmBase, ek *EK, challenge Dec
 
 	// Certify the AK using the loaded HMAC key
 	// Both keys use empty password auth
-	attestation, signature, err := tpm2.CertifyEx(t.rwc, "", "", k.hnd, hmacKeyHnd, nil, scheme)
+	attestation, signature, err := tpm2.CertifyEx(rwc, "", "", akHnd, hmacKeyHnd, nil, scheme)
 	if err != nil {
 		return nil, fmt.Errorf("failed to certify AK: %v", err)
 	}
 
 	return &CertificationParameters{
-		Public:            k.public,
+		Public:            akPublic,
 		CreateAttestation: attestation,
 		CreateSignature:   signature,
 	}, nil
@@ -978,9 +1019,9 @@ func (k *wrappedKey20) algorithm() (Algorithm, error) {
 	}
 }
 
-func (t *wrappedTPM20) ekAuthSession() (tpmutil.Handle, tpm2.AuthCommand, error) {
+func ekAuthSession(rwc io.ReadWriter) (tpmutil.Handle, tpm2.AuthCommand, error) {
 	sessHandle, _, err := tpm2.StartAuthSession(
-		t.rwc,
+		rwc,
 		tpm2.HandleNull,  /*tpmKey*/
 		tpm2.HandleNull,  /*bindKey*/
 		make([]byte, 16), /*nonceCaller*/
@@ -992,8 +1033,8 @@ func (t *wrappedTPM20) ekAuthSession() (tpmutil.Handle, tpm2.AuthCommand, error)
 		return 0, tpm2.AuthCommand{}, fmt.Errorf("creating session: %v", err)
 	}
 
-	if _, _, err := tpm2.PolicySecret(t.rwc, tpm2.HandleEndorsement, tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}, sessHandle, nil, nil, nil, 0); err != nil {
-		tpm2.FlushContext(t.rwc, sessHandle)
+	if _, _, err := tpm2.PolicySecret(rwc, tpm2.HandleEndorsement, tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}, sessHandle, nil, nil, nil, 0); err != nil {
+		tpm2.FlushContext(rwc, sessHandle)
 		return 0, tpm2.AuthCommand{}, fmt.Errorf("tpm2.PolicySecret() failed: %v", err)
 	}
 
