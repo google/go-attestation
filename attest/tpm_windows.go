@@ -212,8 +212,10 @@ func decodeWindowsBcryptRSABlob(b []byte) (*rsa.PublicKey, error) {
 }
 
 func (t *windowsTPM) newAK(opts *AKConfig) (*AK, error) {
-	var name string
-	var alg Algorithm
+	var (
+		name string
+		alg  Algorithm
+	)
 
 	if opts != nil && opts.Name != "" {
 		name = opts.Name
@@ -231,7 +233,7 @@ func (t *windowsTPM) newAK(opts *AKConfig) (*AK, error) {
 		alg = RSA
 	}
 
-	kh, err := t.pcp.NewAK(name, alg)
+	kh, err := t.pcp.NewAK(name, alg, alg.Size())
 	if err != nil {
 		return nil, fmt.Errorf("pcp failed to mint attestation key: %v", err)
 	}

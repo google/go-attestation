@@ -294,13 +294,13 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 	return out, nil
 }
 
-func (h *winPCP) newKey(name string, alg string, length uint32, policy uint32) (uintptr, []byte, []byte, error) {
+func (h *winPCP) newKey(name string, alg Algorithm, length uint32, policy uint32) (uintptr, []byte, []byte, error) {
 	var kh uintptr
 	utf16Name, err := windows.UTF16FromString(name)
 	if err != nil {
 		return 0, nil, nil, err
 	}
-	utf16Alg, err := windows.UTF16FromString(alg)
+	utf16Alg, err := windows.UTF16FromString(string(alg))
 	if err != nil {
 		return 0, nil, nil, err
 	}
@@ -455,27 +455,52 @@ func decodeKeyBlob(keyBlob []byte) ([]byte, []byte, error) {
 }
 
 // NewAK creates a persistent attestation key of the specified name.
-func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
-	kh, _, _, err := h.newKey(name, string(alg), uint32(alg.Size()), nCryptPropertyPCPKeyUsagePolicyIdentity)
-	return kh, err
+func (h *winPCP) NewAK(name string, alg Algorithm, size int) (uintptr, error) {
+	policy := uint32(nCryptPropertyPCPKeyUsagePolicyIdentity)
+	switch alg {
+	case RSA:
+		kh, _, _, err := h.newKey(name, RSA, uint32(size), policy)
+		return kh, err
+	case ECDSA:
+		switch size {
+		case 256:
+			kh, _, _, err := h.newKey(name, P256, 0, policy)
+			return kh, err
+		case 384:
+			kh, _, _, err := h.newKey(name, P384, 0, policy)
+			return kh, err
+		case 521:
+			kh, _, _, err := h.newKey(name, P521, 0, policy)
+			return kh, err
+		default:
+			return 0, fmt.Errorf("unsupported ECDSA key size: %v", alg.Size())
+		}
+	case P256, P384, P521:
+		kh, _, _, err := h.newKey(name, alg, 0, policy)
+		return kh, err
+	default:
+		return 0, fmt.Errorf("unsupported algorithm type: %q", alg)
+	}
 }
 
 // NewKey creates a persistent application key of the specified name.
 func (h *winPCP) NewKey(name string, alg Algorithm, size int) (uintptr, []byte, []byte, error) {
 	switch alg {
 	case RSA:
-		return h.newKey(name, "RSA", uint32(size), 0)
+		return h.newKey(name, RSA, uint32(size), 0)
 	case ECDSA:
 		switch size {
 		case 256:
-			return h.newKey(name, "ECDSA_P256", 0, 0)
+			return h.newKey(name, P256, 0, 0)
 		case 384:
-			return h.newKey(name, "ECDSA_P384", 0, 0)
+			return h.newKey(name, P384, 0, 0)
 		case 521:
-			return h.newKey(name, "ECDSA_P521", 0, 0)
+			return h.newKey(name, P521, 0, 0)
 		default:
 			return 0, nil, nil, fmt.Errorf("unsupported ECDSA key size: %v", size)
 		}
+	case P256, P384, P521:
+		return h.newKey(name, alg, 0, 0)
 	default:
 		return 0, nil, nil, fmt.Errorf("unsupported algorithm type: %q", alg)
 	}
