@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/go-attestation/attest"
 	"github.com/google/go-attestation/attest/attest-tool/internal"
+	"go.uber.org/multierr"
 )
 
 var (
@@ -79,6 +80,96 @@ func selftestCredentialActivation(tpm *attest.TPM, ak *attest.AK) error {
 	return nil
 }
 
+func selftestCredentialActivationWithEK(tpm *attest.TPM, ak *attest.AK) error {
+	eks, err := tpm.EKCertificates()
+	if err != nil {
+		return fmt.Errorf("EKs() failed: %v", err)
+	}
+	if len(eks) == 0 {
+		return errors.New("no valid EK available")
+	}
+	var allErrors error
+	for i, ek := range eks {
+		if ek.Public == nil {
+			continue
+		}
+		cert := ek.Certificate
+		if cert == nil {
+			// No EK certificate available.
+			continue
+		}
+
+		// Test credential activation.
+		ap := attest.ActivationParameters{
+			EK: ek.Public,
+			AK: ak.AttestationParameters(),
+		}
+		secret, ec, err := ap.Generate()
+		if err != nil {
+			e2 := fmt.Sprintf("EK #%d: failed to generate activation challenge: %v", i, err)
+			allErrors = multierr.Append(allErrors, errors.New(e2))
+			continue
+		}
+		decryptedSecret, err := ak.ActivateCredentialWithEK(tpm, *ec, ek)
+		if err != nil {
+			e2 := fmt.Sprintf("EK #%d: failed to activate credential: %v", i, err)
+			allErrors = multierr.Append(allErrors, errors.New(e2))
+			continue
+		}
+		if !bytes.Equal(secret, decryptedSecret) {
+			e2 := fmt.Sprintf("EK #%d: credential activation produced incorrect secret", i)
+			allErrors = multierr.Append(allErrors, errors.New(e2))
+			continue
+		}
+	}
+
+	if allErrors != nil {
+		return allErrors
+	}
+	return nil
+}
+
+func selftestCredentialActivationWithEkAttestation(tpm *attest.TPM, ak *attest.AK) error {
+	eks, err := tpm.EKCertificates()
+	if err != nil {
+		return fmt.Errorf("EKs() failed: %v", err)
+	}
+	if len(eks) == 0 {
+		return errors.New("no valid EK available")
+	}
+	var allErrors error
+	for i, ek := range eks {
+		if ek.Public == nil {
+			continue
+		}
+		cert := ek.Certificate
+		if cert == nil {
+			// No EK certificate available.
+			continue
+		}
+
+		challenge, hmacKey, err := attest.GenerateEkChallenge(ek.Public)
+		if err != nil {
+			e2 := fmt.Sprintf("EK #%d: failed to generate EK challenge: %v", i, err)
+			allErrors = multierr.Append(allErrors, errors.New(e2))
+			continue
+		}
+		certParams, err := ak.CertifyWithDecryptionEk(tpm, &ek, *challenge)
+		if err != nil {
+			e2 := fmt.Sprintf("EK #%d: failed to certify with decryption EK: %v", i, err)
+			allErrors = multierr.Append(allErrors, errors.New(e2))
+			continue
+		}
+		if err := attest.VerifySolvedDecryptionEkChallenge(ak.AttestationParameters().Public, certParams, *hmacKey); err != nil {
+			e2 := fmt.Sprintf("EK #%d: failed to verify solved EK decryption challenge: %v", i, err)
+			allErrors = multierr.Append(allErrors, errors.New(e2))
+			continue
+		}
+	}
+
+	return allErrors
+}
+
 func selftestAttest(tpm *attest.TPM, ak *attest.AK) error {
 	// This nonce is used in generating the quote. As this is a selftest,
 	// it's set to an arbitrary value.
@@ -120,13 +211,22 @@ func selftest(tpm *attest.TPM) error {
 		return fmt.Errorf("NewAK() failed: %v", err)
 	}
 	defer ak.Close(tpm)
+
+	var allErrors error
 	if err := selftestCredentialActivation(tpm, ak); err != nil {
-		return fmt.Errorf("credential activation failed: %v", err)
+		allErrors = multierr.Append(allErrors, fmt.Errorf("credential activation failed: %v", err))
 	}
+	if err := selftestCredentialActivationWithEK(tpm, ak); err != nil {
+		allErrors = multierr.Append(allErrors, fmt.Errorf("selftest of credential activation failed: %v", err))
+	}
+	if err := selftestCredentialActivationWithEkAttestation(tpm, ak); err != nil {
+		allErrors = multierr.Append(allErrors, fmt.Errorf("selftest of credential activation with EK attestation failed: %v", err))
+	}
+
 	if err := selftestAttest(tpm, ak); err != nil {
-		return fmt.Errorf("state attestation failed: %v", err)
+		allErrors = multierr.Append(allErrors, fmt.Errorf("state attestation failed: %v", err))
 	}
-	return nil
+	return allErrors
 }
 
 func runCommand(tpm *attest.TPM) error {
