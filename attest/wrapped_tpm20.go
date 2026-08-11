@@ -41,7 +41,6 @@ type wrappedTPM20 struct {
 	interf           TPMInterface
 	rwc              CommandChannelTPM20
 	tpmRSAEkTemplate *tpm2.Public
-	tpmECCEkTemplate *tpm2.Public
 }
 
 // certifyingKey contains details of a TPM key that could certify other keys.
@@ -87,19 +86,6 @@ func eccEkTemplate(rwc io.ReadWriter) tpm2.Public {
 	template := defaultECCEKTemplate
 	copy(template.ECCParameters.Point.XRaw, nonce)
 	return template
-}
-
-func (t *wrappedTPM20) eccEkTemplate() tpm2.Public {
-	if t == nil || t.rwc == nil {
-		return defaultECCEKTemplate
-	}
-	if t.tpmECCEkTemplate != nil {
-		return *t.tpmECCEkTemplate
-	}
-
-	template := eccEkTemplate(t.rwc)
-	t.tpmECCEkTemplate = &template
-	return *t.tpmECCEkTemplate
 }
 
 func (t *wrappedTPM20) close() error {
