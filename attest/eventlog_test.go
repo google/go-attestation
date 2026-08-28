@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"os"
 	"testing"
@@ -191,15 +192,60 @@ func TestParseEventLog2EventSizeZero(t *testing.T) {
 		// no "event data"
 	}
 
-	specID := &specIDEvent{
-		algs: []specAlgSize{
-			{ID: uint16(tpm2.AlgSHA256), Size: 32},
-		},
-	}
+	specID := newSpecIDEvent([]specAlgSize{
+		{ID: uint16(tpm2.AlgSHA256), Size: 32},
+	})
 
 	if _, err := parseRawEvent2(bytes.NewBuffer(data), specID); err != nil {
 		t.Fatalf("parsing event log: %v", err)
 	}
+}
+
+// TestParseRawEvent2AlgLookup covers resolving a digest's algorithm where a log
+// declares one oddly or more than once. A duplicate uses its last declaration.
+func TestParseRawEvent2AlgLookup(t *testing.T) {
+	// A crypto agile record naming SHA256 once, with no event data.
+	record := func(digestLen int) []byte {
+		var b bytes.Buffer
+		binary.Write(&b, binary.LittleEndian, rawEvent2Header{PCRIndex: 0, Type: 7})
+		binary.Write(&b, binary.LittleEndian, uint32(1))
+		binary.Write(&b, binary.LittleEndian, uint16(tpm2.AlgSHA256))
+		b.Write(make([]byte, digestLen))
+		binary.Write(&b, binary.LittleEndian, uint32(0))
+		return b.Bytes()
+	}
+
+	t.Run("zero size declaration", func(t *testing.T) {
+		specID := newSpecIDEvent([]specAlgSize{{ID: uint16(tpm2.AlgSHA256), Size: 0}})
+		if _, err := parseRawEvent2(bytes.NewBuffer(record(0)), specID); err == nil {
+			t.Error("parseRawEvent2() succeeded on a zero size algorithm, want an unknown algorithm error")
+		}
+	})
+
+	t.Run("duplicate declarations use the last", func(t *testing.T) {
+		specID := newSpecIDEvent([]specAlgSize{
+			{ID: uint16(tpm2.AlgSHA256), Size: 20},
+			{ID: uint16(tpm2.AlgSHA256), Size: 32},
+		})
+		event, err := parseRawEvent2(bytes.NewBuffer(record(32)), specID)
+		if err != nil {
+			t.Fatalf("parseRawEvent2() failed: %v", err)
+		}
+		if got := len(event.digests[0].data); got != 32 {
+			t.Errorf("digest length = %d, want 32", got)
+		}
+	})
+
+	// The unindexed scan checked every match, so this was rejected before.
+	t.Run("oversized earlier duplicate is ignored", func(t *testing.T) {
+		specID := newSpecIDEvent([]specAlgSize{
+			{ID: uint16(tpm2.AlgSHA256), Size: 1000},
+			{ID: uint16(tpm2.AlgSHA256), Size: 32},
+		})
+		if _, err := parseRawEvent2(bytes.NewBuffer(record(32)), specID); err != nil {
+			t.Errorf("parseRawEvent2() failed: %v", err)
+		}
+	})
 }
 
 func TestParseShortNoAction(t *testing.T) {
