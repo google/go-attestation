@@ -745,14 +745,11 @@ func AppendEvents(base []byte, additional ...[]byte) ([]byte, error) {
 			return nil, fmt.Errorf("log %d: cannot use tpm 1.2 event log as a source", i)
 		}
 
-	algCheck:
-		for _, alg := range log.specIDEvent.algs {
-			for _, baseAlg := range baseLog.specIDEvent.algs {
-				if baseAlg == alg {
-					continue algCheck
-				}
+		for _, declared := range log.specIDEvent.algs {
+			alg := log.specIDEvent.algByID[declared.ID]
+			if baseAlg, ok := baseLog.specIDEvent.algByID[alg.ID]; !ok || baseAlg != alg {
+				return nil, fmt.Errorf("log %d: cannot use digest (%+v) not present in base log. Base log has digests: %+v", i, alg, baseLog.specIDEvent.algs)
 			}
-			return nil, fmt.Errorf("log %d: cannot use digest (%+v) not present in base log. Base log has digests: %+v", i, alg, baseLog.specIDEvent.algs)
 		}
 
 		for x, e := range log.rawEvents {

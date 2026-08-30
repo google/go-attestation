@@ -413,6 +413,57 @@ func TestEBSVerifyWorkaround(t *testing.T) {
 	}
 }
 
+func TestAppendEventsAlgorithms(t *testing.T) {
+	sha1 := specAlgSize{ID: uint16(tpm2.AlgSHA1), Size: uint16(crypto.SHA1.Size())}
+	sha256 := specAlgSize{ID: uint16(tpm2.AlgSHA256), Size: uint16(crypto.SHA256.Size())}
+	base := generateSpecIDEventLog(sha1, sha256)
+
+	t.Run("declared pair", func(t *testing.T) {
+		additional := generateSpecIDEventLog(sha256, sha256)
+		if _, err := AppendEvents(base, additional); err != nil {
+			t.Errorf("AppendEvents() failed: %v", err)
+		}
+	})
+
+	t.Run("conflicting duplicates use the last", func(t *testing.T) {
+		duplicateBase := generateSpecIDEventLog(
+			specAlgSize{ID: sha256.ID, Size: sha1.Size},
+			sha256,
+		)
+		additional := append([]byte(nil), duplicateBase...)
+		if _, err := AppendEvents(duplicateBase, additional); err != nil {
+			t.Errorf("AppendEvents() failed: %v", err)
+		}
+	})
+
+	// The parser resolves an ID to its last declaration, so accepting a
+	// superseded size emits a combined log the parser cannot read back.
+	t.Run("superseded base declaration", func(t *testing.T) {
+		duplicateBase := generateSpecIDEventLog(
+			specAlgSize{ID: sha256.ID, Size: sha1.Size},
+			sha256,
+		)
+		additional := generateSpecIDEventLog(specAlgSize{ID: sha256.ID, Size: sha1.Size})
+		if _, err := AppendEvents(duplicateBase, additional); err == nil {
+			t.Error("AppendEvents() succeeded with a superseded base declaration")
+		}
+	})
+
+	t.Run("undeclared ID", func(t *testing.T) {
+		additional := generateSpecIDEventLog(specAlgSize{ID: uint16(tpm2.AlgSHA384), Size: uint16(crypto.SHA384.Size())})
+		if _, err := AppendEvents(base, additional); err == nil {
+			t.Error("AppendEvents() succeeded with an undeclared algorithm ID")
+		}
+	})
+
+	t.Run("undeclared size", func(t *testing.T) {
+		additional := generateSpecIDEventLog(specAlgSize{ID: sha256.ID, Size: sha1.Size})
+		if _, err := AppendEvents(base, additional); err == nil {
+			t.Error("AppendEvents() succeeded with an undeclared digest size")
+		}
+	})
+}
+
 func TestAppendEvents(t *testing.T) {
 	base, err := os.ReadFile("testdata/ubuntu_2104_shielded_vm_no_secure_boot_eventlog")
 	if err != nil {

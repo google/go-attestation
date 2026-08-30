@@ -22,6 +22,20 @@ func (cc *fakeCmdChannel) MeasurementLog() ([]byte, error) {
 }
 
 func generateMeasurementLog(algs []HashAlg) []byte {
+	var specAlgs []specAlgSize
+	for _, alg := range algs {
+		hash, err := alg.cryptoHash()
+		if err != nil {
+			panic(err)
+		}
+		specAlgs = append(specAlgs, specAlgSize{ID: uint16(alg), Size: uint16(hash.Size())})
+	}
+	return generateSpecIDEventLog(specAlgs...)
+}
+
+// generateSpecIDEventLog declares algs verbatim, so tests can declare sizes a
+// TPM never would.
+func generateSpecIDEventLog(algs ...specAlgSize) []byte {
 	specIDEventHeader := generateSpecIDEventHeader(algs)
 	raw := rawEventHeader{
 		PCRIndex:  0,
@@ -40,7 +54,7 @@ func generateMeasurementLog(algs []HashAlg) []byte {
 	return rawBytes.Bytes()
 }
 
-func generateSpecIDEventHeader(algs []HashAlg) []byte {
+func generateSpecIDEventHeader(algs []specAlgSize) []byte {
 	specIDEventHeader := specIDEventHeader{
 		NumAlgs:       uint32(len(algs)),
 		Signature:     wantSignature,
@@ -58,14 +72,7 @@ func generateSpecIDEventHeader(algs []HashAlg) []byte {
 	}
 	// Write out the Algs.
 	for _, alg := range algs {
-		var specAlg specAlgSize
-		specAlg.ID = uint16(alg)
-		hash, err := alg.cryptoHash()
-		if err != nil {
-			panic(err)
-		}
-		specAlg.Size = uint16(hash.Size())
-		if err := binary.Write(&specIDEventHeaderBytes, binary.LittleEndian, &specAlg); err != nil {
+		if err := binary.Write(&specIDEventHeaderBytes, binary.LittleEndian, alg); err != nil {
 			panic(err)
 		}
 	}
