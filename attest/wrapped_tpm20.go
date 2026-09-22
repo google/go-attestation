@@ -131,6 +131,25 @@ func createEK(rwc io.ReadWriter, ekTemplate tpm2.Public, targetEKHandle tpmutil.
 	return nil
 }
 
+// createSRK creates a persistent Storage Root Key under the Owner hierarchy.
+func (t *wrappedTPM20) createSRK(srkTemplate tpm2.Public, targetSRKHandle tpmutil.Handle, rerr error) error {
+	return createSRK(t.rwc, srkTemplate, targetSRKHandle, rerr)
+}
+
+func createSRK(rwc io.ReadWriter, srkTemplate tpm2.Public, targetSRKHandle tpmutil.Handle, rerr error) error {
+	keyHnd, _, err := tpm2.CreatePrimary(rwc, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", srkTemplate)
+	if err != nil {
+		return fmt.Errorf("ReadPublic failed (%v), and then Create Primary failed: %v", rerr, err)
+	}
+	defer tpm2.FlushContext(rwc, keyHnd)
+
+	err = tpm2.EvictControl(rwc, "", tpm2.HandleOwner, keyHnd, targetSRKHandle)
+	if err != nil {
+		return fmt.Errorf("EvictControl failed: %v", err)
+	}
+	return nil
+}
+
 func ekTemplateForPublic(rwc io.ReadWriter, pub crypto.PublicKey) (tpm2.Public, error) {
 	if pub == nil {
 		return rsaEkTemplate(rwc), nil
@@ -205,7 +224,7 @@ func (t *wrappedTPM20) getStorageRootKeyHandle(parent ParentKeyConfig) (tpmutil.
 	default:
 		return 0, false, fmt.Errorf("unsupported SRK algorithm: %v", parent.Algorithm)
 	}
-	err = t.createEK(srkTemplate, srkHandle, rerr)
+	err = t.createSRK(srkTemplate, srkHandle, rerr)
 	if err != nil {
 		return 0, false, err
 	}
