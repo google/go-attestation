@@ -7,7 +7,6 @@
 // NOTE: simulator requires cgo, hence the build tag.
 package tpmsim
 
-
 import (
 	"crypto"
 	"crypto/elliptic"
