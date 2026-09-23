@@ -37,15 +37,6 @@ const (
 	tpmPtVendorString = 0x00000100 + 6  // PT_FIXED + offset of 6
 	tpmPtFwVersion1   = 0x00000100 + 11 // PT_FIXED + offset of 11
 
-	// Defined in "Registry of reserved TPM 2.0 handles and localities".
-	nvramRSACertIndex    = 0x1c00002
-	nvramRSAEkNonceIndex = 0x1c00003
-	nvramECCCertIndex    = 0x1c0000a
-	nvramECCEkNonceIndex = 0x1c0000b
-
-	// Defined in "Registry of reserved TPM 2.0 handles and localities", and checked on a glinux machine.
-	commonRSAEkEquivalentHandle = 0x81010001
-	commonECCEkEquivalentHandle = 0x81010002
 )
 
 var (
@@ -69,88 +60,6 @@ var (
 			Sign: &tpm2.SigScheme{
 				Alg:  tpm2.AlgECDSA,
 				Hash: tpm2.AlgSHA256,
-			},
-			CurveID: tpm2.CurveNISTP256,
-			Point: tpm2.ECPoint{
-				XRaw: make([]byte, 32),
-				YRaw: make([]byte, 32),
-			},
-		},
-	}
-	defaultRSASRKTemplate = tpm2.Public{
-		Type:       tpm2.AlgRSA,
-		NameAlg:    tpm2.AlgSHA256,
-		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
-		RSAParameters: &tpm2.RSAParams{
-			Symmetric: &tpm2.SymScheme{
-				Alg:     tpm2.AlgAES,
-				KeyBits: 128,
-				Mode:    tpm2.AlgCFB,
-			},
-			ModulusRaw: make([]byte, 256),
-			KeyBits:    2048,
-		},
-	}
-	defaultECCSRKTemplate = tpm2.Public{
-		Type:       tpm2.AlgECC,
-		NameAlg:    tpm2.AlgSHA256,
-		Attributes: tpm2.FlagStorageDefault | tpm2.FlagNoDA,
-		ECCParameters: &tpm2.ECCParams{
-			Symmetric: &tpm2.SymScheme{
-				Alg:     tpm2.AlgAES,
-				KeyBits: 128,
-				Mode:    tpm2.AlgCFB,
-			},
-			CurveID: tpm2.CurveNISTP256,
-			Point: tpm2.ECPoint{
-				XRaw: make([]byte, 32),
-				YRaw: make([]byte, 32),
-			},
-		},
-	}
-	// Default RSA and ECC EK templates defined in:
-	// https://trustedcomputinggroup.org/wp-content/uploads/Credential_Profile_EK_V2.0_R14_published.pdf
-	defaultRSAEKTemplate = tpm2.Public{
-		Type:    tpm2.AlgRSA,
-		NameAlg: tpm2.AlgSHA256,
-		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
-			tpm2.FlagAdminWithPolicy | tpm2.FlagRestricted | tpm2.FlagDecrypt,
-		AuthPolicy: []byte{
-			0x83, 0x71, 0x97, 0x67, 0x44, 0x84,
-			0xB3, 0xF8, 0x1A, 0x90, 0xCC, 0x8D,
-			0x46, 0xA5, 0xD7, 0x24, 0xFD, 0x52,
-			0xD7, 0x6E, 0x06, 0x52, 0x0B, 0x64,
-			0xF2, 0xA1, 0xDA, 0x1B, 0x33, 0x14,
-			0x69, 0xAA,
-		},
-		RSAParameters: &tpm2.RSAParams{
-			Symmetric: &tpm2.SymScheme{
-				Alg:     tpm2.AlgAES,
-				KeyBits: 128,
-				Mode:    tpm2.AlgCFB,
-			},
-			KeyBits:    2048,
-			ModulusRaw: make([]byte, 256),
-		},
-	}
-	defaultECCEKTemplate = tpm2.Public{
-		Type:    tpm2.AlgECC,
-		NameAlg: tpm2.AlgSHA256,
-		Attributes: tpm2.FlagFixedTPM | tpm2.FlagFixedParent | tpm2.FlagSensitiveDataOrigin |
-			tpm2.FlagAdminWithPolicy | tpm2.FlagRestricted | tpm2.FlagDecrypt,
-		AuthPolicy: []byte{
-			0x83, 0x71, 0x97, 0x67, 0x44, 0x84,
-			0xB3, 0xF8, 0x1A, 0x90, 0xCC, 0x8D,
-			0x46, 0xA5, 0xD7, 0x24, 0xFD, 0x52,
-			0xD7, 0x6E, 0x06, 0x52, 0x0B, 0x64,
-			0xF2, 0xA1, 0xDA, 0x1B, 0x33, 0x14,
-			0x69, 0xAA,
-		},
-		ECCParameters: &tpm2.ECCParams{
-			Symmetric: &tpm2.SymScheme{
-				Alg:     tpm2.AlgAES,
-				KeyBits: 128,
-				Mode:    tpm2.AlgCFB,
 			},
 			CurveID: tpm2.CurveNISTP256,
 			Point: tpm2.ECPoint{
