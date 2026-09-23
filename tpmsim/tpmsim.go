@@ -1,6 +1,12 @@
 // Package tpmsim provides a simulated TPM 2.0 interface with configurable
 // Endorsement Key (EK) certificates for testing attestation workflows.
+
+//go:build !localtest && cgo && !gofuzz
+// +build !localtest,cgo,!gofuzz
+
+// NOTE: simulator requires cgo, hence the build tag.
 package tpmsim
+
 
 import (
 	"crypto"

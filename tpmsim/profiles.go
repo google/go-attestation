@@ -1,3 +1,8 @@
+//go:build !localtest && cgo && !gofuzz
+// +build !localtest,cgo,!gofuzz
+
+// NOTE: simulator requires cgo, hence the build tag.
+
 package tpmsim
 
 // StandardEK returns EKOptions for a standard EK with TCG metadata and optional overrides.
