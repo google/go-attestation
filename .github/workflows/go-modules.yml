@@ -1,0 +1,31 @@
+name: Go Modules
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tidy:
+    name: go mod tidy check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod   # single source of truth for the version
+          cache: true
+
+      - name: Verify go.mod and go.sum are tidy
+        run: go mod tidy -diff
+
+      - name: Verify dependency hashes
+        run: go mod verify
+
+      - name: Build with readonly modules
+        run: go build -mod=readonly ./...
+
