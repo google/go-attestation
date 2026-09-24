@@ -733,27 +733,15 @@ func (k *wrappedKey20) activateCredential(tb tpmBase, in EncryptedCredential, ek
 		return nil, err
 	}
 
-	sessHandle, _, err := tpm2.StartAuthSession(
-		t.rwc,
-		tpm2.HandleNull,  /*tpmKey*/
-		tpm2.HandleNull,  /*bindKey*/
-		make([]byte, 16), /*nonceCaller*/
-		nil,              /*secret*/
-		tpm2.SessionPolicy,
-		tpm2.AlgNull,
-		tpm2.AlgSHA256)
+	sessHandle, auth, err := ekAuthSession(t.rwc)
 	if err != nil {
 		return nil, fmt.Errorf("creating session: %v", err)
 	}
 	defer tpm2.FlushContext(t.rwc, sessHandle)
 
-	if _, _, err := tpm2.PolicySecret(t.rwc, tpm2.HandleEndorsement, tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}, sessHandle, nil, nil, nil, 0); err != nil {
-		return nil, fmt.Errorf("tpm2.PolicySecret() failed: %v", err)
-	}
-
 	return tpm2.ActivateCredentialUsingAuth(t.rwc, []tpm2.AuthCommand{
 		{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession},
-		{Session: sessHandle, Attributes: tpm2.AttrContinueSession},
+		auth,
 	}, k.hnd, ekHnd, credential, secret)
 }
 
