@@ -28,6 +28,7 @@ import (
 	"io"
 	"math/big"
 
+	"github.com/google/go-attestation/tcg"
 	"github.com/google/go-tpm/legacy/tpm2"
 	"github.com/google/go-tpm/tpmutil"
 )
@@ -51,20 +52,20 @@ type certifyingKey struct {
 
 func rsaEkTemplate(rwc io.ReadWriter) tpm2.Public {
 	if rwc == nil {
-		return defaultRSAEKTemplate
+		return tcg.DefaultRSA2048EKTemplate
 	}
-	nonce, err := tpm2.NVReadEx(rwc, nvramRSAEkNonceIndex, tpm2.HandleOwner, "", 0)
+	nonce, err := tpm2.NVReadEx(rwc, tcg.EKNonceRSA2048Index, tpm2.HandleOwner, "", 0)
 	if err != nil {
-		return defaultRSAEKTemplate
+		return tcg.DefaultRSA2048EKTemplate
 	}
-	template := defaultRSAEKTemplate
+	template := tcg.DefaultRSA2048EKTemplate
 	copy(template.RSAParameters.ModulusRaw, nonce)
 	return template
 }
 
 func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
 	if t == nil || t.rwc == nil {
-		return defaultRSAEKTemplate
+		return tcg.DefaultRSA2048EKTemplate
 	}
 	if t.tpmRSAEkTemplate != nil {
 		return *t.tpmRSAEkTemplate
@@ -77,13 +78,13 @@ func (t *wrappedTPM20) rsaEkTemplate() tpm2.Public {
 
 func eccEkTemplate(rwc io.ReadWriter) tpm2.Public {
 	if rwc == nil {
-		return defaultECCEKTemplate
+		return tcg.DefaultECCP256EKTemplate
 	}
-	nonce, err := tpm2.NVReadEx(rwc, nvramECCEkNonceIndex, tpm2.HandleOwner, "", 0)
+	nonce, err := tpm2.NVReadEx(rwc, tcg.EKNonceECCP256Index, tpm2.HandleOwner, "", 0)
 	if err != nil {
-		return defaultECCEKTemplate
+		return tcg.DefaultECCP256EKTemplate
 	}
-	template := defaultECCEKTemplate
+	template := tcg.DefaultECCP256EKTemplate
 	copy(template.ECCParameters.Point.XRaw, nonce)
 	return template
 }
@@ -152,13 +153,13 @@ func getEndorsementKeyHandle(rwc io.ReadWriter, ek *EK) (tpmutil.Handle, bool, e
 
 	if ek == nil {
 		// The default is RSA for backward compatibility.
-		ekHandle = commonRSAEkEquivalentHandle
+		ekHandle = tcg.EKKeyRSA2048Handle
 		ekTemplate = rsaEkTemplate(rwc)
 	} else {
 		ekHandle = ek.handle
 		if ekHandle == 0 {
 			// Assume RSA EK handle if it was not provided.
-			ekHandle = commonRSAEkEquivalentHandle
+			ekHandle = tcg.EKKeyRSA2048Handle
 		}
 		var err error
 		ekTemplate, err = ekTemplateForPublic(rwc, ek.Public)
@@ -199,9 +200,9 @@ func (t *wrappedTPM20) getStorageRootKeyHandle(parent ParentKeyConfig) (tpmutil.
 	var srkTemplate tpm2.Public
 	switch parent.Algorithm {
 	case RSA:
-		srkTemplate = defaultRSASRKTemplate
+		srkTemplate = tcg.DefaultRSASRKTemplate
 	case ECDSA:
-		srkTemplate = defaultECCSRKTemplate
+		srkTemplate = tcg.DefaultECCSRKTemplate
 	default:
 		return 0, false, fmt.Errorf("unsupported SRK algorithm: %v", parent.Algorithm)
 	}
@@ -221,14 +222,14 @@ func serializePublicKey(pub crypto.PublicKey) (string, error) {
 	return base64.StdEncoding.EncodeToString(derKey), nil
 }
 
-// Unfortunatelly some TPMs have a non rsa2048 key in the commonRSAEkEquivalentHandle
+// Unfortunatelly some TPMs have a non rsa2048 key in the tcg.EKKeyRSA2048Handle
 // handle location. Thus we need an alternative handle to use for both creating
 // and searching for the rsa2048 ek.
 // The "Registry-of-Reserved-TPM-2.0-Handles-and-Localities-Version 1.2"  section 2.3.1
 // asserts that persistent EK handles should be in the range 0x8101000-0x810100FF
 // Thus any value in this range is acceptable, so we arbitrarily chose
 // a value inmediatelly after the ECC (p256) handle.
-const altRSAEkEquivalentHandle = commonECCEkEquivalentHandle + 1
+const altRSAEkEquivalentHandle = tcg.EKKeyECCP256Handle + 1
 
 // creates a map of a base64 pkcs8 encoding of public keys to handles
 func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmutil.Handle]struct{}, error) {
@@ -239,8 +240,8 @@ func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmu
 	// "tpm2_getcap handles-persistent". However we want to limit the number of locations
 	// to probe as accessing the tpm is a relatively slow path.
 	knownHandlesToSearch := []tpmutil.Handle{
-		commonRSAEkEquivalentHandle,
-		commonECCEkEquivalentHandle,
+		tcg.EKKeyRSA2048Handle,
+		tcg.EKKeyECCP256Handle,
 		altRSAEkEquivalentHandle,
 	}
 	for _, keyHandle := range knownHandlesToSearch {
@@ -266,8 +267,8 @@ func (t *wrappedTPM20) getKeyHandleKeyMap() (map[string]tpmutil.Handle, map[tpmu
 
 func (t *wrappedTPM20) create2048RSAEKInAvailableSlot(handleFoundMap map[tpmutil.Handle]struct{}) (tpmutil.Handle, error) {
 	rsakeyHandles := []tpmutil.Handle{
-		commonRSAEkEquivalentHandle,
-		altRSAEkEquivalentHandle,
+		tcg.EKKeyRSA2048Handle,
+		tcg.EKKeyAltRSA2048Handle,
 	}
 	for _, targetHandle := range rsakeyHandles {
 		_, handleInUse := handleFoundMap[targetHandle]
@@ -286,7 +287,7 @@ func (t *wrappedTPM20) create2048RSAEKInAvailableSlot(handleFoundMap map[tpmutil
 
 func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 	var res []EK
-	certIndexes := []int{nvramRSACertIndex, nvramECCCertIndex}
+	certIndexes := []tpmutil.Handle{tcg.EKCertRSA2048Index, tcg.EKCertECCP256Index}
 	keyHandleMap, handleFoundMap, err := t.getKeyHandleKeyMap()
 	if err != nil {
 		return nil, err
@@ -299,7 +300,7 @@ func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 			}
 
 			handleToUse, keyfound := keyHandleMap[serializedKey]
-			if !keyfound && certIndex == nvramRSACertIndex {
+			if !keyfound && certIndex == tcg.EKCertRSA2048Index {
 				handleToUse, err = t.create2048RSAEKInAvailableSlot(handleFoundMap)
 				if err != nil {
 					return nil, err
@@ -316,9 +317,9 @@ func (t *wrappedTPM20) ekCertificates() ([]EK, error) {
 }
 
 func (t *wrappedTPM20) eks() ([]EK, error) {
-	if cert, err := readEKCertFromNVRAM20(t.rwc, nvramRSACertIndex); err == nil {
+	if cert, err := readEKCertFromNVRAM20(t.rwc, tcg.EKCertRSA2048Index); err == nil {
 		return []EK{
-			{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert, handle: commonRSAEkEquivalentHandle},
+			{Public: crypto.PublicKey(cert.PublicKey), Certificate: cert, handle: tcg.EKKeyRSA2048Handle},
 		}, nil
 	}
 
@@ -350,7 +351,7 @@ func (t *wrappedTPM20) eks() ([]EK, error) {
 		{
 			Public:         ekPub,
 			CertificateURL: certificateURL,
-			handle:         commonRSAEkEquivalentHandle,
+			handle:         tcg.EKKeyRSA2048Handle,
 		},
 	}, nil
 }

@@ -34,6 +34,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-attestation/tcg"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/legacy/tpm2"
@@ -71,13 +72,13 @@ func setupSimulatedTPMWithECCEK(t *testing.T) (*simulator.Simulator, *TPM) {
 }
 
 func provisionECCEK(sim io.ReadWriter) error {
-	ekHnd, pubKey, err := tpm2.CreatePrimary(sim, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", defaultECCEKTemplate)
+	ekHnd, pubKey, err := tpm2.CreatePrimary(sim, tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tcg.DefaultECCP256EKTemplate)
 	if err != nil {
 		return fmt.Errorf("CreatePrimary failed: %v", err)
 	}
 	defer tpm2.FlushContext(sim, ekHnd)
 
-	err = tpm2.EvictControl(sim, "", tpm2.HandleOwner, ekHnd, commonECCEkEquivalentHandle)
+	err = tpm2.EvictControl(sim, "", tpm2.HandleOwner, ekHnd, tcg.EKKeyECCP256Handle)
 	if err != nil {
 		return fmt.Errorf("EvictControl failed: %v", err)
 	}
@@ -93,12 +94,12 @@ func provisionECCEK(sim io.ReadWriter) error {
 	}
 
 	attrs := tpm2.AttrOwnerWrite | tpm2.AttrAuthRead
-	err = tpm2.NVDefineSpace(sim, tpm2.HandleOwner, nvramECCCertIndex, "", "", nil, attrs, uint16(len(certDer)))
+	err = tpm2.NVDefineSpace(sim, tpm2.HandleOwner, tcg.EKCertECCP256Index, "", "", nil, attrs, uint16(len(certDer)))
 	if err != nil {
 		return fmt.Errorf("NVDefineSpace failed: %v", err)
 	}
 
-	err = tpm2.NVWrite(sim, tpm2.HandleOwner, nvramECCCertIndex, "", certDer, 0)
+	err = tpm2.NVWrite(sim, tpm2.HandleOwner, tcg.EKCertECCP256Index, "", certDer, 0)
 	if err != nil {
 		return fmt.Errorf("NVWrite failed: %v", err)
 	}
@@ -203,14 +204,14 @@ func TestSimWrappedtpmEKCertificatesInternal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if injected2khandle != commonRSAEkEquivalentHandle {
+	if injected2khandle != tcg.EKKeyRSA2048Handle {
 		t.Errorf("injected cert at not default handle when empty")
 	}
 	_, handleFoundMap, err = wtpm.getKeyHandleKeyMap()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, ok := handleFoundMap[commonRSAEkEquivalentHandle]
+	_, ok := handleFoundMap[tcg.EKKeyRSA2048Handle]
 	if !ok {
 		t.Fatalf("injected key notfound")
 	}
