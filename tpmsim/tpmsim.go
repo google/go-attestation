@@ -1,5 +1,6 @@
 //go:build !localtest && cgo && !gofuzz && !windows
 // +build !localtest,cgo,!gofuzz,!windows
+
 // NOTE: simulator requires cgo, hence the build tag.
 
 // Package tpmsim provides a simulated TPM 2.0 interface with configurable
