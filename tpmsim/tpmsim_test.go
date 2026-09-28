@@ -1,3 +1,6 @@
+//go:build !localtest && cgo && !gofuzz && !windows
+// +build !localtest,cgo,!gofuzz,!windows
+
 package tpmsim
 
 import (

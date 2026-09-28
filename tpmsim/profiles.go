@@ -1,5 +1,5 @@
-//go:build !localtest && cgo && !gofuzz
-// +build !localtest,cgo,!gofuzz
+//go:build !localtest && cgo && !gofuzz && !windows
+// +build !localtest,cgo,!gofuzz,!windows
 
 // NOTE: simulator requires cgo, hence the build tag.
 
