@@ -606,6 +606,27 @@ func TestSimPCRs(t *testing.T) {
 	}
 }
 
+// TODO: Remove this as part of fix for #530
+// https://github.com/google/go-attestation/issues/530
+func TestPersistenceSRKWrongHeirachy(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	parentConfig := defaultParentConfig
+
+	// Setting an Endorsement hierarchy password must not affect SRK creation,
+	// which uses the Owner (Storage) hierarchy.
+	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
+	if err := tpm2.HierarchyChangeAuth(sim.TPM(), tpm2.HandleEndorsement, auth, "endorsement-secret"); err != nil {
+		t.Fatalf("tpm2.HierarchyChangeAuth(HandleEndorsement) failed: %v", err)
+	}
+
+	_, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
+	if err == nil {
+		t.Fatalf("getStorageRootKeyHandle() unexpectedly succeeded")
+	}
+}
+
 func TestSimPersistenceSRK(t *testing.T) {
 	testPersistenceSRK(t, defaultParentConfig)
 }
@@ -622,12 +643,57 @@ func testPersistenceSRK(t *testing.T, parentConfig ParentKeyConfig) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
+	// Setting an Endorsement hierarchy password must not affect SRK creation,
+	// which uses the Owner (Storage) hierarchy.
+	// TODO: https://github.com/google/go-attestation/issues/530: Enable this as part of this fix.
+	// auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
+	// if err := tpm2.HierarchyChangeAuth(sim.TPM(), tpm2.HandleEndorsement, auth, "endorsement-secret"); err != nil {
+	//	t.Fatalf("tpm2.HierarchyChangeAuth(HandleEndorsement) failed: %v", err)
+	// }
+
 	srkHnd, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
 	if err != nil {
 		t.Fatalf("getStorageRootKeyHandle() failed: %v", err)
 	}
 	if srkHnd != parentConfig.Handle {
 		t.Fatalf("bad SRK-equivalent handle: got 0x%x, wanted 0x%x", srkHnd, parentConfig.Handle)
+	}
+
+	// Verify the persisted SRK matches the primary key derived under tpm2.HandleOwner.
+	var srkTemplate tpm2.Public
+	switch parentConfig.Algorithm {
+	case RSA:
+		srkTemplate = tcg.DefaultRSASRKTemplate
+	case ECDSA:
+		srkTemplate = tcg.DefaultECCSRKTemplate
+	default:
+		t.Fatalf("unsupported algorithm: %v", parentConfig.Algorithm)
+	}
+	wantHnd, _, err := tpm2.CreatePrimary(sim.TPM(), tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", srkTemplate)
+	if err != nil {
+		t.Fatalf("tpm2.CreatePrimary(HandleOwner) failed: %v", err)
+	}
+	defer tpm2.FlushContext(sim.TPM(), wantHnd)
+
+	gotPub, _, _, err := tpm2.ReadPublic(sim.TPM(), srkHnd)
+	if err != nil {
+		t.Fatalf("tpm2.ReadPublic(srkHnd) failed: %v", err)
+	}
+	wantPub, _, _, err := tpm2.ReadPublic(sim.TPM(), wantHnd)
+	if err != nil {
+		t.Fatalf("tpm2.ReadPublic(wantHnd) failed: %v", err)
+	}
+	gotKey, err := gotPub.Key()
+	if err != nil {
+		t.Fatalf("gotPub.Key() failed: %v", err)
+	}
+	wantKey, err := wantPub.Key()
+	if err != nil {
+		t.Fatalf("wantPub.Key() failed: %v", err)
+	}
+	if cmp.Equal(gotKey, wantKey) {
+		t.Errorf("TODO: #530: Invert the logic as part of this fix")
+		// t.Errorf("SRK public key at 0x%x does not match primary key created under tpm2.HandleOwner", srkHnd)
 	}
 
 	srkHnd, p, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
