@@ -606,7 +606,7 @@ func TestSimPCRs(t *testing.T) {
 	}
 }
 
-// TODO: Remove this as part of fix for #530i
+// TODO: Remove this as part of fix for #530
 // https://github.com/google/go-attestation/issues/530
 func TestPersistenceSRKWrongHeirachy(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
