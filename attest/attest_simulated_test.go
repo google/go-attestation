@@ -606,6 +606,27 @@ func TestSimPCRs(t *testing.T) {
 	}
 }
 
+// TODO: Remove this as part of fix for #530i
+// https://github.com/google/go-attestation/issues/530
+func TestPersistenceSRKWrongHeirachy(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+  parentConfig:= defaultParentConfig
+
+	// Setting an Endorsement hierarchy password must not affect SRK creation,
+	// which uses the Owner (Storage) hierarchy.
+	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
+	if err := tpm2.HierarchyChangeAuth(sim.TPM(), tpm2.HandleEndorsement, auth, "endorsement-secret"); err != nil {
+  	t.Fatalf("tpm2.HierarchyChangeAuth(HandleEndorsement) failed: %v", err)
+	}
+
+	_, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
+	if err == nil {
+		t.Fatalf("getStorageRootKeyHandle() unexpectedly succeeded")
+	}
+}
+
 func TestSimPersistenceSRK(t *testing.T) {
 	testPersistenceSRK(t, defaultParentConfig)
 }
