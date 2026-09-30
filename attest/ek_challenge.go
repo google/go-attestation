@@ -185,8 +185,10 @@ func GenerateEkChallenge(ekPublic crypto.PublicKey) (*DecryptionEkChallenge, *HM
 // VerifySolvedDecryptionEkChallenge verifies that the client has successfully solved the EK
 // decryption challenge and certified the correct Attestation Key (AK).
 //
-// It unmarshals the AK public area, verifies the HMAC signature over the attestation data using
-// the challenge HMAC key, and checks that the certified name matches the AK's name.
+// It unmarshals the AK public area and checks that it describes a key suitable for use as an
+// attestation key (a TPM-generated, non-duplicable, restricted signing key of sufficient
+// strength), verifies the HMAC signature over the attestation data using the challenge HMAC
+// key, and checks that the certified name matches the AK's name.
 //
 // akPubData is the marshaled TPMT_PUBLIC representation of the AK.
 // certParams contains the attestation data and signature returned by the client.
@@ -198,6 +200,10 @@ func VerifySolvedDecryptionEkChallenge(akPubData []byte, certParams *Certificati
 	akPub, err := tpm2.Unmarshal[tpm2.TPMTPublic](akPubData)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal AK public area: %v", err)
+	}
+
+	if err := checkAKPublicArea(akPubData); err != nil {
+		return fmt.Errorf("invalid AK: %v", err)
 	}
 
 	akName, err := tpm2.ObjectName(akPub)

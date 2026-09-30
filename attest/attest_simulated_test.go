@@ -880,3 +880,98 @@ func TestSimCertifyWithDecryptionEk(t *testing.T) {
 		})
 	}
 }
+
+func TestSimVerifySolvedDecryptionEkChallengeRejectsNonAKs(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	wt, ok := tpm.tpm.(*wrappedTPM20)
+	if !ok {
+		t.Fatalf("tpm.tpm is %T, want *wrappedTPM20", tpm.tpm)
+	}
+	srk, _, err := wt.getStorageRootKeyHandle(defaultParentConfig)
+	if err != nil {
+		t.Fatalf("getStorageRootKeyHandle() failed: %v", err)
+	}
+	eks, err := tpm.EKs()
+	if err != nil {
+		t.Fatalf("EKs() failed: %v", err)
+	}
+	if len(eks) == 0 {
+		t.Fatal("EKs() returned no EKs")
+	}
+	ek := eks[0]
+	ekHnd, _, err := getEndorsementKeyHandle(wt.rwc, &ek)
+	if err != nil {
+		t.Fatalf("getEndorsementKeyHandle() failed: %v", err)
+	}
+
+	rsaSignScheme := &tpm2.SigScheme{Alg: tpm2.AlgRSASSA, Hash: tpm2.AlgSHA256}
+	for _, tc := range []struct {
+		name     string
+		template tpm2.Public
+		wantErr  bool
+	}{
+		{
+			name: "restricted signing key",
+			template: tpm2.Public{
+				Type:          tpm2.AlgRSA,
+				NameAlg:       tpm2.AlgSHA256,
+				Attributes:    tpm2.FlagSignerDefault,
+				RSAParameters: &tpm2.RSAParams{Sign: rsaSignScheme, KeyBits: 2048},
+			},
+		},
+		{
+			name: "unrestricted signing key",
+			template: tpm2.Public{
+				Type:          tpm2.AlgRSA,
+				NameAlg:       tpm2.AlgSHA256,
+				Attributes:    tpm2.FlagSignerDefault &^ tpm2.FlagRestricted,
+				RSAParameters: &tpm2.RSAParams{Sign: rsaSignScheme, KeyBits: 2048},
+			},
+			wantErr: true,
+		},
+		{
+			name: "restricted decryption key",
+			template: tpm2.Public{
+				Type:       tpm2.AlgRSA,
+				NameAlg:    tpm2.AlgSHA256,
+				Attributes: tpm2.FlagStorageDefault,
+				RSAParameters: &tpm2.RSAParams{
+					Symmetric: &tpm2.SymScheme{Alg: tpm2.AlgAES, KeyBits: 128, Mode: tpm2.AlgCFB},
+					KeyBits:   2048,
+				},
+			},
+			wantErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			blob, pub, _, _, _, err := tpm2.CreateKey(wt.rwc, srk, tpm2.PCRSelection{}, "", "", tc.template)
+			if err != nil {
+				t.Fatalf("CreateKey() failed: %v", err)
+			}
+			hnd, _, err := tpm2.Load(wt.rwc, srk, "", pub, blob)
+			if err != nil {
+				t.Fatalf("Load() failed: %v", err)
+			}
+			defer tpm2.FlushContext(wt.rwc, hnd)
+
+			challenge, hmacKey, err := GenerateEkChallenge(ek.Public)
+			if err != nil {
+				t.Fatalf("GenerateEkChallenge() failed: %v", err)
+			}
+			certParams, err := certifyAKWithDecryptionEk(wt.rwc, ekHnd, hnd, pub, *challenge)
+			if err != nil {
+				t.Fatalf("certifyAKWithDecryptionEk() failed: %v", err)
+			}
+
+			err = VerifySolvedDecryptionEkChallenge(pub, certParams, *hmacKey)
+			if tc.wantErr && err == nil {
+				t.Error("VerifySolvedDecryptionEkChallenge() returned nil, want error")
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("VerifySolvedDecryptionEkChallenge() failed: %v", err)
+			}
+		})
+	}
+}
