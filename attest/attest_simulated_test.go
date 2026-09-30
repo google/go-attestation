@@ -37,6 +37,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/legacy/tpm2"
+	"github.com/google/go-tpm/tpmutil"
 )
 
 func setupSimulatedTPM(t *testing.T, opts ...tpmsim.Option) (*tpmsim.Simulator, *TPM) {
@@ -444,6 +445,94 @@ func TestSimQuoteAndVerifyAll(t *testing.T) {
 				t.Errorf("quote verification failed: %v", err)
 			}
 		})
+	}
+}
+
+func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+
+	for _, s := range []string{"genuine-bootloader", "genuine-kernel"} {
+		d := sha256.Sum256([]byte(s))
+		if err := tpm2.PCRExtend(sim.TPM(), tpmutil.Handle(16), tpm2.AlgSHA256, d[:], ""); err != nil {
+			t.Fatalf("PCRExtend() failed: %v", err)
+		}
+	}
+
+	realPCRs, err := tpm.PCRs(HashSHA256)
+	if err != nil {
+		t.Fatalf("tpm.PCRs() failed: %v", err)
+	}
+
+	var real16 PCR
+	for _, p := range realPCRs {
+		if p.Index == 16 {
+			real16 = p
+		}
+	}
+
+	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	quote, err := ak.QuotePCRs(tpm, nonce, HashSHA256, []int{16})
+	if err != nil {
+		t.Fatalf("ak.QuotePCRs() failed: %v", err)
+	}
+
+	pub, err := ParseAKPublic(ak.AttestationParameters().Public)
+	if err != nil {
+		t.Fatalf("ParseAKPublic() failed: %v", err)
+	}
+
+	// A forged single-event log for PCR 16, and the PCR value it replays to.
+	forgedEvt := sha256.Sum256([]byte("forged-bootloader"))
+	h := sha256.New()
+	h.Write(make([]byte, sha256.Size))
+	h.Write(forgedEvt[:])
+	forged16 := PCR{Index: 16, DigestAlg: crypto.SHA256, Digest: h.Sum(nil)}
+	forgedLog := &EventLog{
+		Algs: []HashAlg{HashSHA256},
+		rawEvents: []rawEvent{{
+			sequence: 1,
+			index:    16,
+			typ:      EventType(0x80000003), // EV_EFI_BOOT_SERVICES_APPLICATION
+			data:     []byte("forged-bootloader"),
+			digests:  []digest{{hash: crypto.SHA256, data: forgedEvt[:]}},
+		}},
+	}
+
+	for _, test := range []struct {
+		name string
+		pcrs []PCR
+	}{
+		{"forged first", []PCR{forged16, real16}},
+		{"forged last", []PCR{real16, forged16}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := pub.VerifyAll([]Quote{*quote}, test.pcrs, nonce); err == nil {
+				t.Error("VerifyAll() returned nil, want error for duplicate PCR entries")
+			}
+			if err := pub.Verify(*quote, test.pcrs, nonce); err == nil {
+				t.Error("Verify() returned nil, want error for duplicate PCR entries")
+			}
+			for _, p := range test.pcrs {
+				if p.QuoteVerified() {
+					t.Errorf("PCR %d (digest %x) marked quote-verified", p.Index, p.Digest)
+				}
+			}
+			if _, err := forgedLog.Verify(test.pcrs); err == nil {
+				t.Error("EventLog.Verify() returned nil, want error for duplicate PCR entries")
+			}
+		})
+	}
+
+	// Sanity check: the genuine PCR alone verifies against the quote.
+	if err := pub.VerifyAll([]Quote{*quote}, []PCR{real16}, nonce); err != nil {
+		t.Errorf("VerifyAll() with genuine PCR failed: %v", err)
 	}
 }
 
