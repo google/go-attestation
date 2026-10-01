@@ -168,6 +168,14 @@ func checkAKPublicArea(public []byte) error {
 }
 
 func verifyRSASignature(pub tpm2.Public, p *ActivationParameters) error {
+	if pub.RSAParameters.Sign == nil {
+		return errors.New("AK has no RSA signature scheme")
+	}
+
+	if pub.RSAParameters.Sign.Alg != tpm2.AlgRSASSA {
+		return fmt.Errorf("AK uses unsupported RSA signature scheme 0x%x, want RSASSA", pub.RSAParameters.Sign.Alg)
+	}
+
 	pk := rsa.PublicKey{E: int(pub.RSAParameters.Exponent()), N: pub.RSAParameters.Modulus()}
 	signHash, err := pub.RSAParameters.Sign.Hash.Hash()
 	if err != nil {
@@ -200,6 +208,14 @@ func verifyRSASignature(pub tpm2.Public, p *ActivationParameters) error {
 }
 
 func verifyECDSASignature(pub tpm2.Public, p *ActivationParameters) error {
+	if pub.ECCParameters.Sign == nil {
+		return errors.New("AK has no ECC signature scheme")
+	}
+
+	if pub.ECCParameters.Sign.Alg != tpm2.AlgECDSA {
+		return fmt.Errorf("AK uses unsupported ECC signature scheme 0x%x, want ECDSA", pub.ECCParameters.Sign.Alg)
+	}
+
 	key, err := pub.Key()
 	if err != nil {
 		return fmt.Errorf("failed to extract ECC public key: %v", err)
