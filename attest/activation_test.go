@@ -335,3 +335,108 @@ func testInvalidECDSASignature(t *testing.T) []byte {
 	}
 	return signature
 }
+
+func TestCheckAKPublic(t *testing.T) {
+	rsaAK := func(bits uint16, attrs tpm2.KeyProp) tpm2.Public {
+		return tpm2.Public{
+			Type:       tpm2.AlgRSA,
+			NameAlg:    tpm2.AlgSHA256,
+			Attributes: attrs,
+			RSAParameters: &tpm2.RSAParams{
+				Sign: &tpm2.SigScheme{
+					Alg:  tpm2.AlgRSASSA,
+					Hash: tpm2.AlgSHA256,
+				},
+				KeyBits: bits,
+			},
+		}
+	}
+	eccAK := func(curveID tpm2.EllipticCurve, attrs tpm2.KeyProp) tpm2.Public {
+		pub := testECCAKPublic(t, curveID)
+		pub.Attributes = attrs
+		return pub
+	}
+
+	for _, tc := range []struct {
+		name    string
+		pub     tpm2.Public
+		wantErr string
+	}{
+		{
+			name: "RSA AK",
+			pub:  rsaAK(2048, tpm2.FlagSignerDefault),
+		},
+		{
+			name: "ECC AK",
+			pub:  eccAK(tpm2.CurveNISTP256, tpm2.FlagSignerDefault),
+		},
+		{
+			name:    "RSA key too small",
+			pub:     rsaAK(1024, tpm2.FlagSignerDefault),
+			wantErr: "attestation key too small",
+		},
+		{
+			name:    "ECC insecure curve",
+			pub:     eccAK(tpm2.CurveNISTP224, tpm2.FlagSignerDefault),
+			wantErr: "insecure curve",
+		},
+		{
+			name: "unsupported key type",
+			pub: tpm2.Public{
+				Type:       tpm2.AlgKeyedHash,
+				NameAlg:    tpm2.AlgSHA256,
+				Attributes: tpm2.FlagSignerDefault,
+			},
+			wantErr: "not supported",
+		},
+		{
+			name:    "not FixedTPM",
+			pub:     rsaAK(2048, tpm2.FlagSignerDefault&^tpm2.FlagFixedTPM),
+			wantErr: "AK is exportable",
+		},
+		{
+			name:    "not Restricted",
+			pub:     rsaAK(2048, tpm2.FlagSignerDefault&^tpm2.FlagRestricted),
+			wantErr: "not limited to attestation",
+		},
+		{
+			name:    "not Sign",
+			pub:     rsaAK(2048, tpm2.FlagSignerDefault&^tpm2.FlagSign),
+			wantErr: "not limited to attestation",
+		},
+		{
+			name:    "not FixedParent",
+			pub:     rsaAK(2048, tpm2.FlagSignerDefault&^tpm2.FlagFixedParent),
+			wantErr: "not limited to attestation",
+		},
+		{
+			name:    "not SensitiveDataOrigin",
+			pub:     rsaAK(2048, tpm2.FlagSignerDefault&^tpm2.FlagSensitiveDataOrigin),
+			wantErr: "not limited to attestation",
+		},
+		{
+			name:    "restricted decryption key",
+			pub:     rsaAK(2048, tpm2.FlagStorageDefault),
+			wantErr: "not limited to attestation",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkAKPublic(tc.pub)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("checkAKPublic() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("checkAKPublic() = %v, want error containing %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestCheckAKPublicAreaRejectsMalformedInput(t *testing.T) {
+	if err := checkAKPublicArea([]byte{0x00, 0x01}); err == nil {
+		t.Fatal("checkAKPublicArea() unexpectedly accepted a truncated public area")
+	}
+}
