@@ -449,6 +449,9 @@ func TestSimQuoteAndVerifyAll(t *testing.T) {
 }
 
 func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
+	// PCR 16 is the debug PCR, so it can be extended freely in the simulator.
+	const testPCRIndex = 16
+
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
 
@@ -460,7 +463,7 @@ func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
 
 	for _, s := range []string{"genuine-bootloader", "genuine-kernel"} {
 		d := sha256.Sum256([]byte(s))
-		if err := tpm2.PCRExtend(sim.TPM(), tpmutil.Handle(16), tpm2.AlgSHA256, d[:], ""); err != nil {
+		if err := tpm2.PCRExtend(sim.TPM(), tpmutil.Handle(testPCRIndex), tpm2.AlgSHA256, d[:], ""); err != nil {
 			t.Fatalf("PCRExtend() failed: %v", err)
 		}
 	}
@@ -470,15 +473,15 @@ func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
 		t.Fatalf("tpm.PCRs() failed: %v", err)
 	}
 
-	var real16 PCR
+	var realPCR PCR
 	for _, p := range realPCRs {
-		if p.Index == 16 {
-			real16 = p
+		if p.Index == testPCRIndex {
+			realPCR = p
 		}
 	}
 
 	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
-	quote, err := ak.QuotePCRs(tpm, nonce, HashSHA256, []int{16})
+	quote, err := ak.QuotePCRs(tpm, nonce, HashSHA256, []int{testPCRIndex})
 	if err != nil {
 		t.Fatalf("ak.QuotePCRs() failed: %v", err)
 	}
@@ -488,17 +491,23 @@ func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
 		t.Fatalf("ParseAKPublic() failed: %v", err)
 	}
 
-	// A forged single-event log for PCR 16, and the PCR value it replays to.
+	// Sanity check: the genuine PCR alone verifies against the quote, so any
+	// failure below is due to the duplicate entries.
+	if err := pub.VerifyAll([]Quote{*quote}, []PCR{realPCR}, nonce); err != nil {
+		t.Fatalf("VerifyAll() with genuine PCR failed: %v", err)
+	}
+
+	// A forged single-event log for the test PCR, and the PCR value it replays to.
 	forgedEvt := sha256.Sum256([]byte("forged-bootloader"))
 	h := sha256.New()
 	h.Write(make([]byte, sha256.Size))
 	h.Write(forgedEvt[:])
-	forged16 := PCR{Index: 16, DigestAlg: crypto.SHA256, Digest: h.Sum(nil)}
+	forgedPCR := PCR{Index: testPCRIndex, DigestAlg: crypto.SHA256, Digest: h.Sum(nil)}
 	forgedLog := &EventLog{
 		Algs: []HashAlg{HashSHA256},
 		rawEvents: []rawEvent{{
 			sequence: 1,
-			index:    16,
+			index:    testPCRIndex,
 			typ:      EventType(0x80000003), // EV_EFI_BOOT_SERVICES_APPLICATION
 			data:     []byte("forged-bootloader"),
 			digests:  []digest{{hash: crypto.SHA256, data: forgedEvt[:]}},
@@ -509,8 +518,8 @@ func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
 		name string
 		pcrs []PCR
 	}{
-		{"forged first", []PCR{forged16, real16}},
-		{"forged last", []PCR{real16, forged16}},
+		{"forged first", []PCR{forgedPCR, realPCR}},
+		{"forged last", []PCR{realPCR, forgedPCR}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if err := pub.VerifyAll([]Quote{*quote}, test.pcrs, nonce); err == nil {
@@ -528,11 +537,6 @@ func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
 				t.Error("EventLog.Verify() returned nil, want error for duplicate PCR entries")
 			}
 		})
-	}
-
-	// Sanity check: the genuine PCR alone verifies against the quote.
-	if err := pub.VerifyAll([]Quote{*quote}, []PCR{real16}, nonce); err != nil {
-		t.Errorf("VerifyAll() with genuine PCR failed: %v", err)
 	}
 }
 
