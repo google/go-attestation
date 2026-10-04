@@ -540,6 +540,78 @@ func TestSimVerifyRejectsDuplicatePCRs(t *testing.T) {
 	}
 }
 
+func TestSimVerifyRejectsWrongSizePCRDigests(t *testing.T) {
+	// PCRs 16 and 23 can be extended freely in the simulator.
+	testPCRIndexes := []int{16, 23}
+
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+
+	for _, index := range testPCRIndexes {
+		d := sha256.Sum256([]byte{byte(index)})
+		if err := tpm2.PCRExtend(sim.TPM(), tpmutil.Handle(index), tpm2.AlgSHA256, d[:], ""); err != nil {
+			t.Fatalf("PCRExtend() failed: %v", err)
+		}
+	}
+
+	allPCRs, err := tpm.PCRs(HashSHA256)
+	if err != nil {
+		t.Fatalf("tpm.PCRs() failed: %v", err)
+	}
+
+	var realPCRs []PCR
+	for _, index := range testPCRIndexes {
+		for _, p := range allPCRs {
+			if p.Index == index {
+				realPCRs = append(realPCRs, p)
+			}
+		}
+	}
+
+	nonce := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	quote, err := ak.QuotePCRs(tpm, nonce, HashSHA256, testPCRIndexes)
+	if err != nil {
+		t.Fatalf("ak.QuotePCRs() failed: %v", err)
+	}
+
+	pub, err := ParseAKPublic(ak.AttestationParameters().Public)
+	if err != nil {
+		t.Fatalf("ParseAKPublic() failed: %v", err)
+	}
+
+	// Sanity check: the genuine PCRs verify against the quote, so any failure
+	// below is due to the digest sizes.
+	if err := pub.VerifyAll([]Quote{*quote}, realPCRs, nonce); err != nil {
+		t.Fatalf("VerifyAll() with genuine PCRs failed: %v", err)
+	}
+
+	// The quote covers the concatenation of the selected PCR values, so moving
+	// the boundary between two of them leaves the quoted digest unchanged.
+	first, second := realPCRs[0], realPCRs[1]
+	pcrs := []PCR{
+		{Index: first.Index, DigestAlg: crypto.SHA256, Digest: append(append([]byte{}, first.Digest...), second.Digest[0])},
+		{Index: second.Index, DigestAlg: crypto.SHA256, Digest: second.Digest[1:]},
+	}
+
+	if err := pub.VerifyAll([]Quote{*quote}, pcrs, nonce); err == nil {
+		t.Error("VerifyAll() returned nil, want error for wrong size PCR digests")
+	}
+	if err := pub.Verify(*quote, pcrs, nonce); err == nil {
+		t.Error("Verify() returned nil, want error for wrong size PCR digests")
+	}
+	for _, p := range pcrs {
+		if p.QuoteVerified() {
+			t.Errorf("PCR %d (digest %x) marked quote-verified", p.Index, p.Digest)
+		}
+	}
+}
+
 func TestSimAttestPlatform(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()

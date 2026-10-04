@@ -365,8 +365,9 @@ func ParseAKPublic(public []byte) (*AKPublic, error) {
 // Verify is used to prove authenticity of the PCR measurements. It ensures that
 // the quote was signed by the AK, and that its contents matches the PCR and
 // nonce combination. An error is returned if a provided PCR index was not part
-// of the quote, or if pcrs contains more than one entry for the same index and
-// digest algorithm. QuoteVerified() will return true on PCRs which were
+// of the quote, if pcrs contains more than one entry for the same index and
+// digest algorithm, or if a PCR using the quote's digest algorithm has a digest
+// of the wrong size. QuoteVerified() will return true on PCRs which were
 // verified by a quote.
 //
 // Do NOT use this method if you have multiple quotes to verify: Use VerifyAll
