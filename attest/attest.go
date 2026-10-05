@@ -245,6 +245,24 @@ func (p *PCR) QuoteVerified() bool {
 	return p.quoteVerified
 }
 
+// checkUniquePCRs returns an error if pcrs contains more than one entry for
+// the same PCR index and digest algorithm.
+func checkUniquePCRs(pcrs []PCR) error {
+	type pcrKey struct {
+		index int
+		alg   crypto.Hash
+	}
+	seen := make(map[pcrKey]struct{}, len(pcrs))
+	for _, pcr := range pcrs {
+		k := pcrKey{pcr.Index, pcr.DigestAlg}
+		if _, exists := seen[k]; exists {
+			return fmt.Errorf("duplicate entry for PCR %d (%v)", pcr.Index, pcr.DigestAlg)
+		}
+		seen[k] = struct{}{}
+	}
+	return nil
+}
+
 // EK is a burned-in endorsement key bound to a TPM. This optionally contains
 // a certificate that can chain to the TPM manufacturer.
 type EK struct {
@@ -347,8 +365,9 @@ func ParseAKPublic(public []byte) (*AKPublic, error) {
 // Verify is used to prove authenticity of the PCR measurements. It ensures that
 // the quote was signed by the AK, and that its contents matches the PCR and
 // nonce combination. An error is returned if a provided PCR index was not part
-// of the quote. QuoteVerified() will return true on PCRs which were verified
-// by a quote.
+// of the quote, or if pcrs contains more than one entry for the same index and
+// digest algorithm. QuoteVerified() will return true on PCRs which were
+// verified by a quote.
 //
 // Do NOT use this method if you have multiple quotes to verify: Use VerifyAll
 // instead.
