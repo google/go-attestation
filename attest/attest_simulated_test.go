@@ -699,27 +699,6 @@ func TestSimPCRs(t *testing.T) {
 	}
 }
 
-// TODO: Remove this as part of fix for #530
-// https://github.com/google/go-attestation/issues/530
-func TestPersistenceSRKWrongHeirachy(t *testing.T) {
-	sim, tpm := setupSimulatedTPM(t)
-	defer sim.Close()
-
-	parentConfig := defaultParentConfig
-
-	// Setting an Endorsement hierarchy password must not affect SRK creation,
-	// which uses the Owner (Storage) hierarchy.
-	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
-	if err := tpm2.HierarchyChangeAuth(sim.TPM(), tpm2.HandleEndorsement, auth, "endorsement-secret"); err != nil {
-		t.Fatalf("tpm2.HierarchyChangeAuth(HandleEndorsement) failed: %v", err)
-	}
-
-	_, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
-	if err == nil {
-		t.Fatalf("getStorageRootKeyHandle() unexpectedly succeeded")
-	}
-}
-
 func TestSimPersistenceSRK(t *testing.T) {
 	testPersistenceSRK(t, defaultParentConfig)
 }
@@ -738,11 +717,10 @@ func testPersistenceSRK(t *testing.T, parentConfig ParentKeyConfig) {
 
 	// Setting an Endorsement hierarchy password must not affect SRK creation,
 	// which uses the Owner (Storage) hierarchy.
-	// TODO: https://github.com/google/go-attestation/issues/530: Enable this as part of this fix.
-	// auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
-	// if err := tpm2.HierarchyChangeAuth(sim.TPM(), tpm2.HandleEndorsement, auth, "endorsement-secret"); err != nil {
-	//	t.Fatalf("tpm2.HierarchyChangeAuth(HandleEndorsement) failed: %v", err)
-	// }
+	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
+	if err := tpm2.HierarchyChangeAuth(sim.TPM(), tpm2.HandleEndorsement, auth, "endorsement-secret"); err != nil {
+		t.Fatalf("tpm2.HierarchyChangeAuth(HandleEndorsement) failed: %v", err)
+	}
 
 	srkHnd, _, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
 	if err != nil {
@@ -784,9 +762,8 @@ func testPersistenceSRK(t *testing.T, parentConfig ParentKeyConfig) {
 	if err != nil {
 		t.Fatalf("wantPub.Key() failed: %v", err)
 	}
-	if cmp.Equal(gotKey, wantKey) {
-		t.Errorf("TODO: #530: Invert the logic as part of this fix")
-		// t.Errorf("SRK public key at 0x%x does not match primary key created under tpm2.HandleOwner", srkHnd)
+	if !cmp.Equal(gotKey, wantKey) {
+		t.Errorf("SRK public key at 0x%x does not match primary key created under tpm2.HandleOwner", srkHnd)
 	}
 
 	srkHnd, p, err := tpm.tpm.(*wrappedTPM20).getStorageRootKeyHandle(parentConfig)
