@@ -816,6 +816,15 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 // CheckSignatureFrom verifies that the signature on c is a valid signature
 // from parent.
 func (c *AttributeCertificate) CheckSignatureFrom(parent *x509.Certificate) error {
+	// RFC 5280, 4.2.1.9: if basic constraints is present but the cA boolean
+	// is not asserted, the certified public key must not be used to verify
+	// certificate signatures. Issuers which omit the extension entirely are
+	// still accepted, since AC issuers in the wild do that (see
+	// testdata/IntelSigningKey_20April2017.cer).
+	if parent.BasicConstraintsValid && !parent.IsCA {
+		return x509.ConstraintViolationError{}
+	}
+
 	if parent.KeyUsage != 0 && parent.KeyUsage&x509.KeyUsageCertSign == 0 {
 		return x509.ConstraintViolationError{}
 	}

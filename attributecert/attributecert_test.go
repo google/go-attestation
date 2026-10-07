@@ -16,11 +16,14 @@ package attributecert
 
 import (
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"math/big"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestVerifyAttributeCert(t *testing.T) {
@@ -55,6 +58,45 @@ func TestVerifyAttributeCert(t *testing.T) {
 				t.Fatalf("failed to verify signature on %s: %v", filename, err)
 			}
 		})
+	}
+}
+
+func TestVerifyAttributeCertRejectsNonCAIssuer(t *testing.T) {
+	signerTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName:   "Test Non-CA Attribute Cert Signer",
+			Organization: []string{"Test Org"},
+		},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  false,
+		BasicConstraintsValid: true,
+	}
+	signerKey, signerCert := createKeyAndCert(t, signerTemplate, signerTemplate)
+
+	_, holderCert := signCert(t, &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			CommonName:   "Test EK",
+			Organization: []string{"Test Org"},
+		},
+		NotBefore: time.Now().Add(-time.Hour),
+		NotAfter:  time.Now().Add(time.Hour),
+	}, signerTemplate, signerKey)
+
+	data, err := CreateAttributeCertificateFor(holderCert, time.Now().Add(-time.Hour), time.Now().Add(time.Hour), signerCert, signerKey)
+	if err != nil {
+		t.Fatalf("CreateAttributeCertificateFor() failed: %v", err)
+	}
+	attributecert, err := ParseAttributeCertificate(data)
+	if err != nil {
+		t.Fatalf("ParseAttributeCertificate() failed: %v", err)
+	}
+
+	err = attributecert.CheckSignatureFrom(signerCert)
+	if _, ok := err.(x509.ConstraintViolationError); !ok {
+		t.Errorf("CheckSignatureFrom() = %v, want x509.ConstraintViolationError", err)
 	}
 }
 
