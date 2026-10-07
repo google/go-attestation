@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
@@ -106,19 +107,16 @@ func selftestCredentialActivationWithEK(tpm *attest.TPM, ak *attest.AK) error {
 		}
 		secret, ec, err := ap.Generate()
 		if err != nil {
-			e2 := fmt.Sprintf("EK #%d: failed to generate activation challenge: %v", i, err)
-			allErrors = multierr.Append(allErrors, errors.New(e2))
+			allErrors = multierr.Append(allErrors, fmt.Errorf("EK #%d: failed to generate activation challenge: %w", i, err))
 			continue
 		}
 		decryptedSecret, err := ak.ActivateCredentialWithEK(tpm, *ec, ek)
 		if err != nil {
-			e2 := fmt.Sprintf("EK #%d: failed to activate credential: %v", i, err)
-			allErrors = multierr.Append(allErrors, errors.New(e2))
+			allErrors = multierr.Append(allErrors, fmt.Errorf("EK #%d: failed to activate credential: %w", i, err))
 			continue
 		}
 		if !bytes.Equal(secret, decryptedSecret) {
-			e2 := fmt.Sprintf("EK #%d: credential activation produced incorrect secret", i)
-			allErrors = multierr.Append(allErrors, errors.New(e2))
+			allErrors = multierr.Append(allErrors, fmt.Errorf("EK #%d: credential activation produced incorrect secret", i))
 			continue
 		}
 	}
@@ -150,19 +148,16 @@ func selftestCredentialActivationWithEkAttestation(tpm *attest.TPM, ak *attest.A
 
 		challenge, hmacKey, err := attest.GenerateEkChallenge(ek.Public)
 		if err != nil {
-			e2 := fmt.Sprintf("EK #%d: failed to generate EK challenge: %v", i, err)
-			allErrors = multierr.Append(allErrors, errors.New(e2))
+			allErrors = multierr.Append(allErrors, fmt.Errorf("EK #%d: failed to generate EK challenge: %w", i, err))
 			continue
 		}
 		certParams, err := ak.CertifyWithDecryptionEk(tpm, &ek, *challenge)
 		if err != nil {
-			e2 := fmt.Sprintf("EK #%d: failed to certify with decryption EK: %v", i, err)
-			allErrors = multierr.Append(allErrors, errors.New(e2))
+			allErrors = multierr.Append(allErrors, fmt.Errorf("EK #%d: failed to certify with decryption EK: %w", i, err))
 			continue
 		}
 		if err := attest.VerifySolvedDecryptionEkChallenge(ak.AttestationParameters().Public, certParams, *hmacKey); err != nil {
-			e2 := fmt.Sprintf("EK #%d: failed to verify solved EK decryption challenge: %v", i, err)
-			allErrors = multierr.Append(allErrors, errors.New(e2))
+			allErrors = multierr.Append(allErrors, fmt.Errorf("EK #%d: failed to verify solved EK decryption challenge: %w", i, err))
 			continue
 		}
 	}
@@ -227,6 +222,108 @@ func selftest(tpm *attest.TPM) error {
 		allErrors = multierr.Append(allErrors, fmt.Errorf("state attestation failed: %v", err))
 	}
 	return allErrors
+}
+
+func signRSA(tpm *attest.TPM, ak *attest.AK) error {
+	k, err := tpm.NewKey(ak, &attest.KeyConfig{
+		Algorithm: attest.RSA,
+		Size:      2048,
+	})
+	if err != nil {
+		return fmt.Errorf("NewKey() failed: %v", err)
+	}
+	defer k.Close()
+	fmt.Println("RSA key created successfully")
+
+	rsaPub, ok := k.Public().(*rsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("public key is not RSA: %T", k.Public())
+	}
+
+	priv, err := k.Private(k.Public())
+	if err != nil {
+		return fmt.Errorf("failed to get private key: %w", err)
+	}
+	signer, ok := priv.(crypto.Signer)
+	if !ok {
+		return fmt.Errorf("private key does not implement crypto.Signer")
+	}
+
+	testPattern := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
+		0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f}
+
+	// Sign a simple pattern with the RSA signing key using PSS.
+	// We use PSSSaltLengthAuto to allow the library to choose (usually matches digest length).
+	sig, err := signer.Sign(nil, testPattern, &rsa.PSSOptions{
+		SaltLength: rsa.PSSSaltLengthAuto,
+		Hash:       crypto.SHA256,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to sign with RSA signing key: %w", err)
+	}
+
+	// Try to verify using every possible salt length.
+	err = rsa.VerifyPSS(rsaPub, crypto.SHA256, testPattern, sig, &rsa.PSSOptions{
+		SaltLength: 32,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to verify with RSA signing key: %w", err)
+	}
+	return nil
+}
+
+func signECDSA(tpm *attest.TPM, ak *attest.AK) error {
+	k, err := tpm.NewKey(ak, &attest.KeyConfig{
+		Algorithm: attest.ECDSA,
+		Size:      256,
+	})
+	if err != nil {
+		return fmt.Errorf("NewKey() failed: %v", err)
+	}
+	defer k.Close()
+
+	ecdsaPub, ok := k.Public().(*ecdsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("public key is not ECDSA: %T", k.Public())
+	}
+
+	priv, err := k.Private(k.Public())
+	if err != nil {
+		return fmt.Errorf("failed to get private key: %w", err)
+	}
+	signer, ok := priv.(crypto.Signer)
+	if !ok {
+		return fmt.Errorf("private key does not implement crypto.Signer")
+	}
+
+	testPattern := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14,
+		0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f}
+
+	sig, err := signer.Sign(nil, testPattern, crypto.SHA256)
+	if err != nil {
+		return fmt.Errorf("failed to sign with ECDSA signing key: %w", err)
+	}
+
+	if !ecdsa.VerifyASN1(ecdsaPub, testPattern, sig) {
+		return fmt.Errorf("failed to verify with ECDSA signing key")
+	}
+	fmt.Println("ECDSA key verified successfully")
+	return nil
+}
+
+func sign(tpm *attest.TPM) error {
+	ak, err := tpm.NewAK(nil)
+	if err != nil {
+		return fmt.Errorf("NewAK() failed: %v", err)
+	}
+	defer ak.Close(tpm)
+
+	if err := signRSA(tpm, ak); err != nil {
+		return err
+	}
+	return signECDSA(tpm, ak)
 }
 
 func runCommand(tpm *attest.TPM) error {
@@ -327,6 +424,13 @@ func runCommand(tpm *attest.TPM) error {
 		}
 		fmt.Println("PASS")
 
+	case "sign":
+		err := sign(tpm)
+		if err != nil {
+			fmt.Println("FAIL")
+			return err
+		}
+		fmt.Println("PASS")
 	default:
 		return fmt.Errorf("no such command %q", flag.Arg(0))
 	}
