@@ -395,6 +395,15 @@ func parseEfiSignatureList(b []byte) ([]x509.Certificate, [][]byte, error) {
 		if signatures.Header.SignatureHeaderSize >= remainingListSize {
 			return nil, nil, fmt.Errorf("SignatureHeaderSize %d exceeds remaining signature list space %d", signatures.Header.SignatureHeaderSize, remainingListSize)
 		}
+		// Per UEFI spec section 31.4.1 the signature entries occupy the rest of
+		// the list, so their area is a whole number of SignatureSize entries.
+		// Without this check the loops below step past SignatureListSize and
+		// keep reading, reporting bytes from beyond the list as entries that
+		// firmware never treated as part of it.
+		entriesSize := remainingListSize - signatures.Header.SignatureHeaderSize
+		if entriesSize%signatures.Header.SignatureSize != 0 {
+			return nil, nil, fmt.Errorf("signature list entries occupy %d bytes, which is not a multiple of SignatureSize %d", entriesSize, signatures.Header.SignatureSize)
+		}
 		// Skip the vendor-specific SignatureHeader bytes per UEFI spec section 31.4.1.
 		// Without this, vendor bytes are misread as signature entries, allowing a
 		// crafted event log to inject arbitrary hashes into the trusted hash list.
