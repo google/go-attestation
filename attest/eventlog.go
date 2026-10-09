@@ -303,6 +303,11 @@ func (a *AKPublic) validateQuote(quote Quote, pcrs []PCR, nonce []byte) error {
 	}
 	for _, pcr := range pcrs {
 		if pcr.DigestAlg == pcrDigestAlg {
+			// The quote only covers the concatenation of the PCR values, so each
+			// digest must have the size of the quote's hash to be bound to its index.
+			if len(pcr.Digest) != pcrDigestAlg.Size() {
+				return fmt.Errorf("PCR %d digest is %d bytes, want %d for %v", pcr.Index, len(pcr.Digest), pcrDigestAlg.Size(), pcrDigestAlg)
+			}
 			pcrByIndex[pcr.Index] = pcr.Digest
 		}
 	}
