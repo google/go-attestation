@@ -62,6 +62,13 @@ type VerifyOpts struct {
 	// Hash is the hash function used for signature verification. It can be
 	// extracted from the properties of the certifying key.
 	Hash crypto.Hash
+	// QualifyingData, when non-nil, is matched against the qualifying data
+	// (ExtraData) embedded in the certification. This is the value supplied as
+	// KeyConfig.QualifyingData / CertifyOpts.QualifyingData when the key was
+	// certified, and lets a verifier bind a certification to a challenge it
+	// issued. Left nil, the qualifying data is not checked, preserving the
+	// previous behavior.
+	QualifyingData []byte
 }
 
 // ActivateOpts specifies options for the key certification's challenge generation.
@@ -108,6 +115,7 @@ func NewActivateOpts(verifierPubKey tpm2.Public, ek crypto.PublicKey) (*Activate
 // - the key was TPM-generated and resides within TPM
 // - the key can sign/decrypt outside-TPM objects
 // - the signature is successfully verified against the passed public key
+// - the qualifying data matches opts.QualifyingData, when that is set
 // For now, it accepts only RSA verification keys.
 func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	pub, err := tpm2.DecodePublic(p.Public)
@@ -120,6 +128,9 @@ func (p *CertificationParameters) Verify(opts VerifyOpts) error {
 	}
 	if att.Type != tpm2.TagAttestCertify {
 		return fmt.Errorf("attestation does not apply to certification data, got tag %x", att.Type)
+	}
+	if opts.QualifyingData != nil && !bytes.Equal(att.ExtraData, opts.QualifyingData) {
+		return fmt.Errorf("qualifying data = %#v, want %#v", att.ExtraData, opts.QualifyingData)
 	}
 
 	switch pub.Type {
