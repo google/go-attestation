@@ -299,6 +299,44 @@ func TestParseSpecIDEvent(t *testing.T) {
 			),
 			wantErr: true,
 		},
+		{
+			name: "duplicate_algs",
+			data: append(
+				[]byte("Spec ID Event03"), 0x0,
+				0x0, 0x0, 0x0, 0x0, // platform class
+				0x0,                // version minor
+				0x2,                // version major
+				0x0,                // errata
+				0x8,                // uintn size
+				0x2, 0x0, 0x0, 0x0, // num algs
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x2, // vendor info size
+				0x0, 0x0,
+			),
+			wantErr: true,
+		},
+		{
+			name: "unknown_alg",
+			data: append(
+				[]byte("Spec ID Event03"), 0x0,
+				0x0, 0x0, 0x0, 0x0, // platform class
+				0x0,                // version minor
+				0x2,                // version major
+				0x0,                // errata
+				0x8,                // uintn size
+				0x2, 0x0, 0x0, 0x0, // num algs
+				0x04, 0x0, // SHA1
+				0x14, 0x0, // size
+				0x0B, 0x01, // not a hash algorithm
+				0x20, 0x0, // size
+				0x2, // vendor info size
+				0x0, 0x0,
+			),
+			wantErr: true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
