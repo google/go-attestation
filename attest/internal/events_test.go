@@ -117,3 +117,59 @@ func TestParseEfiSignatureListVendorHeaderNotTrusted(t *testing.T) {
 		t.Errorf("parseEfiSignatureList returned hash %x, expected %x", hashes[0], legitHash)
 	}
 }
+
+func TestParseEfiSignatureListUnalignedEntryArea(t *testing.T) {
+	sigType := [16]byte{
+		0x26, 0x16, 0xc4, 0xc1, 0x4c, 0x50, 0x92, 0x40,
+		0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28,
+	}
+	const (
+		sha256HashSize = 32
+		sigSize        = efiGUIDSize + sha256HashSize
+		// Room for one entry plus 16 bytes that belong to no entry, so the
+		// declared list size is not a whole number of entries.
+		entryAreaSize = sigSize + 16
+	)
+	legitHash := bytes.Repeat([]byte{0xBB}, sha256HashSize)
+	legitEntry := make([]byte, sigSize)
+	copy(legitEntry[efiGUIDSize:], legitHash)
+	// A hash sitting past the end of the declared list. Stepping over
+	// SignatureListSize reports it as a second entry of that list.
+	outsideList := bytes.Repeat([]byte{0xAA}, sha256HashSize)
+
+	sigListSize := uint32(efiSignatureListHeaderSize + entryAreaSize)
+	data := buildEFISignatureListData(sigType, sigListSize, 0, sigSize, 0)
+	data = append(data, legitEntry...)
+	data = append(data, make([]byte, 16)...)
+	data = append(data, outsideList...)
+
+	if _, _, err := parseEfiSignatureList(data); err == nil {
+		t.Error("parseEfiSignatureList() accepted a list whose entry area is not a multiple of SignatureSize, want error")
+	}
+}
+
+func TestParseEfiSignatureListNoCompleteEntry(t *testing.T) {
+	sigType := [16]byte{
+		0x26, 0x16, 0xc4, 0xc1, 0x4c, 0x50, 0x92, 0x40,
+		0xac, 0xa9, 0x41, 0xf9, 0x36, 0x93, 0x43, 0x28,
+	}
+	const (
+		sha256HashSize   = 32
+		sigSize          = efiGUIDSize + sha256HashSize
+		vendorHeaderSize = 16
+		// Shorter than one entry, so the list holds no valid entries at all,
+		// only trailing bytes after the vendor header.
+		entryAreaSize = sigSize - vendorHeaderSize
+	)
+	// Bytes past the end of the declared list. Reading a full entry from
+	// the short entry area runs into them.
+	outsideList := bytes.Repeat([]byte{0xAA}, sigSize-entryAreaSize)
+
+	sigListSize := uint32(efiSignatureListHeaderSize + vendorHeaderSize + entryAreaSize)
+	data := buildEFISignatureListData(sigType, sigListSize, vendorHeaderSize, sigSize, vendorHeaderSize+entryAreaSize)
+	data = append(data, outsideList...)
+
+	if _, _, err := parseEfiSignatureList(data); err == nil {
+		t.Error("parseEfiSignatureList() accepted a list with no complete entry, want error")
+	}
+}
