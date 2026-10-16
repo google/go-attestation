@@ -579,8 +579,12 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 		// Every event carries a digest for each listed algorithm and the digest
 		// parser looks each one up in this list, so keep it to distinct, known
 		// hash algorithms.
-		if _, err := tpm2.Algorithm(specAlg.ID).Hash(); err != nil {
+		h, err := tpm2.Algorithm(specAlg.ID).Hash()
+		if err != nil {
 			return nil, fmt.Errorf("unsupported algorithm 0x%x: %v", specAlg.ID, err)
+		}
+		if int(specAlg.Size) != h.Size() {
+			return nil, fmt.Errorf("algorithm 0x%04x declared digest size %d, expected %d", specAlg.ID, specAlg.Size, h.Size())
 		}
 		for _, alg := range e.algs {
 			if alg.ID == specAlg.ID {
