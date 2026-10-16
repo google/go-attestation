@@ -515,6 +515,18 @@ func ParseEventLog(measurementLog []byte) (*EventLog, error) {
 
 type specIDEvent struct {
 	algs []specAlgSize
+	// algByID avoids scanning algs, which a log may pad with duplicates.
+	algByID map[uint16]specAlgSize
+}
+
+// newSpecIDEvent indexes algs by ID, a later entry winning over an earlier one.
+// It is the only way to construct a specIDEvent, so the index cannot go stale.
+func newSpecIDEvent(algs []specAlgSize) *specIDEvent {
+	e := &specIDEvent{algs: algs, algByID: make(map[uint16]specAlgSize)}
+	for _, alg := range algs {
+		e.algByID[alg.ID] = alg
+	}
+	return e
 }
 
 type specAlgSize struct {
@@ -571,12 +583,12 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 	// we're okay with?
 
 	specAlg := specAlgSize{}
-	e := specIDEvent{}
+	var algs []specAlgSize
 	for i := 0; i < int(header.NumAlgs); i++ {
 		if err := binary.Read(r, binary.LittleEndian, &specAlg); err != nil {
 			return nil, fmt.Errorf("reading algorithm: %v", err)
 		}
-		e.algs = append(e.algs, specAlg)
+		algs = append(algs, specAlg)
 	}
 
 	var vendorInfoSize uint8
@@ -586,7 +598,7 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 	if r.Len() != int(vendorInfoSize) {
 		return nil, fmt.Errorf("reading vendor info, expected %d remaining bytes, got %d", vendorInfoSize, r.Len())
 	}
-	return &e, nil
+	return newSpecIDEvent(algs), nil
 }
 
 type digest struct {
@@ -673,21 +685,17 @@ func parseRawEvent2(r *bytes.Buffer, specID *specIDEvent) (event rawEvent, err e
 		}
 		var digest digest
 
-		for _, alg := range specID.algs {
-			if alg.ID != algID {
-				continue
-			}
-			if r.Len() < int(alg.Size) {
-				return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
-			}
-			digest.data = make([]byte, alg.Size)
-			digest.hash, err = HashAlg(alg.ID).cryptoHash()
-			if err != nil {
-				return event, fmt.Errorf("unknown algorithm ID %x: %v", algID, err)
-			}
-		}
-		if len(digest.data) == 0 {
+		alg, ok := specID.algByID[algID]
+		if !ok || alg.Size == 0 {
 			return event, fmt.Errorf("unknown algorithm ID %x", algID)
+		}
+		if r.Len() < int(alg.Size) {
+			return event, fmt.Errorf("reading digest: %v", io.ErrUnexpectedEOF)
+		}
+		digest.data = make([]byte, alg.Size)
+		digest.hash, err = HashAlg(alg.ID).cryptoHash()
+		if err != nil {
+			return event, fmt.Errorf("unknown algorithm ID %x: %v", algID, err)
 		}
 		if _, err := io.ReadFull(r, digest.data); err != nil {
 			return event, err
@@ -737,14 +745,11 @@ func AppendEvents(base []byte, additional ...[]byte) ([]byte, error) {
 			return nil, fmt.Errorf("log %d: cannot use tpm 1.2 event log as a source", i)
 		}
 
-	algCheck:
-		for _, alg := range log.specIDEvent.algs {
-			for _, baseAlg := range baseLog.specIDEvent.algs {
-				if baseAlg == alg {
-					continue algCheck
-				}
+		for _, declared := range log.specIDEvent.algs {
+			alg := log.specIDEvent.algByID[declared.ID]
+			if baseAlg, ok := baseLog.specIDEvent.algByID[alg.ID]; !ok || baseAlg != alg {
+				return nil, fmt.Errorf("log %d: cannot use digest (%+v) not present in base log. Base log has digests: %+v", i, alg, baseLog.specIDEvent.algs)
 			}
-			return nil, fmt.Errorf("log %d: cannot use digest (%+v) not present in base log. Base log has digests: %+v", i, alg, baseLog.specIDEvent.algs)
 		}
 
 		for x, e := range log.rawEvents {
