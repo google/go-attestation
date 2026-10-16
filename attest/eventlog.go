@@ -576,6 +576,21 @@ func parseSpecIDEvent(b []byte) (*specIDEvent, error) {
 		if err := binary.Read(r, binary.LittleEndian, &specAlg); err != nil {
 			return nil, fmt.Errorf("reading algorithm: %v", err)
 		}
+		// Every event carries a digest for each listed algorithm and the digest
+		// parser looks each one up in this list, so keep it to distinct, known
+		// hash algorithms.
+		h, err := tpm2.Algorithm(specAlg.ID).Hash()
+		if err != nil {
+			return nil, fmt.Errorf("unsupported algorithm 0x%x: %v", specAlg.ID, err)
+		}
+		if int(specAlg.Size) != h.Size() {
+			return nil, fmt.Errorf("algorithm 0x%04x declared digest size %d, expected %d", specAlg.ID, specAlg.Size, h.Size())
+		}
+		for _, alg := range e.algs {
+			if alg.ID == specAlg.ID {
+				return nil, fmt.Errorf("duplicate algorithm 0x%x", specAlg.ID)
+			}
+		}
 		e.algs = append(e.algs, specAlg)
 	}
 
