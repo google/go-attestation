@@ -223,6 +223,65 @@ func TestKeyCertificationECC(t *testing.T) {
 	testKeyCertification(t, tpm, ECDSA)
 }
 
+func TestSimKeyCertificationQualifyingDataRSA(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testKeyCertificationQualifyingData(t, tpm, RSA)
+}
+
+func TestSimKeyCertificationQualifyingDataECC(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+	testKeyCertificationQualifyingData(t, tpm, ECDSA)
+}
+
+// testKeyCertificationQualifyingData checks that Verify matches the qualifying
+// data embedded in a certification against VerifyOpts.QualifyingData so a
+// verifier can bind a certification to a challenge it issued.
+func testKeyCertificationQualifyingData(t *testing.T, tpm *TPM, akAlg Algorithm) {
+	ak, err := tpm.NewAK(&AKConfig{Algorithm: akAlg})
+	if err != nil {
+		t.Fatalf("NewAK() failed: %v", err)
+	}
+	pub, err := tpm2.DecodePublic(ak.AttestationParameters().Public)
+	if err != nil {
+		t.Fatalf("DecodePublic() failed: %v", err)
+	}
+	pk, err := pub.Key()
+	if err != nil {
+		t.Fatalf("pub.Key() failed: %v", err)
+	}
+	hash, err := pub.NameAlg.Hash()
+	if err != nil {
+		t.Fatalf("cannot access AK's hash function: %v", err)
+	}
+
+	nonce := []byte("verifier issued challenge")
+	sk, err := tpm.NewKey(ak, &KeyConfig{Algorithm: ECDSA, Size: 256, QualifyingData: nonce})
+	if err != nil {
+		t.Fatalf("NewKey() failed: %v", err)
+	}
+	defer sk.Close()
+	p := sk.CertificationParameters()
+
+	for _, test := range []struct {
+		name           string
+		qualifyingData []byte
+		err            error
+	}{
+		{name: "unchecked", qualifyingData: nil, err: nil},
+		{name: "matches", qualifyingData: nonce, err: nil},
+		{name: "mismatch", qualifyingData: []byte("different challenge"), err: cmpopts.AnyError},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := p.Verify(VerifyOpts{Public: pk, Hash: hash, QualifyingData: test.qualifyingData})
+			if got, want := err, test.err; !cmp.Equal(got, want, cmpopts.EquateErrors()) {
+				t.Errorf("p.Verify() err = %v, want = %v", got, want)
+			}
+		})
+	}
+}
+
 func extraData(t *testing.T, p CertificationParameters) []byte {
 	t.Helper()
 	ad, err := tpm2.DecodeAttestationData(p.CreateAttestation)
