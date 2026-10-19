@@ -17,6 +17,7 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -104,7 +105,7 @@ func testEventLog(t *testing.T, testdata string) {
 	if err != nil {
 		t.Fatalf("parsing event log: %v", err)
 	}
-	events, err := el.Verify(dump.Log.PCRs)
+	events, err := el.VerifyAll(dump.Log.PCRs)
 	if err != nil {
 		t.Fatalf("validating event log: %v", err)
 	}
@@ -419,8 +420,8 @@ func TestEBSVerifyWorkaround(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseEventLog() failed: %v", err)
 	}
-	if _, err := el.Verify(pcr5); err != nil {
-		t.Errorf("Verify() failed: %v", err)
+	if _, err := el.VerifyAll(pcr5); err != nil {
+		t.Errorf("VerifyAll() failed: %v", err)
 	}
 }
 
@@ -462,6 +463,50 @@ YWNrLHRvbW95byxicGYgcGFuaWM9MzAgaTkxNS5lbmFibGVfcHNyPTA=`)
 		t.Errorf("unexpected number of events in combined log: got %d, want %d", got, want)
 		for i, e := range parsed.rawEvents {
 			t.Logf("logs[%d] = %+v", i, e)
+		}
+	}
+}
+
+func TestVerifyAll(t *testing.T) {
+	// A SHA256 log with a StartupLocality event on PCR 0 and one event on PCR 7.
+	pcr7 := sha256.Sum256([]byte("event"))
+	pcr7Replay := sha256.Sum256(append(make([]byte, 32), pcr7[:]...))
+	el := &EventLog{rawEvents: []rawEvent{
+		{index: 0, typ: eventTypeNoAction, data: []byte("StartupLocality\x00\x03")},
+		{index: 7, typ: 1, sequence: 1, digests: []digest{{hash: crypto.SHA256, data: pcr7[:]}}},
+	}}
+
+	zeros := make([]byte, 32)
+	ones := bytes.Repeat([]byte{0xff}, 32)
+	locality3 := append(make([]byte, 31), 3)
+	bogus := bytes.Repeat([]byte{0xab}, 32)
+	replayed := PCR{Index: 7, Digest: pcr7Replay[:], DigestAlg: crypto.SHA256}
+	// The log has no SHA1 digests, so this entry can only pass on the back
+	// of the SHA256 entry for the same index.
+	sha1Bank := PCR{Index: 7, Digest: make([]byte, 20), DigestAlg: crypto.SHA1}
+
+	for _, tc := range []struct {
+		name    string
+		pcrs    []PCR
+		wantErr bool
+	}{
+		{"replayed", []PCR{replayed}, false},
+		{"replay mismatch", []PCR{{Index: 7, Digest: bogus, DigestAlg: crypto.SHA256}}, true},
+		{"no events zero", []PCR{{Index: 10, Digest: zeros, DigestAlg: crypto.SHA256}}, false},
+		{"no events non-initial", []PCR{{Index: 10, Digest: bogus, DigestAlg: crypto.SHA256}}, true},
+		{"no events pcr0 locality", []PCR{{Index: 0, Digest: locality3, DigestAlg: crypto.SHA256}}, false},
+		{"no events pcr0 zero", []PCR{{Index: 0, Digest: zeros, DigestAlg: crypto.SHA256}}, true},
+		{"no events drtm ones", []PCR{{Index: 17, Digest: ones, DigestAlg: crypto.SHA256}}, false},
+		{"no events drtm zero", []PCR{{Index: 17, Digest: zeros, DigestAlg: crypto.SHA256}}, true},
+		{"no events sha384 zero", []PCR{{Index: 10, Digest: make([]byte, 48), DigestAlg: crypto.SHA384}}, false},
+		{"no events sha384 short", []PCR{{Index: 10, Digest: zeros, DigestAlg: crypto.SHA384}}, true},
+		{"no events unknown alg", []PCR{{Index: 10, Digest: zeros, DigestAlg: crypto.Hash(0)}}, true},
+		{"second bank unexplained", []PCR{replayed, sha1Bank}, false},
+		{"second bank alone", []PCR{sha1Bank}, true},
+		{"no events one bank bogus", []PCR{{Index: 16, Digest: make([]byte, 20), DigestAlg: crypto.SHA1}, {Index: 16, Digest: bogus, DigestAlg: crypto.SHA256}}, true},
+	} {
+		if _, err := el.VerifyAll(tc.pcrs); (err != nil) != tc.wantErr {
+			t.Errorf("%s: VerifyAll() err = %v, wantErr %v", tc.name, err, tc.wantErr)
 		}
 	}
 }

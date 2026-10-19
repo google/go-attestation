@@ -217,6 +217,8 @@ func (e *EventLog) Events(hash HashAlg) []Event {
 // An error is returned if the replayed digest for events with a given PCR
 // index do not match any provided value for that PCR index, or if pcrs
 // contains more than one entry for the same index and digest algorithm.
+// A PCR with no events in the log never causes an error, whatever its
+// value; use VerifyAll to require that the log explains every PCR.
 func (e *EventLog) Verify(pcrs []PCR) ([]Event, error) {
 	events, err := e.verify(pcrs)
 	// If there were any issues replaying the PCRs, try each of the workarounds
@@ -238,6 +240,37 @@ func (e *EventLog) Verify(pcrs []PCR) ([]Event, error) {
 	}
 
 	return events, err
+}
+
+// VerifyAll is Verify with the additional requirement that the event log
+// explains every PCR index in pcrs: for each index, either some entry
+// replayed from the log, or no entry has events and every entry holds its
+// initial value. Initial values follow the TCG PC Client platform profile.
+func (e *EventLog) VerifyAll(pcrs []PCR) ([]Event, error) {
+	events, err := e.Verify(pcrs)
+	if err != nil {
+		return nil, err
+	}
+	replayed := map[int]bool{}
+	for _, ev := range events {
+		replayed[ev.Index] = true
+	}
+	locality := startupLocality(e.rawEvents)
+	unexplained := map[int]bool{}
+	for _, p := range pcrs {
+		if !replayed[p.Index] && !(p.DigestAlg.Available() && bytes.Equal(p.Digest, initialPCRValue(p, locality))) {
+			unexplained[p.Index] = true
+		}
+	}
+	if len(unexplained) > 0 {
+		var indices []int
+		for index := range unexplained {
+			indices = append(indices, index)
+		}
+		sort.Ints(indices)
+		return nil, fmt.Errorf("some PCRs were not explained by the event log: %v", indices)
+	}
+	return events, nil
 }
 
 func (e *EventLog) verify(pcrs []PCR) ([]Event, error) {
@@ -366,6 +399,32 @@ func extend(pcr PCR, replay []byte, e rawEvent, locality byte) (pcrDigest []byte
 		return hash.Sum(nil), digest.data, nil
 	}
 	return nil, nil, fmt.Errorf("no event digest matches pcr algorithm: %v", pcr.DigestAlg)
+}
+
+// startupLocality returns the locality recorded by a StartupLocality event,
+// or 0 if the log has none. Like replayPCR, the last such event wins.
+func startupLocality(rawEvents []rawEvent) (locality byte) {
+	for _, e := range rawEvents {
+		if e.index == 0 && e.typ == eventTypeNoAction && len(e.data) == 17 && strings.HasPrefix(string(e.data), "StartupLocality") {
+			locality = e.data[len(e.data)-1]
+		}
+	}
+	return locality
+}
+
+// initialPCRValue returns the value of pcr before any event extends it.
+// PCRs 17 to 22 hold all ones until a D-RTM launch resets them, so this is
+// not the seed used by extend.
+func initialPCRValue(pcr PCR, locality byte) []byte {
+	size := pcr.DigestAlg.Size()
+	if pcr.Index >= 17 && pcr.Index <= 22 {
+		return bytes.Repeat([]byte{0xff}, size)
+	}
+	b := make([]byte, size)
+	if pcr.Index == 0 {
+		b[size-1] = locality
+	}
+	return b
 }
 
 // replayPCR replays the event log for a specific PCR, using pcr and
