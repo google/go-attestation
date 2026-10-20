@@ -516,6 +516,10 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 	switch opts.Algorithm {
 	case RSA:
 		tmpl = rsaKeyTemplate
+		// The template contains pointers; copy them so the package-level
+		// template is never modified.
+		rsaParams := *rsaKeyTemplate.RSAParameters
+		tmpl.RSAParameters = &rsaParams
 		if opts.Size < 0 || opts.Size > 65535 { // basic sanity check
 			return tmpl, fmt.Errorf("incorrect size parameter")
 		}
@@ -523,6 +527,12 @@ func templateFromConfig(opts *KeyConfig) (tpm2.Public, error) {
 
 	case ECDSA:
 		tmpl = ecdsaKeyTemplate
+		// The template contains pointers; copy them so the package-level
+		// template is never modified.
+		eccParams := *ecdsaKeyTemplate.ECCParameters
+		sign := *ecdsaKeyTemplate.ECCParameters.Sign
+		eccParams.Sign = &sign
+		tmpl.ECCParameters = &eccParams
 		switch opts.Size {
 		case 256:
 			tmpl.NameAlg = tpm2.AlgSHA256
