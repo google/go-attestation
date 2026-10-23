@@ -12,11 +12,6 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build !localtest && cgo && !gofuzz
-// +build !localtest,cgo,!gofuzz
-
-// NOTE: simulator requires cgo, hence the build tag.
-
 package attest
 
 import (
@@ -33,12 +28,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 )
-
-func TestSimKeyCreateAndLoad(t *testing.T) {
-	sim, tpm := setupSimulatedTPM(t)
-	defer sim.Close()
-	testKeyCreateAndLoad(t, tpm)
-}
 
 func TestKeyCreateAndLoad(t *testing.T) {
 	if !*testLocal {
@@ -176,12 +165,6 @@ func testKeyCreateAndLoad(t *testing.T, tpm *TPM) {
 			}
 		})
 	}
-}
-
-func TestSimKeySign(t *testing.T) {
-	sim, tpm := setupSimulatedTPM(t)
-	defer sim.Close()
-	testKeySign(t, tpm)
 }
 
 func TestKeySign(t *testing.T) {
@@ -416,18 +399,21 @@ func verifyRSA(t *testing.T, pub crypto.PublicKey, digest, sig []byte, opts cryp
 	}
 }
 
-func TestSimKeySignErrors(t *testing.T) {
-	testKeySignErrors(t, true)
-}
-
 func TestKeySignErrors(t *testing.T) {
 	if !*testLocal {
 		t.SkipNow()
 	}
-	testKeySignErrors(t, false)
+	testKeySignErrors(t, func(t *testing.T) *TPM {
+		tpm, err := OpenTPM(nil)
+		if err != nil {
+			t.Fatalf("OpenTPM() failed: %v", err)
+		}
+		t.Cleanup(func() { tpm.Close() })
+		return tpm
+	})
 }
 
-func testKeySignErrors(t *testing.T, sim bool) {
+func testKeySignErrors(t *testing.T, openTPM func(t *testing.T) *TPM) {
 	for _, test := range []struct {
 		name     string
 		keyOpts  *KeyConfig
@@ -499,19 +485,7 @@ func testKeySignErrors(t *testing.T, sim bool) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var tpm *TPM
-			var err error
-			if sim {
-				s, tmpTpm := setupSimulatedTPM(t)
-				defer s.Close()
-				tpm = tmpTpm
-			} else {
-				tpm, err = OpenTPM(nil)
-				if err != nil {
-					t.Fatalf("OpenTPM() failed: %v", err)
-				}
-				defer tpm.Close()
-			}
+			tpm := openTPM(t)
 
 			ak, err := tpm.NewAK(nil)
 			if err != nil {
@@ -540,12 +514,6 @@ func testKeySignErrors(t *testing.T, sim bool) {
 			}
 		})
 	}
-}
-
-func TestSimKeyOpts(t *testing.T) {
-	sim, tpm := setupSimulatedTPM(t)
-	defer sim.Close()
-	testKeyOpts(t, tpm)
 }
 
 func TestKeyOpts(t *testing.T) {
