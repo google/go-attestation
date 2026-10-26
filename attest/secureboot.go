@@ -207,7 +207,12 @@ func ParseSecurebootState(events []Event) (*SecurebootState, error) {
 						return nil, fmt.Errorf("failed parsing EFI variable authority at event %d: %v", e.sequence, err)
 					}
 				}
-				seenAuthority = true
+				// Non-certificate EV_EFI_VARIABLE_AUTHORITY events (such as shim's
+				// SbatLevel and MokListTrusted metadata) yield no certificates and do
+				// not establish that a verification key was used.
+				if len(a.Certs) > 0 {
+					seenAuthority = true
+				}
 				if digestVerify != nil {
 					return nil, fmt.Errorf("invalid digest for authority on event %d: %v", e.sequence, digestVerify)
 				}
