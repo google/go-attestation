@@ -468,14 +468,14 @@ func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *io.Limit
 	if int64(header.Size) > r.N {
 		return fmt.Errorf("bitlocker data size (%d bytes) larger than remaining capacity (%d bytes)", header.Size, r.N)
 	}
-	data := make([]uint8, header.Size)
-	if err := binary.Read(r, binary.LittleEndian, &data); err != nil {
-		return fmt.Errorf("reading u%d: %w", header.Size<<8, err)
+	if header.Size == 0 {
+		return errors.New("bitlocker data is empty")
 	}
-	i, n := binary.Uvarint(data)
-	if n <= 0 {
-		return fmt.Errorf("reading u%d: invalid varint", header.Size<<8)
+	data := make([]uint8, 8)
+	if err := binary.Read(r, binary.LittleEndian, data[:header.Size]); err != nil {
+		return fmt.Errorf("reading u%d: %w", header.Size*8, err)
 	}
+	i := binary.LittleEndian.Uint64(data)
 
 	if pcr == 13 {
 		// The bitlocker status is duplicated across both PCRs. As such,
