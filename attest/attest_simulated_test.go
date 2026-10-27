@@ -23,6 +23,7 @@ package attest
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -958,6 +959,88 @@ func TestSignMsg(t *testing.T) {
 
 	if err := rsa.VerifyPKCS1v15(ak.Public().(*rsa.PublicKey), crypto.SHA256, hashed[:], sig); err != nil {
 		t.Errorf("rsa.VerifyPKCS1v15() failed: %v", err)
+	}
+}
+
+func TestSignMessage(t *testing.T) {
+	sim, tpm := setupSimulatedTPM(t)
+	defer sim.Close()
+
+	msg := []byte("hello world")
+	hashed := sha256.Sum256(msg)
+
+	for _, tc := range []struct {
+		name string
+		cfg  *AKConfig
+	}{
+		{
+			name: "RSA",
+			cfg:  nil,
+		},
+		{
+			name: "ECDSA",
+			cfg:  &AKConfig{Algorithm: ECDSA},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ak, err := tpm.NewAK(tc.cfg)
+			if err != nil {
+				t.Fatalf("NewAK() failed: %v", err)
+			}
+			defer ak.Close(tpm)
+
+			if _, err := ak.Sign(rand.Reader, hashed[:], crypto.SHA256); err == nil {
+				t.Errorf("Sign() = nil, want error")
+			}
+			if _, err := ak.SignMessage(rand.Reader, msg, nil); err == nil {
+				t.Errorf("SignMessage(nil opts) = nil, want error")
+			}
+
+			sig, err := ak.SignMessage(rand.Reader, msg, crypto.SHA256)
+			if err != nil {
+				t.Fatalf("SignMessage() failed: %v", err)
+			}
+
+			switch pub := ak.Public().(type) {
+			case *rsa.PublicKey:
+				if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, hashed[:], sig); err != nil {
+					t.Errorf("rsa.VerifyPKCS1v15() failed: %v", err)
+				}
+			case *ecdsa.PublicKey:
+				if !ecdsa.VerifyASN1(pub, hashed[:], sig) {
+					t.Errorf("ecdsa.VerifyASN1() = false, want true")
+				}
+			default:
+				t.Fatalf("unexpected public key type %T", pub)
+			}
+
+			blob, err := ak.Marshal()
+			if err != nil {
+				t.Fatalf("Marshal() failed: %v", err)
+			}
+			loadedAK, err := tpm.LoadAK(blob)
+			if err != nil {
+				t.Fatalf("LoadAK() failed: %v", err)
+			}
+			defer loadedAK.Close(tpm)
+
+			loadedSig, err := loadedAK.SignMessage(rand.Reader, msg, crypto.SHA256)
+			if err != nil {
+				t.Fatalf("loadedAK.SignMessage() failed: %v", err)
+			}
+			switch pub := loadedAK.Public().(type) {
+			case *rsa.PublicKey:
+				if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, hashed[:], loadedSig); err != nil {
+					t.Errorf("rsa.VerifyPKCS1v15() on loaded AK failed: %v", err)
+				}
+			case *ecdsa.PublicKey:
+				if !ecdsa.VerifyASN1(pub, hashed[:], loadedSig) {
+					t.Errorf("ecdsa.VerifyASN1() on loaded AK = false, want true")
+				}
+			default:
+				t.Fatalf("unexpected loaded public key type %T", pub)
+			}
+		})
 	}
 }
 
