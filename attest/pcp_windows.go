@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -54,6 +55,7 @@ var (
 	nCryptCreatePersistedKey  = nCrypt.MustFindProc("NCryptCreatePersistedKey")
 	nCryptFinalizeKey         = nCrypt.MustFindProc("NCryptFinalizeKey")
 	nCryptDeleteKey           = nCrypt.MustFindProc("NCryptDeleteKey")
+	nCryptExportKey           = nCrypt.MustFindProc("NCryptExportKey")
 
 	crypt32                            = windows.MustLoadDLL("crypt32.dll")
 	crypt32CertEnumCertificatesInStore = crypt32.MustFindProc("CertEnumCertificatesInStore")
@@ -290,51 +292,117 @@ func getPCPCerts(hProv uintptr, propertyName string) ([][]byte, error) {
 	return out, nil
 }
 
-// NewAK creates a persistent attestation key of the specified name.
-func (h *winPCP) NewAK(name string, alg Algorithm) (uintptr, error) {
+func (h *winPCP) newKey(name string, alg Algorithm, length uint32, policy uint32) (uintptr, []byte, []byte, error) {
 	var kh uintptr
 	utf16Name, err := windows.UTF16FromString(name)
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 	utf16Alg, err := windows.UTF16FromString(string(alg))
 	if err != nil {
-		return 0, err
+		return 0, nil, nil, err
 	}
 
-	// Create a persistent RSA key of the specified name.
+	// Create a persistent key using name and algoritm.
 	r, _, _ := nCryptCreatePersistedKey.Call(h.hProv, uintptr(unsafe.Pointer(&kh)), uintptr(unsafe.Pointer(&utf16Alg[0])), uintptr(unsafe.Pointer(&utf16Name[0])), 0, 0)
 	if r != 0 {
-		return 0, fmt.Errorf("NCryptCreatePersistedKey returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, fmt.Errorf("NCryptCreatePersistedKey returned %X (%v)", r, winErrCodeToString(r))
 	}
-	// Specify generated key length to be 2048 bits.
-	utf16Length, err := windows.UTF16FromString("Length")
-	if err != nil {
-		return 0, err
+	defer func() {
+		if err != nil {
+			// remove key if one of the other subsequent operations on it failed
+			if delErr := h.DeleteKey(kh); delErr != nil {
+				closeNCryptObject(kh) // DeleteKey frees the handle; but on error, free it here
+			}
+		}
+	}()
+
+	// Set the length if provided
+	if length != 0 {
+		utf16Length, lengthErr := windows.UTF16FromString("Length")
+		if lengthErr != nil {
+			err = lengthErr
+			return 0, nil, nil, err
+		}
+		r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
+		if r != 0 {
+			err = fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
+			return 0, nil, nil, err
+		}
 	}
-	var length uint32 = uint32(alg.Size())
-	r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16Length[0])), uintptr(unsafe.Pointer(&length)), unsafe.Sizeof(length), 0)
-	if r != 0 {
-		return 0, fmt.Errorf("NCryptSetProperty (Length) returned %X (%v)", r, winErrCodeToString(r))
-	}
-	// Specify the generated key can only be used for identity attestation.
-	utf16KeyPolicy, err := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
-	if err != nil {
-		return 0, err
-	}
-	var policy uint32 = nCryptPropertyPCPKeyUsagePolicyIdentity
-	r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
-	if r != 0 {
-		return 0, fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
+
+	// Specify the generated key usage policy if appropriate
+	if policy != 0 {
+		utf16KeyPolicy, policyErr := windows.UTF16FromString("PCP_KEY_USAGE_POLICY")
+		if policyErr != nil {
+			err = policyErr
+			return 0, nil, nil, err
+		}
+		r, _, _ = nCryptSetProperty.Call(kh, uintptr(unsafe.Pointer(&utf16KeyPolicy[0])), uintptr(unsafe.Pointer(&policy)), unsafe.Sizeof(policy), 0)
+		if r != 0 {
+			err = fmt.Errorf("NCryptSetProperty (PCP KeyUsage Policy) returned %X (%v)", r, winErrCodeToString(r))
+			return 0, nil, nil, err
+		}
 	}
 
 	// Finalize (create) the key.
 	r, _, _ = nCryptFinalizeKey.Call(kh, 0)
 	if r != 0 {
-		return 0, fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
+		err = fmt.Errorf("NCryptFinalizeKey returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, err
 	}
 
-	return kh, nil
+	// Obtain the key blob.
+	var sz uint32
+	typeString, err := windows.UTF16FromString("OpaqueKeyBlob")
+	if err != nil {
+		return 0, nil, nil, err
+	}
+
+	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, 0, 0, uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
+		err = fmt.Errorf("NCryptExportKey for hKey blob original query returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, err
+	}
+
+	if sz == 0 {
+		err = errors.New("NCryptExportKey for hKey blob original size returned 0")
+		return 0, nil, nil, err
+	}
+
+	keyBlob := make([]byte, sz)
+	if r, _, _ := nCryptExportKey.Call(kh, 0, uintptr(unsafe.Pointer(&typeString[0])), 0, uintptr(unsafe.Pointer(&keyBlob[0])), uintptr(sz), uintptr(unsafe.Pointer(&sz)), 0); r != 0 {
+		err = fmt.Errorf("NCryptExportKey for hKey blob returned %X (%v)", r, winErrCodeToString(r))
+		return 0, nil, nil, err
+	}
+
+	kp, err := decodeKeyBlob(keyBlob)
+	if err != nil {
+		err = fmt.Errorf("decodeKeyBlob failed: %w", err)
+		return 0, nil, nil, err
+	}
+
+	return kh, kp.pub, kp.priv, nil
+}
+
+// NewAK creates a persistent attestation key of the specified name.
+func (h *winPCP) NewAK(name string, alg Algorithm, size int) (uintptr, error) {
+	alg, length, err := convertKeyParameters(alg, size)
+	if err != nil {
+		return 0, err
+	}
+
+	kh, _, _, err := h.newKey(name, alg, length, uint32(nCryptPropertyPCPKeyUsagePolicyIdentity))
+	return kh, err
+}
+
+// NewKey creates a persistent application key of the specified name.
+func (h *winPCP) NewKey(name string, alg Algorithm, size int) (uintptr, []byte, []byte, error) {
+	alg, length, err := convertKeyParameters(alg, size)
+	if err != nil {
+		return 0, nil, nil, err
+	}
+
+	return h.newKey(name, alg, length, 0)
 }
 
 // EKPub returns a BCRYPT_RSA_BLOB structure representing the EK.
