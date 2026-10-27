@@ -510,3 +510,22 @@ func TestVerifyAll(t *testing.T) {
 		}
 	}
 }
+
+func TestStartupLocalityEvent(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		e    rawEvent
+		want byte
+		ok   bool
+	}{
+		{"locality 3", rawEvent{typ: eventTypeNoAction, data: []byte("StartupLocality\x00\x03")}, 3, true},
+		{"locality 5", rawEvent{typ: eventTypeNoAction, data: []byte("StartupLocality\x00\x05")}, 0, false},
+		{"missing NUL", rawEvent{typ: eventTypeNoAction, data: []byte("StartupLocality\x03\x03")}, 0, false},
+		{"wrong PCR", rawEvent{index: 1, typ: eventTypeNoAction, data: []byte("StartupLocality\x00\x03")}, 0, false},
+		{"not no-action", rawEvent{typ: 1, data: []byte("StartupLocality\x00\x03")}, 0, false},
+	} {
+		if got, ok := startupLocalityEvent(tc.e); got != tc.want || ok != tc.ok {
+			t.Errorf("%s: startupLocalityEvent() = %d, %v, want %d, %v", tc.name, got, ok, tc.want, tc.ok)
+		}
+	}
+}
