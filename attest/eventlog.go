@@ -258,7 +258,10 @@ func (e *EventLog) VerifyAll(pcrs []PCR) ([]Event, error) {
 	locality := startupLocality(e.rawEvents)
 	unexplained := map[int]bool{}
 	for _, p := range pcrs {
-		if !replayed[p.Index] && !(p.DigestAlg.Available() && bytes.Equal(p.Digest, initialPCRValue(p, locality))) {
+		if replayed[p.Index] {
+			continue
+		}
+		if _, err := FromCryptoHash(p.DigestAlg); err != nil || !bytes.Equal(p.Digest, initialPCRValue(p, locality)) {
 			unexplained[p.Index] = true
 		}
 	}
@@ -268,7 +271,7 @@ func (e *EventLog) VerifyAll(pcrs []PCR) ([]Event, error) {
 			indices = append(indices, index)
 		}
 		sort.Ints(indices)
-		return nil, fmt.Errorf("some PCRs were not explained by the event log: %v", indices)
+		return nil, ReplayError{Events: events, InvalidPCRs: indices}
 	}
 	return events, nil
 }
@@ -401,12 +404,27 @@ func extend(pcr PCR, replay []byte, e rawEvent, locality byte) (pcrDigest []byte
 	return nil, nil, fmt.Errorf("no event digest matches pcr algorithm: %v", pcr.DigestAlg)
 }
 
-// startupLocality returns the locality recorded by a StartupLocality event,
-// or 0 if the log has none. Like replayPCR, the last such event wins.
+// startupLocalityEvent reports whether e is the StartupLocality EV_NO_ACTION
+// event on PCR 0, and the locality it records. The event data is the
+// NUL-terminated signature followed by one locality byte; only localities
+// 0 to 4 exist.
+func startupLocalityEvent(e rawEvent) (locality byte, ok bool) {
+	const signature = "StartupLocality\x00"
+	if e.index != 0 || e.typ != eventTypeNoAction || len(e.data) != len(signature)+1 || !strings.HasPrefix(string(e.data), signature) {
+		return 0, false
+	}
+	if locality = e.data[len(signature)]; locality > 4 {
+		return 0, false
+	}
+	return locality, true
+}
+
+// startupLocality returns the locality recorded by the log's StartupLocality
+// event, or 0 if it has none. Like replayPCR, the last such event wins.
 func startupLocality(rawEvents []rawEvent) (locality byte) {
 	for _, e := range rawEvents {
-		if e.index == 0 && e.typ == eventTypeNoAction && len(e.data) == 17 && strings.HasPrefix(string(e.data), "StartupLocality") {
-			locality = e.data[len(e.data)-1]
+		if l, ok := startupLocalityEvent(e); ok {
+			locality = l
 		}
 	}
 	return locality
@@ -448,8 +466,8 @@ func replayPCR(rawEvents []rawEvent, pcr PCR) ([]Event, bool) {
 		// TPM2_Startup() was issued. The initial value of
 		// PCR0 is equal to the locality.
 		if e.typ == eventTypeNoAction {
-			if pcr.Index == 0 && len(e.data) == 17 && strings.HasPrefix(string(e.data), "StartupLocality") {
-				locality = e.data[len(e.data)-1]
+			if l, ok := startupLocalityEvent(e); ok {
+				locality = l
 			}
 			continue
 		}
