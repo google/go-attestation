@@ -12,10 +12,11 @@
 // License for the specific language governing permissions and limitations under
 // the License.
 
-//go:build !localtest && cgo && !gofuzz
-// +build !localtest,cgo,!gofuzz
+//go:build !localtest && cgo && !gofuzz && !windows
+// +build !localtest,cgo,!gofuzz,!windows
 
-// NOTE: simulator requires cgo, hence the build tag.
+// NOTE: simulator requires cgo, hence the build tag. The simulator does not
+// build on Windows.
 
 package attest
 
