@@ -109,7 +109,10 @@ type ak interface {
 type AK struct {
 	ak  ak
 	pub crypto.PublicKey
+	tpm tpmBase
 }
+
+var _ crypto.Signer = (*AK)(nil)
 
 // Public returns the public key for the AK. This is only supported for TPM 2.0
 // on Linux currently.
@@ -190,8 +193,21 @@ func (k *AK) CertifyWithDecryptionEk(tpm *TPM, ek *EK, challenge DecryptionEkCha
 
 // SignMsg signs the message (not the digest) with the AK. Note that AK is a
 // restricted signing key, it cannot sign a digest directly.
+//
+// Deprecated: Use SignMessage instead.
 func (k *AK) SignMsg(tpm *TPM, msg []byte, opts crypto.SignerOpts) ([]byte, error) {
 	return k.ak.signMsg(tpm.tpm, msg, k.pub, opts)
+}
+
+// Sign is not supported because AK is a restricted signing key and cannot sign
+// a digest directly. Use SignMessage instead.
+func (k *AK) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return nil, errors.New("AK is a restricted signing key and does not support Sign; use SignMessage")
+}
+
+// SignMessage signs the message (not the digest) with the AK.
+func (k *AK) SignMessage(rand io.Reader, msg []byte, opts crypto.SignerOpts) ([]byte, error) {
+	return k.ak.signMsg(k.tpm, msg, k.pub, opts)
 }
 
 // AKConfig encapsulates parameters for minting keys.

@@ -431,6 +431,7 @@ func (t *wrappedTPM20) newAK(opts *AKConfig) (*AK, error) {
 	return &AK{
 		ak:  newWrappedAK20(keyHandle, blob, pub, creationData, attestation, sig),
 		pub: pubKey,
+		tpm: t,
 	}, nil
 }
 
@@ -586,7 +587,21 @@ func (t *wrappedTPM20) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfi
 	if err != nil {
 		return nil, fmt.Errorf("cannot load attestation key: %v", err)
 	}
-	return &AK{ak: newWrappedAK20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+	// If any errors occur, free the AK's handle.
+	defer func() {
+		if err != nil {
+			tpm2.FlushContext(t.rwc, hnd)
+		}
+	}()
+	tpmPub, err := tpm2.DecodePublic(sKey.Public)
+	if err != nil {
+		return nil, fmt.Errorf("decode public key: %v", err)
+	}
+	pub, err := tpmPub.Key()
+	if err != nil {
+		return nil, fmt.Errorf("access public key: %v", err)
+	}
+	return &AK{ak: newWrappedAK20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
 }
 
 func (t *wrappedTPM20) loadKey(opaqueBlob []byte) (*Key, error) {
@@ -914,6 +929,9 @@ func (k *wrappedKey20) signMsg(tb tpmBase, msg []byte, pub crypto.PublicKey, opt
 	t, ok := tb.(*wrappedTPM20)
 	if !ok {
 		return nil, fmt.Errorf("expected *wrappedTPM20, got %T", tb)
+	}
+	if opts == nil {
+		return nil, errors.New("opts cannot be nil")
 	}
 	digest, validation, err := tpmHash(t.rwc, msg, opts.HashFunc())
 	if err != nil {
