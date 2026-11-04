@@ -587,18 +587,14 @@ func (t *wrappedTPM20) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfi
 	if err != nil {
 		return nil, fmt.Errorf("cannot load attestation key: %v", err)
 	}
-	// If any errors occur, free the AK's handle.
-	defer func() {
-		if err != nil {
-			tpm2.FlushContext(t.rwc, hnd)
-		}
-	}()
 	tpmPub, err := tpm2.DecodePublic(sKey.Public)
 	if err != nil {
+		tpm2.FlushContext(t.rwc, hnd)
 		return nil, fmt.Errorf("decode public key: %v", err)
 	}
 	pub, err := tpmPub.Key()
 	if err != nil {
+		tpm2.FlushContext(t.rwc, hnd)
 		return nil, fmt.Errorf("access public key: %v", err)
 	}
 	return &AK{ak: newWrappedAK20(hnd, sKey.Blob, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), pub: pub, tpm: t}, nil
