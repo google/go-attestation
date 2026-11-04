@@ -480,7 +480,9 @@ func FromCryptoHash(h crypto.Hash) (HashAlg, error) {
 //   - The AK public corresponds to the known AK for that platform.
 //   - All quotes are verified with AKPublic.Verify(), and return no errors.
 //   - The event log parsed successfully using ParseEventLog(), and a call
-//     to EventLog.Verify() with the full set of PCRs returned no error.
+//     to EventLog.VerifyAll() with the PCRs the firmware log is expected to
+//     explain returned no error. PCRs extended after boot, such as PCR 10
+//     under IMA, are only explained by other logs.
 type PlatformParameters struct {
 	// The public blob of the AK which endorsed the platform state. This can
 	// be decoded to verify the adjacent quotes using ParseAKPublic().
