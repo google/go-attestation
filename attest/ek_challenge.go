@@ -104,6 +104,9 @@ func GenerateEkChallenge(ekPublic crypto.PublicKey) (*DecryptionEkChallenge, *HM
 		ekPubContents.Unique = u
 
 	case *ecdsa.PublicKey:
+		if ekPub == nil || ekPub.Curve == nil {
+			return nil, nil, fmt.Errorf("invalid ECC public key: nil curve")
+		}
 		var size int
 		var curveID tpm2.TPMECCCurve
 		switch ekPub.Curve {
@@ -119,16 +122,19 @@ func GenerateEkChallenge(ekPublic crypto.PublicKey) (*DecryptionEkChallenge, *HM
 		default:
 			return nil, nil, fmt.Errorf("unsupported ECC curve: %v", ekPub.Curve.Params().Name)
 		}
-		xBytes := make([]byte, size)
-		yBytes := make([]byte, size)
-		ekPub.X.FillBytes(xBytes)
-		ekPub.Y.FillBytes(yBytes)
+		pt, err := ekPub.Bytes()
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid ECC public key: %v", err)
+		}
+		if len(pt) != 1+2*size || pt[0] != 0x04 {
+			return nil, nil, fmt.Errorf("unexpected uncompressed ECC point length: %d", len(pt))
+		}
 
 		u := tpm2.NewTPMUPublicID(
 			tpm2.TPMAlgECC,
 			&tpm2.TPMSECCPoint{
-				X: tpm2.TPM2BECCParameter{Buffer: xBytes},
-				Y: tpm2.TPM2BECCParameter{Buffer: yBytes},
+				X: tpm2.TPM2BECCParameter{Buffer: pt[1 : 1+size : 1+size]},
+				Y: tpm2.TPM2BECCParameter{Buffer: pt[1+size:]},
 			},
 		)
 		ekPubContents = tpm2.ECCEKTemplate
