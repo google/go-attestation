@@ -15,6 +15,7 @@
 package attest
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdh"
 	"crypto/ecdsa"
@@ -22,7 +23,122 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"testing"
+
+	"github.com/google/go-tpm/tpm2"
 )
+
+// newLeadingZeroP256PublicKey returns a deterministic NIST P-256 public key
+// (for scalar 0xc0c6 = 49350, the smallest positive P-256 scalar whose base
+// point multiple has X[0] == 0x00 and Y[0] == 0x00) to exercise fixed-width
+// 32-byte big-endian coordinate slicing for google/go-attestation#561.
+func newLeadingZeroP256PublicKey(t *testing.T) (*ecdsa.PublicKey, []byte) {
+	t.Helper()
+	var scalar [32]byte
+	scalar[30] = 0xc0
+	scalar[31] = 0xc6
+	ecdhPriv, err := ecdh.P256().NewPrivateKey(scalar[:])
+	if err != nil {
+		t.Fatalf("ecdh.P256().NewPrivateKey() failed: %v", err)
+	}
+	uncompressed := ecdhPriv.PublicKey().Bytes()
+	pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), uncompressed)
+	if err != nil {
+		t.Fatalf("ecdsa.ParseUncompressedPublicKey() failed: %v", err)
+	}
+	return pub, uncompressed
+}
+
+func TestECDSAPublicKeyToTPMSECCPoint(t *testing.T) {
+	p256Key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey(P256) failed: %v", err)
+	}
+	p384Key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey(P384) failed: %v", err)
+	}
+	p521Key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey(P521) failed: %v", err)
+	}
+	p224Key, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa.GenerateKey(P224) failed: %v", err)
+	}
+	leadingZeroP256Pub, leadingZeroRaw := newLeadingZeroP256PublicKey(t)
+
+	mismatchedCurvePub := p256Key.PublicKey
+	mismatchedCurvePub.Curve = elliptic.P384()
+
+	for _, tc := range []struct {
+		name        string
+		pub         *ecdsa.PublicKey
+		wantCurveID tpm2.TPMECCCurve
+		wantSize    int
+		wantX       []byte
+		wantY       []byte
+		wantErr     bool
+	}{
+		{
+			name:        "ECC_P256",
+			pub:         &p256Key.PublicKey,
+			wantCurveID: tpm2.TPMECCNistP256,
+			wantSize:    32,
+		},
+		{
+			name:        "ECC_P256_LeadingZeroXY",
+			pub:         leadingZeroP256Pub,
+			wantCurveID: tpm2.TPMECCNistP256,
+			wantSize:    32,
+			wantX:       leadingZeroRaw[1:33],
+			wantY:       leadingZeroRaw[33:65],
+		},
+		{
+			name:        "ECC_P384",
+			pub:         &p384Key.PublicKey,
+			wantCurveID: tpm2.TPMECCNistP384,
+			wantSize:    48,
+		},
+		{
+			name:        "ECC_P521",
+			pub:         &p521Key.PublicKey,
+			wantCurveID: tpm2.TPMECCNistP521,
+			wantSize:    66,
+		},
+		{name: "UnsupportedCurve_P224", pub: &p224Key.PublicKey, wantErr: true},
+		{name: "InvalidPointNotOnCurve", pub: &mismatchedCurvePub, wantErr: true},
+		{name: "NilECCCurve", pub: &ecdsa.PublicKey{}, wantErr: true},
+		{name: "NilKey", pub: nil, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pt, curveID, err := ecdsaPublicKeyToTPMSECCPoint(tc.pub)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("ecdsaPublicKeyToTPMSECCPoint() succeeded, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ecdsaPublicKeyToTPMSECCPoint() failed: %v", err)
+			}
+			if curveID != tc.wantCurveID {
+				t.Errorf("curveID = %v, want %v", curveID, tc.wantCurveID)
+			}
+			if len(pt.X.Buffer) != tc.wantSize || len(pt.Y.Buffer) != tc.wantSize {
+				t.Fatalf("len(X)=%d len(Y)=%d, want %d", len(pt.X.Buffer), len(pt.Y.Buffer), tc.wantSize)
+			}
+			if cap(pt.X.Buffer) != len(pt.X.Buffer) {
+				t.Errorf("cap(X.Buffer) = %d, want %d (must not alias Y.Buffer)", cap(pt.X.Buffer), len(pt.X.Buffer))
+			}
+			if tc.wantX != nil && !bytes.Equal(pt.X.Buffer, tc.wantX) {
+				t.Errorf("X.Buffer = %x, want %x", pt.X.Buffer, tc.wantX)
+			}
+			if tc.wantY != nil && !bytes.Equal(pt.Y.Buffer, tc.wantY) {
+				t.Errorf("Y.Buffer = %x, want %x", pt.Y.Buffer, tc.wantY)
+			}
+		})
+	}
+}
 
 func TestGenerateEkChallenge(t *testing.T) {
 	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -45,20 +161,7 @@ func TestGenerateEkChallenge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ecdsa.GenerateKey(P224) failed: %v", err)
 	}
-
-	// Deterministic P-256 point whose X and Y coordinates both start with 0x00,
-	// exercising fixed-width 32-byte big-endian coordinate slicing.
-	var leadingZeroScalar [32]byte
-	leadingZeroScalar[30] = 0xc0
-	leadingZeroScalar[31] = 0xc6
-	ecdhPriv, err := ecdh.P256().NewPrivateKey(leadingZeroScalar[:])
-	if err != nil {
-		t.Fatalf("ecdh.P256().NewPrivateKey() failed: %v", err)
-	}
-	leadingZeroP256Pub, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), ecdhPriv.PublicKey().Bytes())
-	if err != nil {
-		t.Fatalf("ecdsa.ParseUncompressedPublicKey() failed: %v", err)
-	}
+	leadingZeroP256Pub, _ := newLeadingZeroP256PublicKey(t)
 
 	mismatchedCurvePub := p256Key.PublicKey
 	mismatchedCurvePub.Curve = elliptic.P384()
