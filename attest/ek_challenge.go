@@ -193,8 +193,8 @@ func ecdsaPublicKeyToTPMSECCPoint(pub *ecdsa.PublicKey) (*tpm2.TPMSECCPoint, tpm
 	}
 
 	return &tpm2.TPMSECCPoint{
-    // Cap capacity so X can't alias Y via append.
-		X: tpm2.TPM2BECCParameter{Buffer: pt[1 : 1+size: 1+size]},
+		// Cap capacity so X can't alias Y via append.
+		X: tpm2.TPM2BECCParameter{Buffer: pt[1 : 1+size : 1+size]},
 		Y: tpm2.TPM2BECCParameter{Buffer: pt[1+size:]},
 	}, curveID, nil
 }
