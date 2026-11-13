@@ -243,7 +243,7 @@ func (t *windowsTPM) newAK(opts *AKConfig) (*AK, error) {
 		return nil, fmt.Errorf("pcp failed to read attestation key properties: %v", err)
 	}
 
-	return &AK{ak: newWindowsAK20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature)}, nil
+	return &AK{ak: newWindowsAK20(kh, name, props.RawPublic, props.RawCreationData, props.RawAttest, props.RawSignature), tpm: t}, nil
 }
 
 func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
@@ -260,7 +260,7 @@ func (t *windowsTPM) loadAK(opaqueBlob []byte) (*AK, error) {
 		return nil, fmt.Errorf("pcp failed to load key: %v", err)
 	}
 
-	return &AK{ak: newWindowsAK20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature)}, nil
+	return &AK{ak: newWindowsAK20(hnd, sKey.Name, sKey.Public, sKey.CreateData, sKey.CreateAttestation, sKey.CreateSignature), tpm: t}, nil
 }
 
 func (t *windowsTPM) loadAKWithParent(opaqueBlob []byte, parent ParentKeyConfig) (*AK, error) {
