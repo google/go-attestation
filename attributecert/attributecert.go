@@ -536,7 +536,38 @@ func unmarshalSAN(v asn1.RawValue) ([]pkix.AttributeTypeAndValue, error) {
 	}
 }
 
+func signatureAlgorithmsMatch(in *attributeCertificate) bool {
+	if !in.SignatureAlgorithm.Algorithm.Equal(in.TBSAttributeCertificate.SignatureAlgorithm.Algorithm) ||
+		!bytes.Equal(in.SignatureAlgorithm.Parameters.FullBytes, in.TBSAttributeCertificate.SignatureAlgorithm.Parameters.FullBytes) {
+		return false
+	}
+	if len(in.Raw) > 0 && len(in.TBSAttributeCertificate.Raw) > 0 {
+		var outer struct {
+			TBS                asn1.RawValue
+			SignatureAlgorithm asn1.RawValue
+		}
+		var inner struct {
+			Version            int
+			Holder             asn1.RawValue
+			Issuer             asn1.RawValue
+			SignatureAlgorithm asn1.RawValue
+		}
+		if _, err := asn1.Unmarshal(in.Raw, &outer); err != nil {
+			return false
+		}
+		if _, err := asn1.Unmarshal(in.TBSAttributeCertificate.Raw, &inner); err != nil {
+			return false
+		}
+		return bytes.Equal(outer.SignatureAlgorithm.FullBytes, inner.SignatureAlgorithm.FullBytes)
+	}
+	return true
+}
+
 func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate, error) {
+	if !signatureAlgorithmsMatch(in) {
+		return nil, errors.New("attributecert: inner and outer signature algorithm identifiers don't match")
+	}
+
 	out := &AttributeCertificate{
 		Raw:                        in.Raw,
 		RawTBSAttributeCertificate: in.TBSAttributeCertificate.Raw,
@@ -577,6 +608,9 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 	out.NotAfter = in.TBSAttributeCertificate.Validity.NotAfter
 
 	for _, attribute := range in.TBSAttributeCertificate.Attributes {
+		if len(attribute.RawValues) == 0 {
+			return nil, fmt.Errorf("attributecert: attribute %v has empty values set", attribute.ID)
+		}
 		switch {
 		case attribute.ID.Equal(oidAttributeUserNotice):
 			if _, err := asn1.Unmarshal(attribute.RawValues[0].FullBytes, &out.UserNotice); err != nil {
@@ -681,29 +715,37 @@ func parseAttributeCertificate(in *attributeCertificate) (*AttributeCertificate,
 					return nil, fmt.Errorf("attributecert: failed to unmarshal SAN: %v", err)
 				}
 				for _, e := range tcgdata {
+					if e.Type.Equal(oid.PlatformManufacturerID) {
+						// We can't parse these out at present
+						continue
+					}
+					var target *string
 					switch {
 					case e.Type.Equal(oidTcgPlatformManufacturerStrV1):
-						out.PlatformManufacturer = e.Value.(string)
+						target = &out.PlatformManufacturer
 					case e.Type.Equal(oidTcgPlatformModelV1):
-						out.PlatformModel = e.Value.(string)
+						target = &out.PlatformModel
 					case e.Type.Equal(oidTcgPlatformVersionV1):
-						out.PlatformVersion = e.Value.(string)
+						target = &out.PlatformVersion
 					case e.Type.Equal(oid.TCGCredentialSpecification):
 						// This OID appears to be misused in this context
-						out.PlatformSerial = e.Value.(string)
+						target = &out.PlatformSerial
 					case e.Type.Equal(oid.PlatformManufacturerStr):
-						out.PlatformManufacturer = e.Value.(string)
-					case e.Type.Equal(oid.PlatformManufacturerID):
-						// We can't parse these out at present
+						target = &out.PlatformManufacturer
 					case e.Type.Equal(oid.PlatformModel):
-						out.PlatformModel = e.Value.(string)
+						target = &out.PlatformModel
 					case e.Type.Equal(oid.PlatformVersion):
-						out.PlatformVersion = e.Value.(string)
+						target = &out.PlatformVersion
 					case e.Type.Equal(oid.PlatformSerial):
-						out.PlatformSerial = e.Value.(string)
+						target = &out.PlatformSerial
 					default:
 						return nil, fmt.Errorf("attributecert: unhandled attribute: %v", e.Type)
 					}
+					val, ok := e.Value.(string)
+					if !ok {
+						return nil, fmt.Errorf("attributecert: SAN attribute %v has non-string value", e.Type)
+					}
+					*target = val
 				}
 			}
 
