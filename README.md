@@ -22,8 +22,8 @@ relatively immature compared to support for Linux.
 
 Please note that this is not an official Google product.
 
-TPM 1.2 support is best effort, meaning we will accept fixes for TPM 1.2, but
-testing is not covered by CI.
+Only TPM 2.0 is supported. TPM 1.2 support was removed in
+[#430](https://github.com/google/go-attestation/pull/430).
 
 ## Installation
 
