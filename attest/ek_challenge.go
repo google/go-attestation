@@ -104,33 +104,12 @@ func GenerateEkChallenge(ekPublic crypto.PublicKey) (*DecryptionEkChallenge, *HM
 		ekPubContents.Unique = u
 
 	case *ecdsa.PublicKey:
-		var size int
-		var curveID tpm2.TPMECCCurve
-		switch ekPub.Curve {
-		case elliptic.P256():
-			size = 32
-			curveID = tpm2.TPMECCNistP256
-		case elliptic.P384():
-			size = 48
-			curveID = tpm2.TPMECCNistP384
-		case elliptic.P521():
-			size = 66
-			curveID = tpm2.TPMECCNistP521
-		default:
-			return nil, nil, fmt.Errorf("unsupported ECC curve: %v", ekPub.Curve.Params().Name)
+		eccPoint, curveID, err := ecdsaPublicKeyToTPMSECCPoint(ekPub)
+		if err != nil {
+			return nil, nil, err
 		}
-		xBytes := make([]byte, size)
-		yBytes := make([]byte, size)
-		ekPub.X.FillBytes(xBytes)
-		ekPub.Y.FillBytes(yBytes)
 
-		u := tpm2.NewTPMUPublicID(
-			tpm2.TPMAlgECC,
-			&tpm2.TPMSECCPoint{
-				X: tpm2.TPM2BECCParameter{Buffer: xBytes},
-				Y: tpm2.TPM2BECCParameter{Buffer: yBytes},
-			},
-		)
+		u := tpm2.NewTPMUPublicID(tpm2.TPMAlgECC, eccPoint)
 		ekPubContents = tpm2.ECCEKTemplate
 		ekPubContents.Parameters = tpm2.NewTPMUPublicParms(
 			tpm2.TPMAlgECC,
@@ -180,6 +159,44 @@ func GenerateEkChallenge(ekPublic crypto.PublicKey) (*DecryptionEkChallenge, *HM
 		InSymSeed:    inSymSeed,
 	}
 	return challenge, &hmacKeyBytes, nil
+}
+
+// ecdsaPublicKeyToTPMSECCPoint converts an ECDSA public key on a TPM-supported
+// NIST curve into a TPM 2.0 ECC point and its corresponding curve identifier.
+func ecdsaPublicKeyToTPMSECCPoint(pub *ecdsa.PublicKey) (*tpm2.TPMSECCPoint, tpm2.TPMECCCurve, error) {
+	if pub == nil || pub.Curve == nil {
+		return nil, 0, fmt.Errorf("invalid ECC public key: nil curve")
+	}
+	var size int
+	var curveID tpm2.TPMECCCurve
+	switch pub.Curve {
+	case elliptic.P256():
+		size = 32
+		curveID = tpm2.TPMECCNistP256
+	case elliptic.P384():
+		size = 48
+		curveID = tpm2.TPMECCNistP384
+	case elliptic.P521():
+		size = 66
+		curveID = tpm2.TPMECCNistP521
+	default:
+		return nil, 0, fmt.Errorf("unsupported ECC curve: %v", pub.Curve.Params().Name)
+	}
+
+	// Bytes returns the uncompressed SEC 1 v2.0 s2.3.3 encoding: 0x04 || X || Y.
+	pt, err := pub.Bytes()
+	if err != nil {
+		return nil, 0, fmt.Errorf("invalid ECC public key: %v", err)
+	}
+	if len(pt) != 1+2*size || pt[0] != 0x04 {
+		return nil, 0, fmt.Errorf("unexpected uncompressed ECC point length: %d", len(pt))
+	}
+
+	return &tpm2.TPMSECCPoint{
+		// Cap capacity so X can't alias Y via append.
+		X: tpm2.TPM2BECCParameter{Buffer: pt[1 : 1+size : 1+size]},
+		Y: tpm2.TPM2BECCParameter{Buffer: pt[1+size:]},
+	}, curveID, nil
 }
 
 // VerifySolvedDecryptionEkChallenge verifies that the client has successfully solved the EK
