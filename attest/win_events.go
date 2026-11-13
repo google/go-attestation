@@ -461,8 +461,12 @@ func (w *WinEvents) readTransferControl(header microsoftEventHeader, r *io.Limit
 	return nil
 }
 
+// maxBitlockerUnlockSize is the size of a uint64, the largest value a
+// BitLocker unlock status payload may hold.
+const maxBitlockerUnlockSize = 8
+
 func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *io.LimitedReader, pcr int) error {
-	if header.Size > 8 {
+	if header.Size > maxBitlockerUnlockSize {
 		return fmt.Errorf("bitlocker data too large (%d bytes)", header.Size)
 	}
 	if int64(header.Size) > r.N {
@@ -471,7 +475,7 @@ func (w *WinEvents) readBitlockerUnlock(header microsoftEventHeader, r *io.Limit
 	if header.Size == 0 {
 		return errors.New("bitlocker data is empty")
 	}
-	data := make([]uint8, 8)
+	data := make([]uint8, maxBitlockerUnlockSize)
 	if err := binary.Read(r, binary.LittleEndian, data[:header.Size]); err != nil {
 		return fmt.Errorf("reading u%d: %w", header.Size*8, err)
 	}
