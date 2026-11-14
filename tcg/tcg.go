@@ -218,6 +218,10 @@ var (
 				Mode:    tpm2.AlgCFB,
 			},
 			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
 		},
 	}
 	// Default ECC P-384 EK template (Template H-3).
