@@ -60,7 +60,12 @@ func rsaEkTemplate(rwc io.ReadWriter) tpm2.Public {
 		return tcg.DefaultRSA2048EKTemplate
 	}
 	template := tcg.DefaultRSA2048EKTemplate
-	copy(template.RSAParameters.ModulusRaw, nonce)
+	// The template contains pointers; copy them so the package-level
+	// template is never modified.
+	rsaParams := *template.RSAParameters
+	rsaParams.ModulusRaw = make([]byte, len(template.RSAParameters.ModulusRaw))
+	copy(rsaParams.ModulusRaw, nonce)
+	template.RSAParameters = &rsaParams
 	return template
 }
 
@@ -86,7 +91,12 @@ func eccEkTemplate(rwc io.ReadWriter) tpm2.Public {
 		return tcg.DefaultECCP256EKTemplate
 	}
 	template := tcg.DefaultECCP256EKTemplate
-	copy(template.ECCParameters.Point.XRaw, nonce)
+	// The template contains pointers; copy them so the package-level
+	// template is never modified.
+	eccParams := *template.ECCParameters
+	eccParams.Point.XRaw = make([]byte, len(template.ECCParameters.Point.XRaw))
+	copy(eccParams.Point.XRaw, nonce)
+	template.ECCParameters = &eccParams
 	return template
 }
 

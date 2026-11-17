@@ -885,6 +885,103 @@ func TestSimPersistenceEK(t *testing.T) {
 	}
 }
 
+// TestSimEKTemplateMatchesEKCertificate checks that the template used to
+// recreate a missing EK yields the key in the EK certificate. tpmsim creates
+// its EKs from the TCG default templates L-1 and L-2.
+func TestSimEKTemplateMatchesEKCertificate(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opt  tpmsim.EKOption
+	}{
+		{"RSA_2048", tpmsim.WithRSAKey(2048)},
+		{"ECC_P256", tpmsim.WithEC256Key()},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sim := tpmsim.NewT(t, tpmsim.WithEK(tc.opt, tpmsim.WithoutPersistentKey()))
+			defer sim.Close()
+
+			cert, err := x509.ParseCertificate(sim.EKCert())
+			if err != nil {
+				t.Fatalf("parsing EK certificate: %v", err)
+			}
+			tmpl, err := ekTemplateForPublic(sim.TPM(), cert.PublicKey)
+			if err != nil {
+				t.Fatalf("ekTemplateForPublic() failed: %v", err)
+			}
+			hnd, pub, err := tpm2.CreatePrimary(sim.TPM(), tpm2.HandleEndorsement, tpm2.PCRSelection{}, "", "", tmpl)
+			if err != nil {
+				t.Fatalf("CreatePrimary() failed: %v", err)
+			}
+			defer tpm2.FlushContext(sim.TPM(), hnd)
+
+			got, err := x509.MarshalPKIXPublicKey(pub)
+			if err != nil {
+				t.Fatalf("marshaling created EK: %v", err)
+			}
+			want, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+			if err != nil {
+				t.Fatalf("marshaling certified EK: %v", err)
+			}
+			if !bytes.Equal(got, want) {
+				t.Errorf("EK created from template does not match the EK certificate")
+			}
+		})
+	}
+}
+
+// TestSimEKTemplateNonce checks that an EK nonce from NVRAM is placed in the
+// template's unique field without changing the package-level default template.
+func TestSimEKTemplateNonce(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		index    tpmutil.Handle
+		template func(io.ReadWriter) tpm2.Public
+		unique   func(tpm2.Public) []byte
+		def      *tpm2.Public
+	}{
+		{
+			name:     "RSA_2048",
+			index:    tcg.EKNonceRSA2048Index,
+			template: rsaEkTemplate,
+			unique:   func(p tpm2.Public) []byte { return p.RSAParameters.ModulusRaw },
+			def:      &tcg.DefaultRSA2048EKTemplate,
+		},
+		{
+			name:     "ECC_P256",
+			index:    tcg.EKNonceECCP256Index,
+			template: eccEkTemplate,
+			unique:   func(p tpm2.Public) []byte { return p.ECCParameters.Point.XRaw },
+			def:      &tcg.DefaultECCP256EKTemplate,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sim := tpmsim.NewT(t, tpmsim.WithoutEK())
+			defer sim.Close()
+
+			nonce := bytes.Repeat([]byte{0xa5}, 16)
+			attr := tpm2.AttrOwnerWrite | tpm2.AttrOwnerRead
+			if err := tpm2.NVDefineSpace(sim.TPM(), tpm2.HandleOwner, tc.index, "", "", nil, attr, uint16(len(nonce))); err != nil {
+				t.Fatalf("NVDefineSpace() failed: %v", err)
+			}
+			if err := tpm2.NVWrite(sim.TPM(), tpm2.HandleOwner, tc.index, "", nonce, 0); err != nil {
+				t.Fatalf("NVWrite() failed: %v", err)
+			}
+			wantDefault := slices.Clone(tc.unique(*tc.def))
+
+			got := tc.unique(tc.template(sim.TPM()))
+			if !bytes.HasPrefix(got, nonce) {
+				t.Errorf("template unique = %x, want it to start with nonce %x", got, nonce)
+			}
+			if len(got) != len(wantDefault) {
+				t.Errorf("template unique has %d bytes, want %d", len(got), len(wantDefault))
+			}
+			if d := tc.unique(*tc.def); !bytes.Equal(d, wantDefault) {
+				t.Errorf("default template unique changed to %x", d)
+			}
+		})
+	}
+}
+
 func TestTPMHash(t *testing.T) {
 	sim, tpm := setupSimulatedTPM(t)
 	defer sim.Close()
