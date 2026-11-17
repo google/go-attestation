@@ -197,3 +197,53 @@ func nestedELAMSIPAEvent(t *testing.T, depth int) Event {
 		Digest: digest[:],
 	}
 }
+
+func bitlockerUnlockSIPAEvent(t *testing.T, payload []byte) Event {
+	t.Helper()
+	inner := make([]byte, 8+len(payload))
+	binary.LittleEndian.PutUint32(inner[0:4], uint32(bitlockerUnlock))
+	binary.LittleEndian.PutUint32(inner[4:8], uint32(len(payload)))
+	copy(inner[8:], payload)
+
+	data := make([]byte, 8+len(inner))
+	binary.LittleEndian.PutUint32(data[0:4], uint32(sipaContainer))
+	binary.LittleEndian.PutUint32(data[4:8], uint32(len(inner)))
+	copy(data[8:], inner)
+
+	digest := sha256.Sum256(data)
+	return Event{
+		Index:  12,
+		Type:   EventType(0x00000006), // EV_EVENT_TAG
+		Data:   data,
+		Digest: digest[:],
+	}
+}
+
+func TestParseWinEventsBitlockerUnlock(t *testing.T) {
+	for _, tc := range []struct {
+		payload []byte
+		want    BitlockerStatus
+	}{
+		{[]byte{0x00, 0x00, 0x00, 0x00}, 0},
+		{[]byte{0x04, 0x00, 0x00, 0x00}, BitlockerStatusTPM},
+		{[]byte{0x14, 0x00, 0x00, 0x00}, BitlockerStatusTPM | BitlockerStatusPin},
+		{[]byte{0x80, 0x00, 0x00, 0x00}, 0x80},
+		{[]byte{0xc4, 0x00, 0x00, 0x00}, 0xc4},
+		{[]byte{0x84}, 0x84},
+		{[]byte{0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 0x84},
+	} {
+		winState, err := ParseWinEvents([]Event{bitlockerUnlockSIPAEvent(t, tc.payload)})
+		if err != nil {
+			t.Fatalf("ParseWinEvents() with payload %x failed: %v", tc.payload, err)
+		}
+		if diff := cmp.Diff([]BitlockerStatus{tc.want}, winState.BitlockerUnlocks); diff != "" {
+			t.Errorf("BitlockerUnlocks for payload %x (-want, +got):\n%s", tc.payload, diff)
+		}
+	}
+
+	for _, payload := range [][]byte{{}, make([]byte, 9)} {
+		if _, err := ParseWinEvents([]Event{bitlockerUnlockSIPAEvent(t, payload)}); err == nil {
+			t.Errorf("ParseWinEvents() with %d-byte payload succeeded, want error", len(payload))
+		}
+	}
+}
