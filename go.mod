@@ -18,6 +18,6 @@ require (
 	github.com/google/go-tdx-guest v0.3.2-0.20250814004405-ffb0869e6f4d // indirect
 	github.com/google/logger v1.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.59.0
 	google.golang.org/protobuf v1.36.12 // indirect
 )
