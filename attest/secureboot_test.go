@@ -15,10 +15,22 @@
 package attest
 
 import (
+	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"math/big"
 	"os"
+	"slices"
+	"strings"
 	"testing"
+	"time"
+	"unicode/utf16"
 )
 
 func TestSecureBoot(t *testing.T) {
@@ -211,5 +223,292 @@ func TestSecureBootEventLogFedora36(t *testing.T) {
 	_, err = ParseSecurebootState(evts)
 	if err != nil {
 		t.Errorf("parsing sb state: %v", err)
+	}
+}
+
+const (
+	// TCG PC Client Specific Implementation Specification for Conventional BIOS
+	// 1.21, Section 10.4.1 (EV_SEPARATOR).
+	testEVSeparator EventType = 0x00000004
+	// TCG EFI Platform Specification 1.22, Section 7.2
+	// (EV_EFI_VARIABLE_DRIVER_CONFIG and EV_EFI_VARIABLE_AUTHORITY).
+	testEVEFIVariableDriverConfig EventType = 0x80000001
+	testEVEFIVariableAuthority    EventType = 0x800000e0
+)
+
+var (
+	// EFI_GLOBAL_VARIABLE (8be4df61-93ca-11d2-aa0d-00e098032b8c) in mixed-endian
+	// EFI_GUID wire format (UEFI Specification 2.8, Section 3.3). Used for
+	// SecureBoot, PK, and KEK variables.
+	testEFIGlobalVariableGUID = [16]byte{
+		0x61, 0xdf, 0xe4, 0x8b, 0xca, 0x93, 0xd2, 0x11,
+		0xaa, 0x0d, 0x00, 0xe0, 0x98, 0x03, 0x2b, 0x8c,
+	}
+
+	// EFI_IMAGE_SECURITY_DATABASE_GUID (d719b2cb-3d3a-4596-a3bc-dad00e67656f) in
+	// mixed-endian EFI_GUID wire format (UEFI Specification 2.8, Section 32.5.3.3).
+	// Used for db and dbx signature database variables.
+	testEFIImageSecurityDatabaseGUID = [16]byte{
+		0xcb, 0xb2, 0x19, 0xd7, 0x3a, 0x3d, 0x96, 0x45,
+		0xa3, 0xbc, 0xda, 0xd0, 0x0e, 0x67, 0x65, 0x6f,
+	}
+
+	// EFI_CERT_X509_GUID (a5c059a1-94e4-4aa7-87b5-ab155c2bf072) in mixed-endian
+	// EFI_GUID wire format (UEFI Specification 2.8, Section 32.4.1.4). Identifies
+	// DER-encoded X.509 certificates in an EFI_SIGNATURE_LIST.
+	testEFICertX509GUID = [16]byte{
+		0xa1, 0x59, 0xc0, 0xa5, 0xe4, 0x94, 0xa7, 0x4a,
+		0x87, 0xb5, 0xab, 0x15, 0x5c, 0x2b, 0xf0, 0x72,
+	}
+
+	// SHIM_LOCK_GUID (605dab50-e046-4300-abb6-3dd810dd8b23) in mixed-endian
+	// EFI_GUID wire format (rhboot/shim lib/guid.c). Used by Linux shim for
+	// Shim, SbatLevel, and MokListTrusted EV_EFI_VARIABLE_AUTHORITY events.
+	testShimLockGUID = [16]byte{
+		0x50, 0xab, 0x5d, 0x60, 0x46, 0xe0, 0x00, 0x43,
+		0xab, 0xb6, 0x3d, 0xd8, 0x10, 0xdd, 0x8b, 0x23,
+	}
+
+	// Representative SbatLevel payload measured by rhboot/shim into PCR 7 as an
+	// EV_EFI_VARIABLE_AUTHORITY event (https://github.com/rhboot/shim/blob/main/SBAT.md).
+	testShimSBATPayload = []byte("sbat,1,2021030218\n")
+
+	// Representative MokListTrusted payload (1-byte boolean flag = 1) measured by
+	// rhboot/shim into PCR 7 as an EV_EFI_VARIABLE_AUTHORITY event
+	// (https://github.com/rhboot/shim/blob/main/MokVars.txt).
+	testShimMokListTrustedPayload = []byte{1}
+)
+
+func newTestSecureBootCert(t *testing.T, commonName string) *x509.Certificate {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("ed25519.GenerateKey() failed: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: commonName},
+		NotBefore:    time.Unix(0, 0),
+		NotAfter:     time.Unix(1<<32, 0),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, pub, priv)
+	if err != nil {
+		t.Fatalf("x509.CreateCertificate(%q) failed: %v", commonName, err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("x509.ParseCertificate(%q) failed: %v", commonName, err)
+	}
+	return cert
+}
+
+// encodeUEFIVariableData serializes a UEFI_VARIABLE_DATA structure per TCG PC
+// Client Platform Firmware Profile Specification, Section 10.2.6.
+func encodeUEFIVariableData(guid [16]byte, name string, varData []byte) []byte {
+	utf16Name := utf16.Encode([]rune(name))
+	var buf bytes.Buffer
+	buf.Write(guid[:])
+	binary.Write(&buf, binary.LittleEndian, uint64(len(utf16Name)))
+	binary.Write(&buf, binary.LittleEndian, uint64(len(varData)))
+	for _, c := range utf16Name {
+		binary.Write(&buf, binary.LittleEndian, c)
+	}
+	buf.Write(varData)
+	return buf.Bytes()
+}
+
+// encodeEFISignatureData serializes an EFI_SIGNATURE_DATA structure (16-byte
+// SignatureOwner GUID followed by SignatureData) per UEFI Specification 2.8,
+// Section 32.4.1.
+func encodeEFISignatureData(owner [16]byte, sigData []byte) []byte {
+	out := make([]byte, 0, len(owner)+len(sigData))
+	out = append(out, owner[:]...)
+	out = append(out, sigData...)
+	return out
+}
+
+// encodeX509EFISignatureList serializes a single-certificate EFI_SIGNATURE_LIST
+// of type EFI_CERT_X509_GUID per UEFI Specification 2.8, Section 32.4.1.
+func encodeX509EFISignatureList(owner [16]byte, certDER []byte) []byte {
+	entry := encodeEFISignatureData(owner, certDER)
+	const headerSize = 16 + 4 + 4 + 4
+	var buf bytes.Buffer
+	buf.Write(testEFICertX509GUID[:])
+	binary.Write(&buf, binary.LittleEndian, uint32(headerSize+len(entry))) // SignatureListSize
+	binary.Write(&buf, binary.LittleEndian, uint32(0))                     // SignatureHeaderSize
+	binary.Write(&buf, binary.LittleEndian, uint32(len(entry)))            // SignatureSize
+	buf.Write(entry)
+	return buf.Bytes()
+}
+
+func newPCR7Event(typ EventType, data []byte) Event {
+	sum := sha256.Sum256(data)
+	return Event{
+		Index:  7,
+		Type:   typ,
+		Data:   data,
+		Digest: sum[:],
+	}
+}
+
+func newTamperedPCR7Event(typ EventType, data []byte) Event {
+	ev := newPCR7Event(typ, data)
+	ev.Digest[0] ^= 0xff
+	return ev
+}
+
+func secureBootEnabledConfigEvents(pkCert, kekCert, dbCert *x509.Certificate) []Event {
+	return []Event{
+		newPCR7Event(testEVEFIVariableDriverConfig, encodeUEFIVariableData(testEFIGlobalVariableGUID, "SecureBoot", []byte{1})),
+		newPCR7Event(testEVEFIVariableDriverConfig, encodeUEFIVariableData(testEFIGlobalVariableGUID, "PK", encodeX509EFISignatureList(testEFIGlobalVariableGUID, pkCert.Raw))),
+		newPCR7Event(testEVEFIVariableDriverConfig, encodeUEFIVariableData(testEFIGlobalVariableGUID, "KEK", encodeX509EFISignatureList(testEFIGlobalVariableGUID, kekCert.Raw))),
+		newPCR7Event(testEVEFIVariableDriverConfig, encodeUEFIVariableData(testEFIImageSecurityDatabaseGUID, "db", encodeX509EFISignatureList(testEFIImageSecurityDatabaseGUID, dbCert.Raw))),
+	}
+}
+
+func buildPCR7Events(groups ...[]Event) []Event {
+	all := slices.Concat(groups...)
+	for i := range all {
+		all[i].sequence = i
+	}
+	return all
+}
+
+func certsEqual(a, b []x509.Certificate) bool {
+	return slices.EqualFunc(a, b, func(x, y x509.Certificate) bool {
+		return x.Equal(&y)
+	})
+}
+
+func TestParseSecurebootStateAuthorityErrors(t *testing.T) {
+	pkCert := newTestSecureBootCert(t, "Test PK")
+	kekCert := newTestSecureBootCert(t, "Test KEK")
+	dbCert := newTestSecureBootCert(t, "Test DB")
+
+	cfgEvents := secureBootEnabledConfigEvents(pkCert, kekCert, dbCert)
+	sepEvent := []Event{newPCR7Event(testEVSeparator, []byte{0, 0, 0, 0})}
+	sbatEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "SbatLevel", testShimSBATPayload))
+	mokTrustedEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "MokListTrusted", testShimMokListTrustedPayload))
+	x509AuthEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testEFIImageSecurityDatabaseGUID, "db", encodeEFISignatureData(testEFIImageSecurityDatabaseGUID, dbCert.Raw)))
+	tamperedSBATEvent := newTamperedPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "SbatLevel", testShimSBATPayload))
+	tamperedMokTrustedEvent := newTamperedPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "MokListTrusted", testShimMokListTrustedPayload))
+
+	tests := []struct {
+		name    string
+		events  []Event
+		wantErr string
+	}{
+		{
+			name:    "no_authority_events",
+			events:  buildPCR7Events(cfgEvents, sepEvent),
+			wantErr: "secure boot was enabled but no key was used",
+		},
+		{
+			name:    "only_sbat_level_post_separator",
+			events:  buildPCR7Events(cfgEvents, sepEvent, []Event{sbatEvent}),
+			wantErr: "secure boot was enabled but no key was used",
+		},
+		{
+			name:    "only_mok_list_trusted_post_separator",
+			events:  buildPCR7Events(cfgEvents, sepEvent, []Event{mokTrustedEvent}),
+			wantErr: "secure boot was enabled but no key was used",
+		},
+		{
+			name:    "only_sbat_level_and_mok_list_trusted_pre_and_post_separator",
+			events:  buildPCR7Events(cfgEvents, []Event{sbatEvent}, sepEvent, []Event{sbatEvent, mokTrustedEvent}),
+			wantErr: "secure boot was enabled but no key was used",
+		},
+		{
+			name:    "tampered_sbat_level_digest_without_x509_authority",
+			events:  buildPCR7Events(cfgEvents, sepEvent, []Event{tamperedSBATEvent}),
+			wantErr: "invalid digest for authority",
+		},
+		{
+			name:    "tampered_sbat_level_digest_with_valid_x509_authority",
+			events:  buildPCR7Events(cfgEvents, sepEvent, []Event{x509AuthEvent, tamperedSBATEvent}),
+			wantErr: "invalid digest for authority",
+		},
+		{
+			name:    "tampered_mok_list_trusted_digest_with_valid_x509_authority",
+			events:  buildPCR7Events(cfgEvents, sepEvent, []Event{x509AuthEvent, tamperedMokTrustedEvent}),
+			wantErr: "invalid digest for authority",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ParseSecurebootState(tc.events)
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("ParseSecurebootState() = (%v, %v), want error containing %q", got, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestParseSecurebootStateAuthority(t *testing.T) {
+	pkCert := newTestSecureBootCert(t, "Test PK")
+	kekCert := newTestSecureBootCert(t, "Test KEK")
+	dbCert := newTestSecureBootCert(t, "Test DB")
+	shimCert := newTestSecureBootCert(t, "Test Shim Vendor Authority")
+
+	cfgEvents := secureBootEnabledConfigEvents(pkCert, kekCert, dbCert)
+	disabledCfgEvents := []Event{
+		newPCR7Event(testEVEFIVariableDriverConfig, encodeUEFIVariableData(testEFIGlobalVariableGUID, "SecureBoot", []byte{0})),
+	}
+	sepEvent := []Event{newPCR7Event(testEVSeparator, []byte{0, 0, 0, 0})}
+	sbatEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "SbatLevel", testShimSBATPayload))
+	mokTrustedEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "MokListTrusted", testShimMokListTrustedPayload))
+	dbAuthEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testEFIImageSecurityDatabaseGUID, "db", encodeEFISignatureData(testEFIImageSecurityDatabaseGUID, dbCert.Raw)))
+	shimAuthEvent := newPCR7Event(testEVEFIVariableAuthority, encodeUEFIVariableData(testShimLockGUID, "Shim", encodeEFISignatureData(testShimLockGUID, shimCert.Raw)))
+
+	tests := []struct {
+		name              string
+		events            []Event
+		wantEnabled       bool
+		wantPreAuthority  []x509.Certificate
+		wantPostAuthority []x509.Certificate
+	}{
+		{
+			name:              "post_separator_x509_with_sbat_level_and_mok_list_trusted",
+			events:            buildPCR7Events(cfgEvents, sepEvent, []Event{sbatEvent, dbAuthEvent, mokTrustedEvent, shimAuthEvent}),
+			wantEnabled:       true,
+			wantPostAuthority: []x509.Certificate{*dbCert, *shimCert},
+		},
+		{
+			name:             "pre_separator_x509_with_post_separator_sbat_level_and_mok_list_trusted",
+			events:           buildPCR7Events(cfgEvents, []Event{dbAuthEvent}, sepEvent, []Event{sbatEvent, mokTrustedEvent}),
+			wantEnabled:      true,
+			wantPreAuthority: []x509.Certificate{*dbCert},
+		},
+		{
+			name:              "pre_and_post_separator_x509_with_shim_metadata",
+			events:            buildPCR7Events(cfgEvents, []Event{sbatEvent, dbAuthEvent}, sepEvent, []Event{mokTrustedEvent, shimAuthEvent}),
+			wantEnabled:       true,
+			wantPreAuthority:  []x509.Certificate{*dbCert},
+			wantPostAuthority: []x509.Certificate{*shimCert},
+		},
+		{
+			name:        "secure_boot_disabled_with_only_sbat_level_and_mok_list_trusted",
+			events:      buildPCR7Events(disabledCfgEvents, sepEvent, []Event{sbatEvent, mokTrustedEvent}),
+			wantEnabled: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ParseSecurebootState(tc.events)
+			if err != nil {
+				t.Fatalf("ParseSecurebootState() unexpected error: %v", err)
+			}
+			if got.Enabled != tc.wantEnabled {
+				t.Errorf("ParseSecurebootState().Enabled = %v, want %v", got.Enabled, tc.wantEnabled)
+			}
+			if !certsEqual(got.PreSeparatorAuthority, tc.wantPreAuthority) {
+				t.Errorf("ParseSecurebootState().PreSeparatorAuthority = %v, want %v", got.PreSeparatorAuthority, tc.wantPreAuthority)
+			}
+			if !certsEqual(got.PostSeparatorAuthority, tc.wantPostAuthority) {
+				t.Errorf("ParseSecurebootState().PostSeparatorAuthority = %v, want %v", got.PostSeparatorAuthority, tc.wantPostAuthority)
+			}
+		})
 	}
 }
